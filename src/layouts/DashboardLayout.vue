@@ -1,5 +1,32 @@
 <template>
   <v-app>
+    <!-- Permission Change Notification -->
+    <v-snackbar
+      v-model="showPermissionNotification"
+      :timeout="6000"
+      color="info"
+      location="top"
+    >
+      <v-icon start>mdi-shield-refresh</v-icon>
+      {{ permissionNotificationMessage }}
+      <template v-slot:actions>
+        <v-btn
+          color="white"
+          variant="text"
+          @click="reloadPage"
+        >
+          تحديث
+        </v-btn>
+        <v-btn
+          color="white"
+          variant="text"
+          @click="showPermissionNotification = false"
+        >
+          إغلاق
+        </v-btn>
+      </template>
+    </v-snackbar>
+
     <!-- App Bar -->
     <v-app-bar color="primary" elevation="2">
       <v-app-bar-nav-icon @click="drawer = !drawer" class="d-md-none"></v-app-bar-nav-icon>
@@ -28,6 +55,11 @@
           <v-list-item>
             <v-list-item-title>{{ userName }}</v-list-item-title>
             <v-list-item-subtitle>{{ userPhone }}</v-list-item-subtitle>
+          </v-list-item>
+          <v-list-item>
+            <v-list-item-subtitle class="text-caption">
+              {{ userRoleDisplay }}
+            </v-list-item-subtitle>
           </v-list-item>
           <v-divider></v-divider>
           <v-list-item @click="handleLogout" prepend-icon="mdi-logout">
@@ -62,7 +94,7 @@
 
       <v-list density="compact" nav>
         <v-list-item
-          v-for="item in navItems"
+          v-for="item in filteredNavItems"
           :key="item.to"
           :to="item.to"
           :prepend-icon="item.icon"
@@ -85,7 +117,7 @@
       class="d-md-none"
     >
       <v-btn
-        v-for="item in bottomNavItems"
+        v-for="item in filteredBottomNavItems"
         :key="item.to"
         :to="item.to"
       >
@@ -97,35 +129,61 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
+import { useAuthStore } from '@/stores/authNew'
+import { usePermissions } from '@/composables/usePermissions'
+import { setupPermissionWatcher } from '@/utils/permissionWatcher'
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const { 
+  filteredNavItems, 
+  filteredBottomNavItems, 
+  userRole, 
+  setLanguage,
+  debugPermissions 
+} = usePermissions()
 
 // Reactive state
 const drawer = ref(true)
 const rail = ref(false)
 const isMobile = ref(false)
+const currentLang = ref(localStorage.getItem('lang') || 'ar')
+const showPermissionNotification = ref(false)
+const permissionNotificationMessage = ref('')
 
-// Navigation items
-const navItems = [
-  { title: 'الرئيسية', icon: 'mdi-view-dashboard', to: '/' },
-  { title: 'المراجعين', icon: 'mdi-account-group', to: '/patients' },
-  { title: 'المواعيد', icon: 'mdi-calendar', to: '/appointments' },
-  { title: 'الحالات', icon: 'mdi-file-document', to: '/cases' },
-  { title: 'الفواتير', icon: 'mdi-receipt', to: '/bills' },
-  { title: 'الإعدادات', icon: 'mdi-cog', to: '/settings' }
-]
+// Watch for language changes
+watch(() => localStorage.getItem('lang'), (newLang) => {
+  if (newLang) {
+    currentLang.value = newLang
+    setLanguage(newLang)
+  }
+})
 
-const bottomNavItems = [
-  { title: 'الرئيسية', icon: 'mdi-home', to: '/' },
-  { title: 'المراجعين', icon: 'mdi-account-group', to: '/patients' },
-  { title: 'المواعيد', icon: 'mdi-calendar', to: '/appointments' },
-  { title: 'الإعدادات', icon: 'mdi-cog', to: '/settings' }
-]
+// Setup permission change watcher
+setupPermissionWatcher((changes) => {
+  const lang = currentLang.value
+  const messages = {
+    ar: 'تم تحديث صلاحياتك. يرجى إعادة تحميل الصفحة.',
+    en: 'Your permissions have been updated. Please reload the page.',
+    ku: 'مۆڵەتەکانت نوێکراونەتەوە. تکایە پەڕەکە نوێ بکەرەوە.'
+  }
+  
+  permissionNotificationMessage.value = messages[lang] || messages.ar
+  showPermissionNotification.value = true
+  
+  console.log('🔔 Permission changes detected:', changes)
+})
+
+// Role display names
+const roleNames = {
+  super_admin: { ar: 'مدير النظام', en: 'Super Admin', ku: 'بەڕێوەبەری سیستەم' },
+  clinic_super_doctor: { ar: 'طبيب رئيسي', en: 'Clinic Super Doctor', ku: 'دکتۆری سەرەکی' },
+  doctor: { ar: 'طبيب', en: 'Doctor', ku: 'دکتۆر' },
+  secretary: { ar: 'سكرتير', en: 'Secretary', ku: 'سکرتێر' }
+}
 
 // Computed
 const userName = computed(() => authStore.user?.name || 'المستخدم')
@@ -135,9 +193,21 @@ const userInitials = computed(() => {
   return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
 })
 
+// Get role display name based on current language
+const userRoleDisplay = computed(() => {
+  const role = userRole.value
+  if (!role) return ''
+  
+  const names = roleNames[role]
+  if (names) {
+    return names[currentLang.value] || names.ar || role
+  }
+  return role
+})
+
 // Methods
-const handleLogout = () => {
-  authStore.logout()
+const handleLogout = async () => {
+  await authStore.logout()
   router.push('/login')
 }
 
@@ -148,10 +218,24 @@ const checkMobile = () => {
   }
 }
 
-// Lifecycle
-onMounted(() => {
+const reloadPage = () => {
+  window.location.reload()
+}
+
+// Load user data on mount
+onMounted(async () => {
   checkMobile()
   window.addEventListener('resize', checkMobile)
+  
+  // Ensure user data is loaded for permission checks
+  if (authStore.isAuthenticated && !authStore.user) {
+    await authStore.loadUser()
+  }
+  
+  // Debug permissions in development
+  if (import.meta.env.DEV) {
+    debugPermissions()
+  }
 })
 
 onUnmounted(() => {

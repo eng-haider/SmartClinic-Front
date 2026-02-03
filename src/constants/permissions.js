@@ -85,6 +85,10 @@ export const PERMISSIONS = {
   EDIT_RECIPE_ITEM: 'edit-recipe-item',
   DELETE_RECIPE_ITEM: 'delete-recipe-item',
 
+  // Clinic Settings
+  VIEW_CLINIC_SETTINGS: 'view-clinic-settings',
+  EDIT_CLINIC_SETTINGS: 'edit-clinic-settings',
+
   // System
   MANAGE_PERMISSIONS: 'manage-permissions',
   MANAGE_ROLES: 'manage-roles'
@@ -147,5 +151,202 @@ export const ROLE_DESCRIPTIONS = {
     en: 'Can manage patients and reservations, view basic information',
     ku: 'دەتوانێت نەخۆشەکان و نۆرەکان بەڕێوە ببات، زانیاری بنەڕەتی ببینێت'
   }
+}
+
+// ========================================
+// ROUTE PERMISSIONS MAPPING
+// Maps routes to required permissions
+// ========================================
+export const ROUTE_PERMISSIONS = {
+  // Dashboard - accessible to all authenticated users
+  'Dashboard': [],
+  'DashboardAlt': [],
+  
+  // Patients
+  'Patients': [PERMISSIONS.VIEW_CLINIC_PATIENTS, PERMISSIONS.VIEW_ALL_PATIENTS],
+  'PatientDetail': [PERMISSIONS.VIEW_CLINIC_PATIENTS, PERMISSIONS.VIEW_ALL_PATIENTS],
+  
+  // Doctors - typically admin/super doctor only
+  'Doctors': [PERMISSIONS.VIEW_ALL_USERS, PERMISSIONS.VIEW_CLINIC_USERS],
+  
+  // Secretaries - typically admin/super doctor only
+  'Secretaries': [PERMISSIONS.VIEW_ALL_USERS, PERMISSIONS.VIEW_CLINIC_USERS],
+  
+  // Cases
+  'Cases': [PERMISSIONS.VIEW_CLINIC_CASES, PERMISSIONS.VIEW_ALL_CASES, PERMISSIONS.VIEW_OWN_CASES],
+  'CaseDetail': [PERMISSIONS.VIEW_CLINIC_CASES, PERMISSIONS.VIEW_ALL_CASES, PERMISSIONS.VIEW_OWN_CASES],
+  
+  // Reservations
+  'Reservations': [PERMISSIONS.VIEW_CLINIC_RESERVATIONS, PERMISSIONS.VIEW_ALL_RESERVATIONS, PERMISSIONS.VIEW_OWN_RESERVATIONS, PERMISSIONS.CREATE_RESERVATION],
+  'WaitingList': [PERMISSIONS.VIEW_CLINIC_RESERVATIONS, PERMISSIONS.VIEW_ALL_RESERVATIONS, PERMISSIONS.VIEW_OWN_RESERVATIONS],
+  
+  // Bills
+  'Bills': [PERMISSIONS.VIEW_CLINIC_BILLS, PERMISSIONS.VIEW_ALL_BILLS, PERMISSIONS.VIEW_OWN_BILLS],
+  
+  // Expenses - typically admin/super doctor only
+  'Expenses': [PERMISSIONS.VIEW_ALL_BILLS, PERMISSIONS.VIEW_CLINIC_BILLS],
+  
+  // Settings
+  'Settings': [],
+  
+  // Analytics
+  'Analytics': [PERMISSIONS.VIEW_ALL_PATIENTS, PERMISSIONS.VIEW_ALL_BILLS]
+}
+
+// ========================================
+// NAVIGATION ITEMS CONFIGURATION
+// Centralized nav config with permissions
+// ========================================
+export const NAV_ITEMS = [
+  { 
+    key: 'dashboard',
+    title: { ar: 'الرئيسية', en: 'Dashboard', ku: 'سەرەکی' },
+    icon: 'mdi-view-dashboard', 
+    to: '/',
+    permissions: [], // Accessible to all
+    order: 1
+  },
+  { 
+    key: 'patients',
+    title: { ar: 'المراجعين', en: 'Patients', ku: 'نەخۆشەکان' },
+    icon: 'mdi-account-group', 
+    to: '/patients',
+    permissions: [PERMISSIONS.VIEW_CLINIC_PATIENTS, PERMISSIONS.VIEW_ALL_PATIENTS, PERMISSIONS.CREATE_PATIENT, PERMISSIONS.SEARCH_PATIENT],
+    order: 2
+  },
+  { 
+    key: 'doctors',
+    title: { ar: 'الأطباء', en: 'Doctors', ku: 'دکتۆرەکان' },
+    icon: 'mdi-doctor', 
+    to: '/doctors',
+    permissions: [PERMISSIONS.VIEW_ALL_USERS, PERMISSIONS.VIEW_CLINIC_USERS],
+    roles: [ROLES.SUPER_ADMIN, ROLES.CLINIC_SUPER_DOCTOR],
+    order: 3
+  },
+  { 
+    key: 'secretaries',
+    title: { ar: 'السكرتارية', en: 'Secretaries', ku: 'سکرتێرەکان' },
+    icon: 'mdi-account-tie', 
+    to: '/secretaries',
+    permissions: [PERMISSIONS.VIEW_ALL_USERS, PERMISSIONS.VIEW_CLINIC_USERS],
+    roles: [ROLES.SUPER_ADMIN, ROLES.CLINIC_SUPER_DOCTOR],
+    order: 4
+  },
+  { 
+    key: 'reservations',
+    title: { ar: 'المواعيد', en: 'Appointments', ku: 'مەوعیدەکان' },
+    icon: 'mdi-calendar-clock', 
+    to: '/reservations',
+    permissions: [PERMISSIONS.VIEW_CLINIC_RESERVATIONS, PERMISSIONS.VIEW_ALL_RESERVATIONS, PERMISSIONS.VIEW_OWN_RESERVATIONS, PERMISSIONS.CREATE_RESERVATION],
+    order: 5
+  },
+  { 
+    key: 'waiting-list',
+    title: { ar: 'قائمة الانتظار', en: 'Waiting List', ku: 'لیستی چاوەڕوانی' },
+    icon: 'mdi-clipboard-list', 
+    to: '/waiting-list',
+    permissions: [PERMISSIONS.VIEW_CLINIC_RESERVATIONS, PERMISSIONS.VIEW_ALL_RESERVATIONS, PERMISSIONS.VIEW_OWN_RESERVATIONS],
+    order: 6
+  },
+  { 
+    key: 'cases',
+    title: { ar: 'الحالات', en: 'Cases', ku: 'کەیسەکان' },
+    icon: 'mdi-file-document', 
+    to: '/cases',
+    permissions: [PERMISSIONS.VIEW_CLINIC_CASES, PERMISSIONS.VIEW_ALL_CASES, PERMISSIONS.VIEW_OWN_CASES, PERMISSIONS.CREATE_CASE],
+    order: 7
+  },
+  { 
+    key: 'bills',
+    title: { ar: 'الفواتير', en: 'Bills', ku: 'پسوڵەکان' },
+    icon: 'mdi-receipt', 
+    to: '/bills',
+    permissions: [PERMISSIONS.VIEW_CLINIC_BILLS, PERMISSIONS.VIEW_ALL_BILLS, PERMISSIONS.VIEW_OWN_BILLS, PERMISSIONS.CREATE_BILL],
+    order: 8
+  },
+  { 
+    key: 'expenses',
+    title: { ar: 'المصروفات', en: 'Expenses', ku: 'خەرجییەکان' },
+    icon: 'mdi-cash-multiple', 
+    to: '/expenses',
+    permissions: [PERMISSIONS.VIEW_ALL_BILLS, PERMISSIONS.VIEW_CLINIC_BILLS],
+    roles: [ROLES.SUPER_ADMIN, ROLES.CLINIC_SUPER_DOCTOR],
+    order: 9
+  },
+  { 
+    key: 'settings',
+    title: { ar: 'الإعدادات', en: 'Settings', ku: 'ڕێکخستنەکان' },
+    icon: 'mdi-cog', 
+    to: '/settings',
+    permissions: [], // Accessible to all
+    order: 10
+  }
+]
+
+// ========================================
+// BOTTOM NAV ITEMS (Mobile)
+// ========================================
+export const BOTTOM_NAV_ITEMS = [
+  { 
+    key: 'dashboard',
+    title: { ar: 'الرئيسية', en: 'Home', ku: 'سەرەکی' },
+    icon: 'mdi-home', 
+    to: '/',
+    permissions: []
+  },
+  { 
+    key: 'patients',
+    title: { ar: 'المراجعين', en: 'Patients', ku: 'نەخۆشەکان' },
+    icon: 'mdi-account-group', 
+    to: '/patients',
+    permissions: [PERMISSIONS.VIEW_CLINIC_PATIENTS, PERMISSIONS.VIEW_ALL_PATIENTS, PERMISSIONS.CREATE_PATIENT, PERMISSIONS.SEARCH_PATIENT]
+  },
+  { 
+    key: 'reservations',
+    title: { ar: 'المواعيد', en: 'Appointments', ku: 'مەوعیدەکان' },
+    icon: 'mdi-calendar-clock', 
+    to: '/reservations',
+    permissions: [PERMISSIONS.VIEW_CLINIC_RESERVATIONS, PERMISSIONS.VIEW_ALL_RESERVATIONS, PERMISSIONS.CREATE_RESERVATION]
+  },
+  { 
+    key: 'settings',
+    title: { ar: 'الإعدادات', en: 'Settings', ku: 'ڕێکخستنەکان' },
+    icon: 'mdi-cog', 
+    to: '/settings',
+    permissions: []
+  }
+]
+
+// ========================================
+// FEATURE PERMISSIONS
+// For hiding/showing UI features
+// ========================================
+export const FEATURE_PERMISSIONS = {
+  // Patient features
+  CREATE_PATIENT_BTN: [PERMISSIONS.CREATE_PATIENT],
+  EDIT_PATIENT_BTN: [PERMISSIONS.EDIT_PATIENT],
+  DELETE_PATIENT_BTN: [PERMISSIONS.DELETE_PATIENT],
+  SEARCH_PATIENT_BTN: [PERMISSIONS.SEARCH_PATIENT],
+  
+  // Reservation features
+  CREATE_RESERVATION_BTN: [PERMISSIONS.CREATE_RESERVATION],
+  EDIT_RESERVATION_BTN: [PERMISSIONS.EDIT_RESERVATION],
+  DELETE_RESERVATION_BTN: [PERMISSIONS.DELETE_RESERVATION],
+  
+  // Case features
+  CREATE_CASE_BTN: [PERMISSIONS.CREATE_CASE],
+  EDIT_CASE_BTN: [PERMISSIONS.EDIT_CASE],
+  DELETE_CASE_BTN: [PERMISSIONS.DELETE_CASE],
+  
+  // Bill features
+  CREATE_BILL_BTN: [PERMISSIONS.CREATE_BILL],
+  EDIT_BILL_BTN: [PERMISSIONS.EDIT_BILL],
+  DELETE_BILL_BTN: [PERMISSIONS.DELETE_BILL],
+  MARK_BILL_PAID_BTN: [PERMISSIONS.MARK_BILL_PAID],
+  
+  // User management
+  CREATE_USER_BTN: [PERMISSIONS.CREATE_USER],
+  EDIT_USER_BTN: [PERMISSIONS.EDIT_USER],
+  DELETE_USER_BTN: [PERMISSIONS.DELETE_USER]
 }
 

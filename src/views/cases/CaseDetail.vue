@@ -113,8 +113,8 @@
             </v-card-text>
           </v-card>
 
-          <!-- Bills Section -->
-          <v-card v-if="caseData.bills && caseData.bills.length > 0" elevation="2" rounded="xl">
+          <!-- Bills Section - only show if user can view bills -->
+          <v-card v-if="canViewBills && caseData.bills && caseData.bills.length > 0" elevation="2" rounded="xl">
             <v-card-title class="pa-4">
               <v-icon start>mdi-receipt</v-icon>
               {{ $t('cases.bills') }}
@@ -154,7 +154,7 @@
                 </div>
               </div>
               <v-btn
-                v-if="caseData.patient?.id"
+                v-if="canViewPatient && caseData.patient?.id"
                 color="primary"
                 variant="tonal"
                 block
@@ -210,14 +210,23 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import api from '@/services/api'
+import { usePermissions } from '@/composables/usePermissions'
+import { PERMISSIONS } from '@/constants/permissions'
 
 const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
+
+// Permissions
+const { hasPermissionFor, hasPermission } = usePermissions()
+
+// Permission computed refs for template
+const canViewBills = computed(() => hasPermissionFor('bill'))
+const canViewPatient = computed(() => hasPermissionFor('patient'))
 
 // State
 const loading = ref(true)

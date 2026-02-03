@@ -1,14 +1,80 @@
 /* Main Styles */
-@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap');
 
+/* Force Cairo font for all elements */
 * {
-  font-family: 'Cairo', sans-serif;
+  font-family: 'Cairo', sans-serif !important;
 }
 
 body {
   margin: 0;
   padding: 0;
   background-color: #f5f5f5;
+  font-family: 'Cairo', sans-serif !important;
+}
+
+/* Force Cairo for all Vuetify components */
+.v-application,
+.v-application * {
+  font-family: 'Cairo', sans-serif !important;
+}
+
+/* Force Cairo for headings and text */
+h1, h2, h3, h4, h5, h6,
+.text-h1, .text-h2, .text-h3, .text-h4, .text-h5, .text-h6,
+.text-subtitle-1, .text-subtitle-2,
+.text-body-1, .text-body-2,
+.text-caption, .text-overline,
+p, span, div, a, button, input, textarea, select, label {
+  font-family: 'Cairo', sans-serif !important;
+}
+
+/* Force Cairo for Arabic text specifically */
+[lang="ar"],
+[lang="ar"] *,
+[dir="rtl"],
+[dir="rtl"] * {
+  font-family: 'Cairo', sans-serif !important;
+}
+
+/* Force Cairo for all data tables */
+.v-data-table,
+.v-data-table *,
+.v-table,
+.v-table * {
+  font-family: 'Cairo', sans-serif !important;
+}
+
+/* Force Cairo for all cards and dialogs */
+.v-card,
+.v-card *,
+.v-dialog,
+.v-dialog *,
+.v-menu,
+.v-menu * {
+  font-family: 'Cairo', sans-serif !important;
+}
+
+/* Force Cairo for all form elements */
+.v-text-field,
+.v-text-field *,
+.v-select,
+.v-select *,
+.v-textarea,
+.v-textarea *,
+.v-checkbox,
+.v-checkbox *,
+.v-radio,
+.v-radio *,
+.v-switch,
+.v-switch * {
+  font-family: 'Cairo', sans-serif !important;
+}
+
+/* Force Cairo for buttons */
+.v-btn,
+.v-btn * {
+  font-family: 'Cairo', sans-serif !important;
 }
 
 ::-webkit-scrollbar {
@@ -28,3 +94,37 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #555;
 }
+
+/* Global Data Table Styles for Arabic */
+.v-data-table__td-value {
+  direction: ltr !important;
+  display: flex !important;
+  justify-content: flex-start !important;
+  align-items: center !important;
+}
+
+.v-data-table__mobile-row__cell {
+  direction: ltr !important;
+}
+
+.v-data-table__mobile-row__cell > * {
+  justify-content: flex-start !important;
+}
+
+/* Mobile Data Table Row Padding */
+.v-data-table__mobile-row {
+  padding-top: 12px !important;
+  padding-bottom: 12px !important;
+}
+
+.v-data-table__mobile-table-row {
+  padding-top: 8px !important;
+}
+
+/* Mobile Data Table Cell (td) Padding */
+@media (max-width: 1280px) {
+  .v-data-table__td {
+    padding-top: 20px !important;
+  }
+}
+

@@ -679,7 +679,7 @@ User (المستخدم)
 
   <!-- يظهر إذا كان لديه أي من الصلاحيات -->
   <v-btn v-permission:any="['edit-patient', 'delete-patient']">
-    إدارة المريض
+    إدارة المراجع
   </v-btn>
 
   <!-- يظهر فقط إذا كان لديه كل الصلاحيات -->
@@ -757,7 +757,7 @@ public function createPatient(Request $request) {
         ], 403);
     }
 
-    // إنشاء المريض
+    // إنشاء المراجع
     $patient = Patient::create($request->all());
 
     return response()->json([
@@ -787,7 +787,7 @@ public function create(User $user) {
 public function createPatient(Request $request) {
     $this->authorize('create', Patient::class);
 
-    // إنشاء المريض
+    // إنشاء المراجع
 }
 ```
 

@@ -15,7 +15,7 @@
             :data-tooth-number="tooth.tooth_num"
             class="tooth-number"
             :class="{ 'active': isToothActive(tooth.tooth_num), 'has-case': hasExistingCase(tooth.tooth_num) }"
-            @click="handleToothClick(tooth.tooth_num)"
+            @click="handleToothClick(tooth.tooth_num, $event)"
           >
             {{ tooth.tooth_num }}
           </div>
@@ -73,7 +73,7 @@
             :data-tooth-number="tooth.tooth_num"
             class="tooth-number"
             :class="{ 'active': isToothActive(tooth.tooth_num), 'has-case': hasExistingCase(tooth.tooth_num) }"
-            @click="handleToothClick(tooth.tooth_num)"
+            @click="handleToothClick(tooth.tooth_num, $event)"
           >
             {{ tooth.tooth_num }}
           </div>
@@ -94,15 +94,20 @@
         <span>{{ t('teeth.selectColor') }}</span>
       </div>
       <div class="colors-grid">
-        <button
+        <div
           v-for="color in availableColors"
           :key="color.value"
-          class="color-btn"
+          class="color-item"
           :class="{ 'selected': selectedColor === color.value }"
-          :style="{ backgroundColor: color.value }"
           @click="selectColor(color.value)"
-          :title="color.name"
-        />
+        >
+          <button
+            class="color-btn"
+            :style="{ backgroundColor: color.value }"
+            :title="color.name"
+          />
+          <span class="color-name" v-if="color.name">{{ color.name }}</span>
+        </div>
       </div>
     </div>
 
@@ -189,6 +194,101 @@
     <v-snackbar v-model="showToast" :timeout="2000" color="success">
       {{ toastMessage }}
     </v-snackbar>
+
+    <!-- Case Details Dialog -->
+    <Teleport to="body">
+      <div
+        v-if="caseDetailsDialog.visible"
+        class="menu-backdrop"
+        @click="closeCaseDetails"
+      />
+      <div
+        v-if="caseDetailsDialog.visible"
+        class="case-details-menu"
+        :style="{ left: caseDetailsDialog.x + 'px', top: caseDetailsDialog.y + 'px' }"
+      >
+        <!-- Header -->
+        <div class="menu-header">
+          <div class="tooth-info">
+            <v-icon color="primary">mdi-tooth</v-icon>
+            <span>{{ t('teeth.tooth') }} {{ caseDetailsDialog.toothNum }} - {{ t('patients.cases') }}</span>
+          </div>
+          <v-btn
+            icon
+            size="x-small"
+            variant="text"
+            class="close-btn"
+            @click="closeCaseDetails"
+          >
+            <v-icon>mdi-close</v-icon>
+          </v-btn>
+        </div>
+
+        <!-- Cases List -->
+        <div class="cases-list">
+          <div
+            v-for="caseItem in caseDetailsDialog.cases"
+            :key="caseItem.id"
+            class="case-item"
+          >
+            <div class="case-header">
+              <v-chip
+                size="small"
+                :color="caseItem.category?.color || 'primary'"
+                variant="tonal"
+              >
+                {{ getCaseCategoryName(caseItem) }}
+              </v-chip>
+              <v-chip
+                size="x-small"
+                :color="caseItem.is_paid ? 'success' : 'warning'"
+                variant="flat"
+              >
+                {{ caseItem.is_paid ? t('cases.paid') : t('cases.unpaid') }}
+              </v-chip>
+            </div>
+            
+            <div class="case-details">
+              <div class="detail-row" v-if="caseItem.doctor?.name">
+                <v-icon size="14" color="grey">mdi-doctor</v-icon>
+                <span>{{ caseItem.doctor.name }}</span>
+              </div>
+              <div class="detail-row" v-if="caseItem.price">
+                <v-icon size="14" color="grey">mdi-cash</v-icon>
+                <span>{{ formatCasePrice(caseItem.price) }}</span>
+              </div>
+              <div class="detail-row" v-if="caseItem.created_at">
+                <v-icon size="14" color="grey">mdi-calendar</v-icon>
+                <span>{{ formatCaseDate(caseItem.created_at) }}</span>
+              </div>
+              <div class="detail-row" v-if="caseItem.notes">
+                <v-icon size="14" color="grey">mdi-note-text</v-icon>
+                <span class="text-truncate">{{ caseItem.notes }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="!caseDetailsDialog.cases.length" class="no-cases">
+            <v-icon color="grey" size="32">mdi-clipboard-text-off</v-icon>
+            <span>{{ t('patients.noCases') || 'No cases for this tooth' }}</span>
+          </div>
+        </div>
+
+        <!-- Add Case Button -->
+        <div class="add-case-section">
+          <v-btn
+            color="primary"
+            variant="tonal"
+            size="small"
+            block
+            @click="openAddCaseForTooth"
+          >
+            <v-icon start>mdi-plus</v-icon>
+            {{ t('patients.addCase') }}
+          </v-btn>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -197,6 +297,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRtl } from 'vuetify'
 import { teethData } from './teethData'
+import { useClinicSettings } from '@/composables/useClinicSettings'
 
 // Props
 const props = defineProps({
@@ -224,6 +325,7 @@ const emit = defineEmits(['case-added', 'case-removed', 'color-changed', 'tooth-
 // Composables
 const { t, locale } = useI18n()
 const { isRtl } = useRtl()
+const { toothConditionColors, loadSettings } = useClinicSettings()
 
 // State
 const svgContainer = ref(null)
@@ -245,6 +347,15 @@ const contextMenu = ref({
   toothId: null
 })
 
+// Case Details Dialog State
+const caseDetailsDialog = ref({
+  visible: false,
+  x: 0,
+  y: 0,
+  toothNum: null,
+  cases: []
+})
+
 // Touch handling
 const lastTouchTime = ref(0)
 const lastTouchedTooth = ref(null)
@@ -254,15 +365,15 @@ const touchTimeout = ref(null)
 const topTeethNumbers = [28, 27, 26, 25, 24, 23, 22, 21, 11, 12, 13, 14, 15, 16, 17, 18]
 const bottomTeethNumbers = [38, 37, 36, 35, 34, 33, 32, 31, 41, 42, 43, 44, 45, 46, 47, 48]
 
-// Available Colors
-const availableColors = [
-  { name: 'Red', value: '#FF5252' },
-  { name: 'Blue', value: '#2196F3' },
-  { name: 'Green', value: '#4CAF50' },
-  { name: 'Yellow', value: '#FFEB3B' },
-  { name: 'Orange', value: '#FF9800' },
-  { name: 'Purple', value: '#9C27B0' }
-]
+// Available Colors from Clinic Settings
+const availableColors = computed(() => {
+  // Use colors from clinic settings API
+  return toothConditionColors.value.map(color => ({
+    id: color.id,
+    name: color.name || `Color ${color.id}`,
+    value: color.color || color.hex_code
+  }))
+})
 
 // Computed - Upper Teeth (11-28)
 const upperTeeth = computed(() => {
@@ -413,8 +524,93 @@ function hasExistingCase(toothNum) {
   })
 }
 
-function handleToothClick(toothNum) {
-  emit('tooth-selected', toothNum)
+function handleToothClick(toothNum, event) {
+  // Check if this tooth has cases
+  const toothCases = getToothCases(toothNum)
+  
+  if (toothCases.length > 0) {
+    // Show case details dialog
+    const rect = event?.target?.getBoundingClientRect()
+    const x = rect ? rect.left : event?.clientX || window.innerWidth / 2
+    const y = rect ? rect.bottom + 10 : event?.clientY || 200
+    
+    caseDetailsDialog.value = {
+      visible: true,
+      x: Math.min(x, window.innerWidth - 320),
+      y: Math.min(y, window.innerHeight - 400),
+      toothNum,
+      cases: toothCases
+    }
+  } else {
+    // No cases - emit tooth selected event (can be used to add case)
+    emit('tooth-selected', toothNum)
+  }
+}
+
+function getToothCases(toothNum) {
+  if (!props.patientCases || !props.patientCases.length) return []
+  
+  return props.patientCases.filter(c => {
+    // Check tooth_number field
+    if (c.tooth_number && parseInt(c.tooth_number) === parseInt(toothNum)) return true
+    
+    // Check tooth_num field (can be JSON array or single value)
+    if (c.tooth_num) {
+      try {
+        const nums = JSON.parse(c.tooth_num)
+        if (Array.isArray(nums)) {
+          return nums.includes(parseInt(toothNum)) || nums.includes(String(toothNum))
+        }
+        return parseInt(nums) === parseInt(toothNum)
+      } catch {
+        return parseInt(c.tooth_num) === parseInt(toothNum) || c.tooth_num === String(toothNum)
+      }
+    }
+    return false
+  })
+}
+
+function getCaseCategoryName(caseItem) {
+  const category = caseItem.category
+  if (!category) return '-'
+  if (locale.value === 'ar') return category.name_ar || category.name || '-'
+  if (locale.value === 'ku') return category.name_ku || category.name_en || category.name || '-'
+  return category.name_en || category.name || '-'
+}
+
+function formatCasePrice(price) {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'IQD',
+    minimumFractionDigits: 0
+  }).format(price || 0)
+}
+
+function formatCaseDate(dateStr) {
+  if (!dateStr) return ''
+  const date = new Date(dateStr)
+  const day = String(date.getDate()).padStart(2, '0')
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const year = date.getFullYear()
+  return `${day}-${month}-${year}`
+}
+
+function closeCaseDetails() {
+  caseDetailsDialog.value.visible = false
+}
+
+function openAddCaseForTooth() {
+  const toothNum = caseDetailsDialog.value.toothNum
+  closeCaseDetails()
+  
+  // Open context menu to add a new case
+  contextMenu.value = {
+    visible: true,
+    x: caseDetailsDialog.value.x,
+    y: caseDetailsDialog.value.y,
+    toothNum: toothNum,
+    toothId: null
+  }
 }
 
 function handlePartClick(tooth, part, event) {
@@ -436,7 +632,17 @@ function handlePartClick(tooth, part, event) {
     })
   }
 
-  emit('color-changed', coloredParts.value)
+  // Format data as JSON string with required structure
+  const toothPartsData = coloredParts.value.map(p => ({
+    tooth_number: p.toothNum,
+    tooth_id: p.toothId,
+    part_id: p.partId,
+    color: p.color
+  }))
+  
+  const toothPartsJson = JSON.stringify(toothPartsData)
+  
+  emit('color-changed', toothPartsJson)
 }
 
 function handleContextMenu(tooth, event) {
@@ -561,9 +767,11 @@ function filterCategories() {
 }
 
 function loadColoredParts() {
-  if (props.patientData?.tooth_parts) {
+  // Support both tooth_details (new API) and tooth_parts (legacy)
+  const toothData = props.patientData?.tooth_details || props.patientData?.tooth_parts
+  if (toothData) {
     try {
-      const parts = JSON.parse(props.patientData.tooth_parts)
+      const parts = typeof toothData === 'string' ? JSON.parse(toothData) : toothData
       if (Array.isArray(parts)) {
         coloredParts.value = parts.map(p => ({
           toothId: p.tooth_id,
@@ -604,7 +812,7 @@ defineExpose({
 
 // Watchers
 watch(() => props.patientData, (newVal) => {
-  if (newVal?.tooth_parts) {
+  if (newVal?.tooth_details || newVal?.tooth_parts) {
     loadColoredParts()
   }
 }, { immediate: true, deep: true })
@@ -623,9 +831,17 @@ function handleClickOutside(event) {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   document.addEventListener('click', handleClickOutside)
   loadColoredParts()
+  
+  // Load clinic settings to get tooth condition colors
+  await loadSettings()
+  
+  // Set default selected color from settings
+  if (toothConditionColors.value.length > 0) {
+    selectedColor.value = toothConditionColors.value[0].color || toothConditionColors.value[0].hex_code
+  }
 })
 
 onUnmounted(() => {
@@ -732,14 +948,14 @@ onUnmounted(() => {
   box-shadow: 0 4px 12px rgba(25, 118, 210, 0.5);
 }
 
-.tooth-number.active {
+.tooth-number.has-case {
   background: linear-gradient(135deg, #4CAF50 0%, #8BC34A 100%);
   box-shadow: 0 2px 6px rgba(76, 175, 80, 0.4);
 }
 
-.tooth-number.has-case {
-  background: linear-gradient(135deg, #2196F3 0%, #03A9F4 100%);
-  box-shadow: 0 2px 6px rgba(33, 150, 243, 0.4);
+.tooth-number.active {
+  background: linear-gradient(135deg, #FF9800 0%, #FFC107 100%) !important;
+  box-shadow: 0 2px 6px rgba(255, 152, 0, 0.4) !important;
 }
 
 /* Dotted Line connecting number to tooth */
@@ -758,14 +974,14 @@ onUnmounted(() => {
   margin-bottom: 2px;
 }
 
-.tooth-number.active + .dotted-line,
-.dotted-line + .tooth-number.active {
+.tooth-number.has-case + .dotted-line,
+.dotted-line + .tooth-number.has-case {
   border-color: #4CAF50;
 }
 
-.tooth-number.has-case + .dotted-line,
-.dotted-line + .tooth-number.has-case {
-  border-color: #2196F3;
+.tooth-number.active + .dotted-line,
+.dotted-line + .tooth-number.active {
+  border-color: #FF9800 !important;
 }
 
 /* Tooltip trigger */
@@ -825,12 +1041,12 @@ onUnmounted(() => {
   font-size: 16px;
 }
 
-.tooth-number-label.active {
+.tooth-number-label.has-case {
   fill: #4CAF50;
 }
 
-.tooth-number-label.has-case {
-  fill: #2196F3;
+.tooth-number-label.active {
+  fill: #FF9800 !important;
 }
 
 /* Color Picker */
@@ -852,8 +1068,33 @@ onUnmounted(() => {
 
 .colors-grid {
   display: flex;
-  gap: 8px;
+  gap: 12px;
   flex-wrap: wrap;
+}
+
+.color-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  min-width: 50px;
+}
+
+.color-item:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.color-item.selected {
+  background: rgba(25, 118, 210, 0.1);
+}
+
+.color-item.selected .color-btn {
+  border-color: #1976d2;
+  box-shadow: 0 0 0 2px white, 0 0 0 4px #1976d2;
 }
 
 .color-btn {
@@ -869,9 +1110,19 @@ onUnmounted(() => {
   transform: scale(1.1);
 }
 
-.color-btn.selected {
-  border-color: #333;
-  box-shadow: 0 0 0 2px white, 0 0 0 4px currentColor;
+.color-name {
+  font-size: 10px;
+  color: #666;
+  text-align: center;
+  max-width: 60px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.color-item.selected .color-name {
+  color: #1976d2;
+  font-weight: 600;
 }
 
 /* Context Menu Backdrop */
@@ -964,6 +1215,93 @@ onUnmounted(() => {
   padding: 12px;
 }
 
+/* Case Details Menu */
+.case-details-menu {
+  position: fixed;
+  z-index: 1000;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  width: 320px;
+  max-width: calc(100vw - 32px);
+  max-height: 70vh;
+  overflow-y: auto;
+  font-family: inherit;
+}
+
+.cases-list {
+  padding: 12px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.case-item {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 10px;
+  border: 1px solid #e0e0e0;
+  transition: all 0.2s ease;
+}
+
+.case-item:last-child {
+  margin-bottom: 0;
+}
+
+.case-item:hover {
+  border-color: #1976d2;
+  box-shadow: 0 2px 8px rgba(25, 118, 210, 0.15);
+}
+
+.case-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.case-details {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.detail-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #666;
+}
+
+.detail-row .v-icon {
+  flex-shrink: 0;
+}
+
+.detail-row span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.no-cases {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  color: #999;
+  gap: 8px;
+  text-align: center;
+}
+
+.add-case-section {
+  padding: 12px;
+  border-top: 1px solid #e0e0e0;
+  background: #fafafa;
+  border-radius: 0 0 12px 12px;
+}
+
 /* Mobile Styles */
 @media (max-width: 600px) {
   .teeth-chart {
@@ -985,6 +1323,17 @@ onUnmounted(() => {
   }
 
   .tooth-context-menu {
+    position: fixed;
+    left: 16px !important;
+    right: 16px;
+    top: auto !important;
+    bottom: 16px;
+    width: auto;
+    max-height: 60vh;
+    border-radius: 16px;
+  }
+
+  .case-details-menu {
     position: fixed;
     left: 16px !important;
     right: 16px;

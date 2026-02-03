@@ -8,7 +8,10 @@
 
 import axios from 'axios'
 
-const BASE_URL = 'http://127.0.0.1:8002/api'
+// Use Vite env variable VITE_API_BASE_URL when available, otherwise
+// default to the provided production API host. Keep the trailing /api
+// because backend endpoints in the app use paths like `/reports/...`.
+const BASE_URL = import.meta?.env?.VITE_API_BASE_URL || 'https://api.smartclinic.software/api'
 
 const apiClient = axios.create({
   baseURL: BASE_URL,

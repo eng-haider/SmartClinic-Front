@@ -1,6 +1,7 @@
 <template>
   <v-app>
     <router-view />
+    <PwaUpdatePrompt />
   </v-app>
 </template>
 
@@ -12,6 +13,7 @@
 
 import { onMounted } from 'vue'
 import { useAuthStore } from '@/stores/authNew'
+import PwaUpdatePrompt from '@/components/PwaUpdatePrompt.vue'
 
 const authStore = useAuthStore()
 

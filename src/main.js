@@ -21,6 +21,9 @@ import { aliases, mdi } from 'vuetify/iconsets/mdi'
 import '@mdi/font/css/materialdesignicons.css'
 import '@fortawesome/fontawesome-free/css/all.css'
 
+// Virtual Scroller
+import 'vue3-virtual-scroller/dist/vue3-virtual-scroller.css'
+
 // i18n
 import { createI18n } from 'vue-i18n'
 import ar from './locales/ar.json'
@@ -31,7 +34,7 @@ import ku from './locales/ku.json'
 import './styles/main.css'
 
 // Custom Directives
-import permissionDirective from './directives/permission'
+import permissionDirective, { roleDirective as roleDir, canDirective } from './directives/permission'
 import roleDirective from './directives/role'
 
 // Auth Store
@@ -118,6 +121,7 @@ app.use(i18n)
 // Register Custom Directives
 app.directive('permission', permissionDirective)
 app.directive('role', roleDirective)
+app.directive('can', canDirective)  // Keyword-based permission check
 
 // Initialize Auth Store
 const authStore = useAuthStore()

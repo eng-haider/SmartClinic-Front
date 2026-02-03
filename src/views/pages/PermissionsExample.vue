@@ -98,6 +98,8 @@
           :headers="headers"
           :items="patients"
           class="mt-4"
+          density="compact"
+          mobile-breakpoint="md"
         >
           <template v-slot:item.actions="{ item }">
             <v-btn 
@@ -225,5 +227,30 @@ function manageSystem() {
 </script>
 
 <style scoped>
-/* Add your styles here */
+/* Data Table Alignment for Arabic */
+:deep(.v-data-table th) {
+  text-align: right !important;
+}
+
+@media (max-width: 600px) {
+  :deep(.v-data-table td) {
+    text-align: left !important;
+  }
+
+  :deep(.v-data-table td > *) {
+    justify-content: flex-start !important;
+  }
+}
+
+:deep(.v-data-table__mobile-row__header) {
+  text-align: right !important;
+}
+
+:deep(.v-data-table__mobile-row__cell) {
+  text-align: left !important;
+}
+
+:deep(.v-data-table__mobile-row__cell > *) {
+  justify-content: flex-start !important;
+}
 </style>

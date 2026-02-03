@@ -1,6 +1,7 @@
 /**
  * Enhanced Authentication Store (Pinia)
  * Complete auth state management with roles & permissions
+ * AUTO-REFRESHES permissions to prevent stale data
  * 
  * @author Clinic Management System
  * @version 3.0.0
@@ -18,6 +19,7 @@ export const useAuthStore = defineStore('auth', () => {
   const token = ref(null)
   const loading = ref(false)
   const error = ref(null)
+  const permissionRefreshInterval = ref(null)
 
   // Computed
   const isAuthenticated = computed(() => {
@@ -176,6 +178,9 @@ export const useAuthStore = defineStore('auth', () => {
   async function logout() {
     loading.value = true
     
+    // Stop permission refresh
+    stopPermissionRefresh()
+    
     try {
       await authService.logout()
     } finally {
@@ -188,6 +193,47 @@ export const useAuthStore = defineStore('auth', () => {
       // Redirect to login page
       window.location.href = '/login'
     }
+  }
+
+  /**
+   * Start automatic permission refresh
+   * Refreshes user permissions every 5 minutes to detect permission changes
+   */
+  function startPermissionRefresh() {
+    // Clear any existing interval
+    stopPermissionRefresh()
+    
+    // Refresh every 5 minutes (300000ms)
+    permissionRefreshInterval.value = setInterval(async () => {
+      console.log('🔄 Auto-refreshing user permissions...')
+      await loadUser()
+    }, 300000) // 5 minutes
+    
+    console.log('✅ Permission auto-refresh started (every 5 minutes)')
+  }
+
+  /**
+   * Stop automatic permission refresh
+   */
+  function stopPermissionRefresh() {
+    if (permissionRefreshInterval.value) {
+      clearInterval(permissionRefreshInterval.value)
+      permissionRefreshInterval.value = null
+      console.log('🛑 Permission auto-refresh stopped')
+    }
+  }
+
+  /**
+   * Manually refresh permissions from API
+   * Call this when you suspect permissions have changed
+   */
+  async function refreshPermissions() {
+    console.log('🔄 Manually refreshing permissions...')
+    const result = await loadUser()
+    if (result.success) {
+      console.log('✅ Permissions refreshed successfully')
+    }
+    return result
   }
 
   /**
@@ -204,6 +250,9 @@ export const useAuthStore = defineStore('auth', () => {
 
     // Auto-refresh token if needed
     authService.autoRefreshToken()
+    
+    // Start automatic permission refresh
+    startPermissionRefresh()
   }
 
   /**
@@ -270,6 +319,11 @@ export const useAuthStore = defineStore('auth', () => {
     hasPermission,
     hasAnyPermission,
     hasAllPermissions,
-    clearError
+    clearError,
+    
+    // Permission refresh
+    refreshPermissions,
+    startPermissionRefresh,
+    stopPermissionRefresh
   }
 })

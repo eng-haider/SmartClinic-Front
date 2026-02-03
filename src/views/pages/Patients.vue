@@ -7,15 +7,27 @@
           <h1 class="text-h4 font-weight-bold text-primary">{{ $t('patients.title') }}</h1>
           <p class="text-grey mt-1">{{ $t('patients.subtitle') }}</p>
         </div>
-        <v-btn
-          color="primary"
-          size="large"
-          prepend-icon="mdi-plus"
-          @click="openAddDialog"
-          elevation="2"
-        >
-          {{ $t('patients.add') }}
-        </v-btn>
+        <div class="d-flex ga-2">
+          <v-btn
+            color="purple"
+            size="large"
+            prepend-icon="mdi-qrcode-scan"
+            @click="openScanner"
+            elevation="2"
+            variant="tonal"
+          >
+            {{ $t('patients.scanQr') }}
+          </v-btn>
+          <v-btn
+            color="primary"
+            size="large"
+            prepend-icon="mdi-plus"
+            @click="openAddDialog"
+            elevation="2"
+          >
+            {{ $t('patients.add') }}
+          </v-btn>
+        </div>
       </div>
     </div>
 
@@ -72,6 +84,8 @@
         :items-length="totalPatients"
         :loading="loading"
         class="patients-table"
+        density="compact"
+        mobile-breakpoint="md"
         hover
         @update:page="loadPatients"
         @update:items-per-page="loadPatients"
@@ -101,12 +115,12 @@
         <!-- Gender Badge -->
         <template v-slot:item.sex="{ item }">
           <v-chip
-            :color="item.sex === 'Male' ? 'blue' : 'pink'"
+            :color="item.sex === 1 ? 'blue' : 'pink'"
             size="small"
             variant="tonal"
           >
-            <v-icon start size="14">{{ item.sex === 'Male' ? 'mdi-gender-male' : 'mdi-gender-female' }}</v-icon>
-            {{ item.sex === 'Male' ? $t('patients.male') : $t('patients.female') }}
+            <v-icon start size="14">{{ item.sex === 1 ? 'mdi-gender-male' : 'mdi-gender-female' }}</v-icon>
+            {{ item.sex === 1 ? $t('patients.male') : $t('patients.female') }}
           </v-chip>
         </template>
 
@@ -115,22 +129,15 @@
           <span>{{ item.age || '-' }} {{ $t('patients.years') }}</span>
         </template>
 
-        <!-- Doctor -->
-        <template v-slot:item.doctor="{ item }">
-          <div class="d-flex align-center ga-2">
-            <v-icon size="small" color="primary">mdi-doctor</v-icon>
-            <span>{{ item.doctor?.name || '-' }}</span>
-          </div>
-        </template>
-
-        <!-- Credit Balance -->
-        <template v-slot:item.credit_balance="{ item }">
+        <!-- Cases Count -->
+        <template v-slot:item.cases_count="{ item }">
           <v-chip
-            :color="getCreditColor(item.credit_balance)"
+            color="primary"
             size="small"
-            variant="flat"
+            variant="tonal"
           >
-            {{ formatCurrency(item.credit_balance) }}
+            <v-icon start size="14">mdi-clipboard-text</v-icon>
+            {{ item.cases_count || 0 }}
           </v-chip>
         </template>
 
@@ -145,25 +152,61 @@
         <template v-slot:item.actions="{ item }">
           <div class="d-flex ga-1">
             <v-btn
+              icon="mdi-qrcode"
+              size="small"
+              variant="text"
+              color="purple"
+              @click.stop="openQrCard(item)"
+            >
+              <v-icon>mdi-qrcode</v-icon>
+              <v-tooltip activator="parent" location="top">
+                {{ $t('patientIdCard.title') }}
+              </v-tooltip>
+            </v-btn>
+            <v-btn
+              icon="mdi-calendar-plus"
+              size="small"
+              variant="text"
+              color="primary"
+              @click.stop="openBookingForPatient(item)"
+            >
+              <v-icon>mdi-calendar-plus</v-icon>
+              <v-tooltip activator="parent" location="top">
+                {{ $t('patients.add_booking') }}
+              </v-tooltip>
+            </v-btn>
+            <v-btn
+              icon="mdi-whatsapp"
+              size="small"
+              variant="text"
+              color="success"
+              @click.stop="openWhatsAppDialog(item)"
+            >
+              <v-icon>mdi-whatsapp</v-icon>
+              <v-tooltip activator="parent" location="top">
+                {{ $t('patients.send_whatsapp') }}
+              </v-tooltip>
+            </v-btn>
+            <v-btn
               icon="mdi-eye"
               size="small"
               variant="text"
               color="info"
-              @click="viewPatient(item)"
+              @click.stop="viewPatient(item)"
             />
             <v-btn
               icon="mdi-pencil"
               size="small"
               variant="text"
               color="warning"
-              @click="editPatient(item)"
+              @click.stop="editPatient(item)"
             />
             <v-btn
               icon="mdi-delete"
               size="small"
               variant="text"
               color="error"
-              @click="confirmDelete(item)"
+              @click.stop="confirmDelete(item)"
             />
           </div>
         </template>
@@ -214,28 +257,57 @@
         <v-card-text class="pa-6">
           <v-form ref="patientForm" @submit.prevent="savePatient">
             <v-row>
-              <!-- Name -->
+              <!-- Name Field with Patient Combobox -->
               <v-col cols="12">
-                <v-text-field
+                <v-combobox
                   v-model="patientData.name"
-                  :label="$t('patients.name') + ' *'"
+                  :items="patientSearchList"
+                  :loading="loadingPatientSearch"
+                  :search-input.sync="patientNameSearch"
+                  item-title="text"
+                  item-value="value"
                   :rules="[v => !!v || $t('validation.required')]"
+                  :label="$t('patients.name') + ' *'"
                   prepend-inner-icon="mdi-account"
                   variant="outlined"
+                  clearable
                   :error-messages="formErrors.name"
-                />
+                  @update:search="searchPatientsByName"
+                  @update:model-value="handlePatientNameSelect"
+                >
+                  <template v-slot:no-data>
+                    <v-list-item>
+                      <v-list-item-title>
+                        {{ patientNameSearch ? $t('patients.add_new_name') : $t('patients.type_to_search_patients') }}
+                      </v-list-item-title>
+                    </v-list-item>
+                  </template>
+                  
+                  <template v-slot:item="{ props, item }">
+                    <v-list-item v-bind="props">
+                      <template v-slot:title>
+                        {{ item.raw.text || item.raw.name }}
+                      </template>
+                      <template v-slot:subtitle>
+                        {{ item.raw.phone }} - {{ $t('patients.age') }}: {{ item.raw.age || $t('patients.not_specified') }}
+                      </template>
+                    </v-list-item>
+                  </template>
+                </v-combobox>
               </v-col>
 
               <!-- Birth Date -->
               <v-col cols="12" md="6">
                 <v-text-field
-                  v-model="patientData.birth_date"
+                  v-model="birthDateDisplay"
                   :label="$t('patients.birth_date')"
                   prepend-inner-icon="mdi-calendar-blank"
                   variant="outlined"
-                  type="date"
-                  :max="new Date().toISOString().split('T')[0]"
+                  placeholder="YYYY or YYYY-MM-DD"
+                  :hint="$t('patients.birth_date_hint')"
+                  persistent-hint
                   :error-messages="formErrors.birth_date"
+                  @input="handleBirthDateInput"
                 />
               </v-col>
 
@@ -247,11 +319,29 @@
                   prepend-inner-icon="mdi-phone"
                   variant="outlined"
                   dir="ltr"
-                  placeholder="07XXXXXXXXX"
-                  maxlength="11"
+                  placeholder="07XX XXX XXXX"
+                  maxlength="13"
                   :error-messages="formErrors.phone"
                   @input="formatPhoneNumber"
                 />
+              </v-col>
+
+              <!-- Gender/Sex -->
+              <v-col cols="12" md="6">
+                <div class="text-subtitle-2 mb-2">{{ $t('patients.sex') }}</div>
+                <v-radio-group
+                  v-model="patientData.sex"
+                  :error-messages="formErrors.sex"
+                  inline
+                >
+                  <v-radio
+                    v-for="option in genderOptions"
+                    :key="option.value"
+                    :label="option.text"
+                    :value="option.value"
+                    color="primary"
+                  />
+                </v-radio-group>
               </v-col>
 
               <!-- Address -->
@@ -316,12 +406,12 @@
             </v-avatar>
             <h2 class="text-h5 mt-3">{{ selectedPatient.name }}</h2>
             <v-chip
-              :color="selectedPatient.sex === 'Male' ? 'blue' : 'pink'"
+              :color="selectedPatient.sex === 1 ? 'blue' : 'pink'"
               size="small"
               variant="tonal"
               class="mt-2"
             >
-              {{ selectedPatient.sex === 'Male' ? $t('patients.male') : $t('patients.female') }}
+              {{ selectedPatient.sex === 1 ? $t('patients.male') : $t('patients.female') }}
             </v-chip>
           </div>
 
@@ -442,6 +532,109 @@
       </v-card>
     </v-dialog>
 
+    <!-- Booking Dialog -->
+    <BookingDialog
+      v-model="bookingDialog"
+      :patient-id="selectedPatientForBooking?.id"
+      :doctors="doctors"
+      @saved="handleBookingSaved"
+    />
+
+    <!-- WhatsApp Message Dialog -->
+    <v-dialog v-model="whatsappDialog" max-width="600">
+      <v-card rounded="xl">
+        <v-card-title class="d-flex align-center justify-space-between pa-4 bg-success">
+          <div class="d-flex align-center ga-2">
+            <v-icon color="white" size="28">mdi-whatsapp</v-icon>
+            <span class="text-white">{{ $t('patients.send_whatsapp') }}</span>
+          </div>
+          <v-btn icon="mdi-close" variant="text" color="white" @click="whatsappDialog = false" />
+        </v-card-title>
+
+        <v-card-text class="pa-6">
+          <!-- Patient Info -->
+          <v-alert v-if="selectedPatientForWhatsApp" type="info" variant="tonal" class="mb-4">
+            <div class="d-flex align-center ga-3">
+              <v-avatar :color="getAvatarColor(selectedPatientForWhatsApp.name)" size="40">
+                <span class="text-white">{{ getInitials(selectedPatientForWhatsApp.name) }}</span>
+              </v-avatar>
+              <div>
+                <div class="font-weight-medium">{{ selectedPatientForWhatsApp.name }}</div>
+                <div class="text-caption" dir="ltr">{{ selectedPatientForWhatsApp.phone }}</div>
+              </div>
+            </div>
+          </v-alert>
+
+          <!-- Message Templates -->
+          <div class="mb-4">
+            <div class="text-subtitle-2 mb-2">{{ $t('patients.message_templates') }}</div>
+            <v-chip-group v-model="selectedTemplate" column mandatory>
+              <v-chip
+                v-for="template in messageTemplates"
+                :key="template.id"
+                :value="template.id"
+                filter
+                variant="outlined"
+                @click="selectTemplate(template)"
+              >
+                {{ template.title }}
+              </v-chip>
+            </v-chip-group>
+          </div>
+
+          <!-- Custom Message -->
+          <v-textarea
+            v-model="whatsappMessage"
+            :label="$t('patients.message')"
+            variant="outlined"
+            rows="6"
+            auto-grow
+            prepend-inner-icon="mdi-message-text"
+            :hint="$t('patients.message_hint')"
+            persistent-hint
+          />
+
+          <!-- Character Count -->
+          <div class="text-caption text-right text-grey mt-1">
+            {{ whatsappMessage.length }} {{ $t('patients.characters') }}
+          </div>
+        </v-card-text>
+
+        <v-divider />
+
+        <v-card-actions class="pa-4">
+          <v-spacer />
+          <v-btn variant="text" @click="whatsappDialog = false">
+            {{ $t('common.cancel') }}
+          </v-btn>
+          <v-btn
+            color="success"
+            variant="elevated"
+            prepend-icon="mdi-whatsapp"
+            :disabled="!whatsappMessage || !selectedPatientForWhatsApp?.phone"
+            @click="sendWhatsAppMessage"
+          >
+            {{ $t('patients.send') }}
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Patient ID Card Dialog -->
+    <PatientIdCard
+      v-model="qrCardDialog"
+      :patient="selectedPatientForQrCard"
+      :clinic-settings="clinicSettings"
+      @close="qrCardDialog = false"
+    />
+
+    <!-- QR Scanner Dialog -->
+    <QrScanner
+      v-model="scannerDialog"
+      @scan-success="handleScanSuccess"
+      @scan-error="handleScanError"
+    />
+
     <!-- Snackbar Notifications -->
     <v-snackbar
       v-model="snackbar.show"
@@ -464,9 +657,14 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import api from '@/services/api'
+import BookingDialog from '@/components/BookingDialog.vue'
+import PatientIdCard from '@/components/PatientIdCard.vue'
+import QrScanner from '@/components/QrScanner.vue'
+import { useClinicSettings } from '@/composables/useClinicSettings'
 
 const { t } = useI18n()
 const router = useRouter()
+const { clinicSettings } = useClinicSettings()
 
 // ==================== State ====================
 const loading = ref(false)
@@ -493,7 +691,31 @@ const sortBy = ref('-created_at')
 const patientDialog = ref(false)
 const viewDialog = ref(false)
 const deleteDialog = ref(false)
+const bookingDialog = ref(false)
+const whatsappDialog = ref(false)
+const qrCardDialog = ref(false)
+const scannerDialog = ref(false)
 const editMode = ref(false)
+
+// Selected patients for dialogs
+const selectedPatientForBooking = ref(null)
+const selectedPatientForWhatsApp = ref(null)
+const selectedPatientForQrCard = ref(null)
+
+// WhatsApp message
+const whatsappMessage = ref('')
+const selectedTemplate = ref(null)
+
+// Birth date mode
+const yearOnlyMode = ref(false)
+const birthYear = ref('')
+const birthDateDisplay = ref('')
+
+// Patient search for combobox
+const patientSearchList = ref([])
+const loadingPatientSearch = ref(false)
+const patientNameSearch = ref('')
+let patientSearchTimeout = null
 
 // Selected Patient
 const selectedPatient = ref(null)
@@ -541,14 +763,58 @@ const sortOptions = computed(() => [
   { text: t('patients.name_za'), value: '-name' }
 ])
 
+// WhatsApp Message Templates
+const messageTemplates = computed(() => [
+  {
+    id: 1,
+    title: t('patients.template_reminder'),
+    text: t('patients.template_reminder_text', {
+      name: selectedPatientForWhatsApp.value?.name || '',
+      clinic: t('patients.clinic_name')
+    })
+  },
+  {
+    id: 2,
+    title: t('patients.template_followup'),
+    text: t('patients.template_followup_text', {
+      name: selectedPatientForWhatsApp.value?.name || ''
+    })
+  },
+  {
+    id: 3,
+    title: t('patients.template_checkup'),
+    text: t('patients.template_checkup_text', {
+      name: selectedPatientForWhatsApp.value?.name || ''
+    })
+  },
+  {
+    id: 4,
+    title: t('patients.template_results'),
+    text: t('patients.template_results_text', {
+      name: selectedPatientForWhatsApp.value?.name || ''
+    })
+  },
+  {
+    id: 5,
+    title: t('patients.template_profile_link'),
+    text: generateProfileLinkMessage()
+  },
+  {
+    id: 6,
+    title: t('patients.template_greeting'),
+    text: t('patients.template_greeting_text', {
+      name: selectedPatientForWhatsApp.value?.name || ''
+    })
+  }
+])
+
 // Table Headers
 const headers = computed(() => [
   { title: t('patients.name'), key: 'name', sortable: false },
   { title: t('patients.phone'), key: 'phone', sortable: false },
   { title: t('patients.gender'), key: 'sex', sortable: false },
   { title: t('patients.age'), key: 'age', sortable: false },
-  { title: t('patients.doctor'), key: 'doctor', sortable: false },
-  { title: t('patients.credit_balance'), key: 'credit_balance', sortable: false },
+  { title: t('patients.cases_count'), key: 'cases_count', sortable: false },
   { title: t('patients.created_at'), key: 'created_at', sortable: false },
   { title: t('patients.actions'), key: 'actions', sortable: false, align: 'center' }
 ])
@@ -581,7 +847,8 @@ async function loadPatients() {
     const params = {
       page: currentPage.value,
       per_page: perPage.value,
-      sort: sortBy.value
+      sort: sortBy.value,
+      'include[]': 'casesCount'
     }
 
     // Search by name or phone using QueryBuilder filter format
@@ -635,6 +902,74 @@ async function loadDoctors() {
   }
 }
 
+// Search Patients for Combobox
+async function searchPatientsByName(searchTerm) {
+  // Clear existing timeout
+  if (patientSearchTimeout) {
+    clearTimeout(patientSearchTimeout)
+  }
+
+  // If search term is empty or too short, clear list
+  if (!searchTerm || searchTerm.length < 2) {
+    patientSearchList.value = []
+    return
+  }
+
+  // Debounce search to avoid too many API calls
+  patientSearchTimeout = setTimeout(async () => {
+    try {
+      loadingPatientSearch.value = true
+      const params = {
+        search: searchTerm,
+        per_page: 20
+      }
+      
+      const response = await api.get('/patients', { params })
+      
+      if (response.data) {
+        patientSearchList.value = response.data.map(patient => ({
+          text: patient.name,
+          value: patient.name,
+          name: patient.name,
+          phone: patient.phone || '',
+          age: patient.age || t('patients.not_specified'),
+          id: patient.id,
+          fullData: patient
+        }))
+      }
+    } catch (err) {
+      console.error('Failed to search patients:', err)
+      patientSearchList.value = []
+    } finally {
+      loadingPatientSearch.value = false
+    }
+  }, 300)
+}
+
+// Handle Patient Name Selection from Combobox
+function handlePatientNameSelect(selectedItem) {
+  console.log('Patient selected:', selectedItem, typeof selectedItem)
+  
+  if (!selectedItem) return
+
+  // If selectedItem is a string, it's a new patient name
+  if (typeof selectedItem === 'string') {
+    patientData.name = selectedItem
+    return
+  }
+
+  // If selectedItem is an object with patient data, only set the name
+  if (selectedItem && typeof selectedItem === 'object') {
+    if (selectedItem.fullData) {
+      // Only set the name, don't fill other fields
+      patientData.name = selectedItem.fullData.name || ''
+    } else {
+      // Just set the name
+      patientData.name = selectedItem.name || selectedItem.text || selectedItem
+    }
+  }
+}
+
 // Open Add Dialog
 function openAddDialog() {
   editMode.value = false
@@ -664,6 +999,9 @@ function editPatient(patient) {
     credit_balance_add_at: patient.credit_balance_add_at || '',
     from_where_come_id: patient.from_where_come_id
   })
+  
+  // Set birth date display
+  birthDateDisplay.value = patient.birth_date || ''
   
   patientDialog.value = true
 }
@@ -711,6 +1049,76 @@ function resetForm() {
     from_where_come_id: null
   })
   Object.keys(formErrors).forEach(key => delete formErrors[key])
+  yearOnlyMode.value = false
+  birthYear.value = ''
+  birthDateDisplay.value = ''
+  patientNameSearch.value = ''
+  patientSearchList.value = []
+}
+
+// Handle birth date input - automatically convert year-only to full date
+function handleBirthDateInput(event) {
+  let value = event.target ? event.target.value : event
+  
+  if (!value) {
+    patientData.birth_date = ''
+    birthDateDisplay.value = ''
+    return
+  }
+
+  // Remove any extra characters, keep only digits and dashes
+  let cleanValue = value.replace(/[^\d-]/g, '')
+  
+  // Auto-add dash after 4 digits (year)
+  if (cleanValue.length === 4 && !cleanValue.includes('-')) {
+    cleanValue = cleanValue + '-'
+    birthDateDisplay.value = cleanValue
+    if (event.target) {
+      event.target.value = cleanValue
+    }
+    return
+  }
+  
+  // Auto-add dash after month (YYYY-MM format)
+  if (/^\d{4}-\d{2}$/.test(cleanValue) && cleanValue.length === 7) {
+    cleanValue = cleanValue + '-'
+    birthDateDisplay.value = cleanValue
+    if (event.target) {
+      event.target.value = cleanValue
+    }
+    return
+  }
+  
+  const trimmedValue = cleanValue.trim()
+  
+  // If user enters exactly 4 digits (year only)
+  if (/^\d{4}$/.test(trimmedValue)) {
+    const formattedDate = `${trimmedValue}-01-01`
+    patientData.birth_date = formattedDate
+    birthDateDisplay.value = trimmedValue
+    console.log('✅ Year converted to:', formattedDate)
+  }
+  // If user enters year-month (YYYY-MM)
+  else if (/^\d{4}-\d{1,2}$/.test(trimmedValue)) {
+    const [year, month] = trimmedValue.split('-')
+    const formattedDate = `${year}-${month.padStart(2, '0')}-01`
+    patientData.birth_date = formattedDate
+    birthDateDisplay.value = trimmedValue
+    console.log('✅ Year-Month converted to:', formattedDate)
+  }
+  // If user enters full date (YYYY-MM-DD)
+  else if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(trimmedValue)) {
+    const parts = trimmedValue.split('-')
+    const formattedDate = `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`
+    patientData.birth_date = formattedDate
+    birthDateDisplay.value = cleanValue
+    console.log('✅ Full date:', formattedDate)
+  }
+  // Any other format
+  else {
+    patientData.birth_date = trimmedValue
+    birthDateDisplay.value = cleanValue
+  }
 }
 
 // Save Patient
@@ -724,6 +1132,9 @@ async function savePatient() {
 
   try {
     const payload = { ...patientData }
+    
+    console.log('💾 Saving patient data:', payload)
+    console.log('📅 Birth date being sent:', payload.birth_date)
     
     let response
     if (editMode.value) {
@@ -782,25 +1193,132 @@ async function deletePatient() {
   }
 }
 
+// Open Booking Dialog for Patient
+function openBookingForPatient(patient) {
+  selectedPatientForBooking.value = patient
+  bookingDialog.value = true
+}
+
+// Handle Booking Saved
+function handleBookingSaved() {
+  showSnackbar(t('patients.booking_created'), 'success')
+  bookingDialog.value = false
+  selectedPatientForBooking.value = null
+}
+
+// Open WhatsApp Dialog
+function openWhatsAppDialog(patient) {
+  selectedPatientForWhatsApp.value = patient
+  selectedTemplate.value = 1
+  // Set default template message
+  selectTemplate(messageTemplates.value[0])
+  whatsappDialog.value = true
+}
+
+// Open QR Card Dialog
+function openQrCard(patient) {
+  selectedPatientForQrCard.value = patient
+  qrCardDialog.value = true
+}
+
+// Open QR Scanner
+function openScanner() {
+  scannerDialog.value = true
+}
+
+// Handle QR Scan Success
+function handleScanSuccess(data) {
+  console.log('QR Scan successful:', data)
+  showSnackbar(t('qrScanner.success'), 'success')
+  // Router navigation is handled in the QrScanner component
+}
+
+// Handle QR Scan Error
+function handleScanError(error) {
+  console.error('QR Scan error:', error)
+  showSnackbar(t('qrScanner.scanError'), 'error')
+}
+
+// Generate Profile Link Message
+function generateProfileLinkMessage() {
+  if (!selectedPatientForWhatsApp.value) return ''
+  
+  const patient = selectedPatientForWhatsApp.value
+  const frontendBaseUrl = window.location.origin
+  
+  // Try to get public token from patient data (if available)
+  let profileUrl = `${frontendBaseUrl}/public/patient/patient-${patient.id}`
+  
+  // If patient has public_token, use it
+  if (patient.public_token) {
+    profileUrl = `${frontendBaseUrl}/public/patient/${patient.public_token}`
+  }
+  
+  return t('patients.template_profile_link_text', {
+    name: patient.name,
+    clinic: t('patients.clinic_name'),
+    url: profileUrl
+  })
+}
+
+// Select Message Template
+function selectTemplate(template) {
+  if (template && template.text) {
+    whatsappMessage.value = template.text
+  }
+}
+
+// Send WhatsApp Message
+function sendWhatsAppMessage() {
+  if (!selectedPatientForWhatsApp.value?.phone || !whatsappMessage.value) {
+    showSnackbar(t('patients.whatsapp_error'), 'error')
+    return
+  }
+
+  // Clean phone number (remove spaces and formatting)
+  let phone = selectedPatientForWhatsApp.value.phone.replace(/\D/g, '')
+  
+  // Ensure phone starts with country code
+  if (!phone.startsWith('964')) {
+    // If starts with 0, replace with 964
+    if (phone.startsWith('0')) {
+      phone = '964' + phone.substring(1)
+    } else {
+      phone = '964' + phone
+    }
+  }
+
+  // Encode message for URL
+  const encodedMessage = encodeURIComponent(whatsappMessage.value)
+  
+  // Create WhatsApp URL
+  const whatsappUrl = `https://wa.me/${phone}?text=${encodedMessage}`
+  
+  // Open in new tab
+  window.open(whatsappUrl, '_blank')
+  
+  showSnackbar(t('patients.whatsapp_opened'), 'success')
+  whatsappDialog.value = false
+}
+
+// ==================== Helpers ====================
+
 // ==================== Helpers ====================
 
 function formatPhoneNumber(event) {
   let value = event.target.value.replace(/\D/g, '') // Remove non-digits
   
-  // Ensure it starts with 07
-  if (value.length > 0 && !value.startsWith('07')) {
-    if (value.startsWith('7')) {
-      value = '0' + value
-    } else if (value.startsWith('0') && value.length > 1 && value[1] !== '7') {
-      value = '07' + value.substring(1)
-    } else {
-      value = '07' + value
-    }
+  // Add space formatting: 07XX XXX XXXX
+  if (value.length > 4 && value.length <= 7) {
+    value = value.substring(0, 4) + ' ' + value.substring(4)
+  } else if (value.length > 7) {
+    value = value.substring(0, 4) + ' ' + value.substring(4, 7) + ' ' + value.substring(7, 11)
   }
   
-  // Limit to 11 digits
-  value = value.substring(0, 11)
+  // Limit to 13 characters (11 digits + 2 spaces)
+  value = value.substring(0, 13)
   
+  // Update both the model and the input value
   patientData.phone = value
   event.target.value = value
 }
@@ -826,7 +1344,8 @@ function formatCurrency(amount) {
   if (!amount && amount !== 0) return '-'
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'USD'
+    currency: 'IQD',
+    minimumFractionDigits: 0
   }).format(amount)
 }
 
@@ -878,6 +1397,33 @@ onMounted(() => {
   padding: 12px;
   background: #f5f7fa;
   border-radius: 12px;
+}
+
+/* Data Table Alignment for Arabic */
+:deep(.v-data-table th) {
+  text-align: right !important;
+}
+
+@media (max-width: 600px) {
+  :deep(.v-data-table td) {
+    text-align: left !important;
+  }
+
+  :deep(.v-data-table td > *) {
+    justify-content: flex-start !important;
+  }
+}
+
+:deep(.v-data-table__mobile-row__header) {
+  text-align: right !important;
+}
+
+:deep(.v-data-table__mobile-row__cell) {
+  text-align: left !important;
+}
+
+:deep(.v-data-table__mobile-row__cell > *) {
+  justify-content: flex-start !important;
 }
 
 /* RTL Support */

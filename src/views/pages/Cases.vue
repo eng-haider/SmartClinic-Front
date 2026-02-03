@@ -15,10 +15,10 @@
       <v-card-text>
         <v-row align="center">
           <!-- Search -->
-          <v-col cols="12" md="4">
+          <v-col cols="12" md="3">
             <v-text-field
               v-model="search"
-              :label="$t('cases.search')"
+              :label="''"
               prepend-inner-icon="mdi-magnify"
               variant="outlined"
               density="comfortable"
@@ -76,18 +76,25 @@
             />
           </v-col>
 
-          <!-- Per Page -->
+          <!-- Doctor Filter -->
           <v-col cols="6" md="2">
             <v-select
-              v-model="perPage"
-              :label="$t('cases.per_page')"
-              :items="[15, 25, 50, 100]"
+              v-model="filters.doctor_id"
+              :label="$t('cases.doctor')"
+              :items="doctors"
+              item-title="name"
+              item-value="id"
               variant="outlined"
               density="comfortable"
               hide-details
+              clearable
               @update:model-value="loadCases"
             />
           </v-col>
+
+    
+
+       
         </v-row>
       </v-card-text>
     </v-card>
@@ -111,6 +118,8 @@
         :items-length="totalCases"
         :loading="loading"
         class="cases-table"
+        density="compact"
+        mobile-breakpoint="md"
         hover
         @update:page="loadCases"
         @update:items-per-page="loadCases"
@@ -178,7 +187,7 @@
             size="small"
             variant="tonal"
           >
-            {{ item.status?.name || '-' }}
+            {{ getStatusName(item.status) }}
           </v-chip>
         </template>
 
@@ -321,7 +330,7 @@
                 <v-icon color="grey" size="20">mdi-flag</v-icon>
                 <div>
                   <div class="text-caption text-grey">{{ $t('cases.status') }}</div>
-                  <div class="font-weight-medium">{{ selectedCase.status?.name || '-' }}</div>
+                  <div class="font-weight-medium">{{ getStatusName(selectedCase.status) }}</div>
                 </div>
               </div>
             </v-col>
@@ -381,6 +390,7 @@ const error = ref('')
 const search = ref('')
 const cases = ref([])
 const categories = ref([])
+const doctors = ref([])
 const currentPage = ref(1)
 const perPage = ref(15)
 const totalCases = ref(0)
@@ -394,14 +404,15 @@ const filters = reactive({
   status_id: null,
   is_paid: null,
   case_categores_id: null,
+  doctor_id: null,
 })
 
 // ==================== Computed ====================
 const statusOptions = computed(() => [
-  { text: t('cases.status_pending'), value: 1 },
+
   { text: t('cases.status_in_progress'), value: 2 },
   { text: t('cases.status_completed'), value: 3 },
-  { text: t('cases.status_cancelled'), value: 4 },
+
 ])
 
 const paymentOptions = computed(() => [
@@ -469,6 +480,11 @@ async function loadCases() {
       params['filter[case_categores_id]'] = filters.case_categores_id
     }
 
+    // Add doctor filter
+    if (filters.doctor_id !== null) {
+      params['filter[doctor_id]'] = filters.doctor_id
+    }
+
     // Sort by created_at descending
     params.sort = '-created_at'
 
@@ -492,11 +508,39 @@ async function loadCases() {
 async function loadCategories() {
   try {
     const response = await api.get('/case-categories')
+    // Handle different response formats
     if (response.success) {
+      categories.value = response.data || []
+    } else if (Array.isArray(response)) {
+      categories.value = response
+    } else if (response.data) {
       categories.value = response.data
+    } else {
+      categories.value = []
     }
   } catch (err) {
     console.error('Error loading categories:', err)
+    categories.value = []
+  }
+}
+
+// Load Doctors
+async function loadDoctors() {
+  try {
+    const response = await api.get('/doctors')
+    // Handle different response formats
+    if (response.success) {
+      doctors.value = response.data || []
+    } else if (Array.isArray(response)) {
+      doctors.value = response
+    } else if (response.data) {
+      doctors.value = response.data
+    } else {
+      doctors.value = []
+    }
+  } catch (err) {
+    console.error('Error loading doctors:', err)
+    doctors.value = []
   }
 }
 
@@ -539,6 +583,22 @@ function getStatusColor(id) {
   return statusColors[id] || 'grey'
 }
 
+function getStatusName(status) {
+  if (!status) return '-'
+  // Check current locale and return appropriate name
+  const locale = localStorage.getItem('locale') || 'ar'
+  
+  if (locale === 'ar') {
+    return status.name_ar || status.name || '-'
+  } else if (locale === 'en') {
+    return status.name_en || status.name || '-'
+  } else if (locale === 'ku') {
+    return status.name_ku || status.name_en || status.name || '-'
+  }
+  
+  return status.name || '-'
+}
+
 function formatCurrency(amount) {
   if (amount === null || amount === undefined) return '-'
   return new Intl.NumberFormat('en-US', {
@@ -561,6 +621,7 @@ function formatDate(dateString) {
 onMounted(() => {
   loadCases()
   loadCategories()
+  loadDoctors()
 })
 </script>
 
@@ -588,6 +649,33 @@ onMounted(() => {
   padding: 12px;
   background: #f5f7fa;
   border-radius: 12px;
+}
+
+/* Data Table Alignment for Arabic */
+:deep(.v-data-table th) {
+  text-align: right !important;
+}
+
+@media (max-width: 600px) {
+  :deep(.v-data-table td) {
+    text-align: left !important;
+  }
+
+  :deep(.v-data-table td > *) {
+    justify-content: flex-start !important;
+  }
+}
+
+:deep(.v-data-table__mobile-row__header) {
+  text-align: right !important;
+}
+
+:deep(.v-data-table__mobile-row__cell) {
+  text-align: left !important;
+}
+
+:deep(.v-data-table__mobile-row__cell > *) {
+  justify-content: flex-start !important;
 }
 
 /* RTL Support */
