@@ -79,7 +79,7 @@
         />
 
         <!-- Address -->
-        <v-text-field
+        <!-- <v-text-field
           v-model="form.address"
           :label="$t('patients.address')"
           :rules="[rules.maxLength(255)]"
@@ -87,7 +87,7 @@
           density="comfortable"
           prepend-inner-icon="mdi-map-marker"
           class="mb-3"
-        />
+        /> -->
 
         <!-- Systemic Conditions -->
         <v-textarea

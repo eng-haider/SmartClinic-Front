@@ -11,7 +11,7 @@
  * @version 3.0.0
  */
 
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHistory } from '@ionic/vue-router'
 import { useAuthStore } from '@/stores/authNew'
 import permissionHelper from '@/services/permission.helper'
 import { ROUTE_CONFIG } from '@/config/navigation'
@@ -216,10 +216,24 @@ const router = createRouter({
   history: createWebHistory(),
   routes,
   scrollBehavior(to, from, savedPosition) {
+    // Restore saved position if navigating back
     if (savedPosition) {
       return savedPosition
     }
-    return { top: 0 }
+    // Scroll to top on navigation
+    return { top: 0, left: 0 }
+  }
+})
+
+// Additional scroll handling for Vuetify v-main component
+router.afterEach(() => {
+  // Scroll window to top
+  window.scrollTo(0, 0)
+  
+  // Also scroll Vuetify main content area if it exists
+  const vmain = document.querySelector('.v-main__wrap')
+  if (vmain) {
+    vmain.scrollTo(0, 0)
   }
 })
 
@@ -251,7 +265,11 @@ function checkRoutePermission(meta) {
 // ==================== Navigation Guards ====================
 router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore()
-  const isAuthenticated = authStore.isAuthenticated
+
+  // Always check localStorage directly — this is the source of truth and works
+  // even before Pinia persistence has hydrated the store reactive state
+  const tokenInStorage = localStorage.getItem('auth_token')
+  const isAuthenticated = !!(tokenInStorage || authStore.isAuthenticated)
   
   console.log('🚦 Router Guard:', {
     to: to.name,

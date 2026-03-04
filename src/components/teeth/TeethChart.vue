@@ -65,7 +65,7 @@
           v-for="(tooth, index) in lowerTeeth"
           :key="'lower-num-' + tooth.tooth_num"
           class="tooth-number-item lower"
-          :style="{ left: getToothPosition(tooth) + '%' }"
+          :style="{ left: getToothPosition(tooth) - 2 + '%' }"
         >
           <div class="dotted-line"></div>
           <div
@@ -86,6 +86,7 @@
         </div>
       </div>
     </div>
+    
 
     <!-- Color Picker -->
     <div class="color-picker" v-if="showColorPicker">
@@ -367,11 +368,22 @@ const bottomTeethNumbers = [38, 37, 36, 35, 34, 33, 32, 31, 41, 42, 43, 44, 45, 
 
 // Available Colors from Clinic Settings
 const availableColors = computed(() => {
-  // Use colors from clinic settings API
+  // Use colors from clinic settings API (display.tooth_colors)
+  if (!toothConditionColors.value || toothConditionColors.value.length === 0) {
+    // Fallback to defaults while loading
+    return [
+      { id: 'healthy', name: 'Healthy', value: '#4CAF50' },
+      { id: 'cavity', name: 'Cavity', value: '#FF6B6B' },
+      { id: 'filling', name: 'Filling', value: '#4ECDC4' },
+      { id: 'crown', name: 'Crown', value: '#FFD93D' },
+      { id: 'missing', name: 'Missing', value: '#95A5A6' }
+    ]
+  }
+  
   return toothConditionColors.value.map(color => ({
     id: color.id,
     name: color.name || `Color ${color.id}`,
-    value: color.color || color.hex_code
+    value: color.color
   }))
 })
 
@@ -821,6 +833,17 @@ watch(() => props.patientCases, () => {
   // Force re-render when cases change
 }, { deep: true })
 
+// Watch for tooth color changes from settings
+watch(toothConditionColors, (newColors) => {
+  // Update selected color if the current one is no longer available
+  if (newColors && newColors.length > 0) {
+    const currentColorExists = newColors.some(c => c.color === selectedColor.value)
+    if (!currentColorExists) {
+      selectedColor.value = newColors[0].color
+    }
+  }
+}, { deep: true })
+
 // Click outside to close menu
 function handleClickOutside(event) {
   if (contextMenu.value.visible) {
@@ -833,14 +856,16 @@ function handleClickOutside(event) {
 
 onMounted(async () => {
   document.addEventListener('click', handleClickOutside)
-  loadColoredParts()
   
-  // Load clinic settings to get tooth condition colors
+  // Load clinic settings to get tooth colors from display.tooth_colors
   await loadSettings()
+  
+  // Load colored parts from patient data
+  loadColoredParts()
   
   // Set default selected color from settings
   if (toothConditionColors.value.length > 0) {
-    selectedColor.value = toothConditionColors.value[0].color || toothConditionColors.value[0].hex_code
+    selectedColor.value = toothConditionColors.value[0].color
   }
 })
 
@@ -1302,6 +1327,9 @@ onUnmounted(() => {
   border-radius: 0 0 12px 12px;
 }
 
+.v-input--density-compact .v-field__input{
+  color:#000 !important
+}
 /* Mobile Styles */
 @media (max-width: 600px) {
   .teeth-chart {

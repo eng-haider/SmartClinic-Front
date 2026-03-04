@@ -305,17 +305,19 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { patientService } from '@/services/patient.service'
 import { useAuthStore } from '@/stores/auth'
+import { useClinicSettings } from '@/composables/useClinicSettings'
 import TeethChart from '@/components/teeth/TeethChart.vue'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const { t, locale } = useI18n()
+const { loadSettings, getSetting, toothConditionColors } = useClinicSettings()
 
 const loading = ref(true)
 const error = ref(null)
@@ -323,26 +325,38 @@ const patientData = ref(null)
 const imageDialog = ref(false)
 const selectedImage = ref(null)
 
-// Color name mapping for common dental colors
-const colorNames = {
-  '#FF0000': { en: 'Extraction', ar: 'خلع', ku: 'هەڵکێشان' },
-  '#ff0000': { en: 'Extraction', ar: 'خلع', ku: 'هەڵکێشان' },
-  '#00FF00': { en: 'Filling', ar: 'حشوة', ku: 'پڕکردنەوە' },
-  '#00ff00': { en: 'Filling', ar: 'حشوة', ku: 'پڕکردنەوە' },
-  '#0000FF': { en: 'Crown', ar: 'تاج', ku: 'تاج' },
-  '#0000ff': { en: 'Crown', ar: 'تاج', ku: 'تاج' },
-  '#FFFF00': { en: 'Root Canal', ar: 'علاج عصب', ku: 'دەرمانی دەمار' },
-  '#ffff00': { en: 'Root Canal', ar: 'علاج عصب', ku: 'دەرمانی دەمار' },
-  '#FF00FF': { en: 'Bridge', ar: 'جسر', ku: 'پرد' },
-  '#ff00ff': { en: 'Bridge', ar: 'جسر', ku: 'پرد' },
-  '#00FFFF': { en: 'Implant', ar: 'زرع', ku: 'چاندن' },
-  '#00ffff': { en: 'Implant', ar: 'زرع', ku: 'چاندن' },
-  '#FFA500': { en: 'Decay', ar: 'تسوس', ku: 'ڕزین' },
-  '#ffa500': { en: 'Decay', ar: 'تسوس', ku: 'ڕزین' },
-  '#800080': { en: 'Abscess', ar: 'خراج', ku: 'خوڵ' },
-  '#808080': { en: 'Missing', ar: 'مفقود', ku: 'لەدەستچوو' },
-  '#A52A2A': { en: 'Broken', ar: 'مكسور', ku: 'شکاو' },
-  '#a52a2a': { en: 'Broken', ar: 'مكسور', ku: 'شکاو' }
+// Use tooth colors from clinic settings composable (auto-updates)
+const toothColors = computed(() => {
+  if (toothConditionColors.value && toothConditionColors.value.length > 0) {
+    return toothConditionColors.value
+  }
+  // Fallback to default colors
+  return [
+    { id: 'healthy', name: 'Healthy', color: '#FFFFFF' },
+    { id: 'cavity', name: 'Cavity', color: '#FF6B6B' },
+    { id: 'filling', name: 'Filling', color: '#4ECDC4' },
+    { id: 'crown', name: 'Crown', color: '#FFD93D' },
+    { id: 'missing', name: 'Missing', color: '#95A5A6' }
+  ]
+})
+
+// Color name mapping - will be populated from clinic settings
+const getColorName = (color) => {
+  if (!color) return 'Unknown'
+  
+  const normalizedColor = color.toLowerCase()
+  
+  // Find matching color from clinic settings
+  const matchingColor = toothColors.value.find(tc => 
+    tc.color.toLowerCase() === normalizedColor
+  )
+  
+  if (matchingColor) {
+    return matchingColor.name
+  }
+  
+  // Fallback to hex code if no match found
+  return color
 }
 
 // Computed property for unique colors in tooth_details
@@ -369,18 +383,9 @@ const uniqueColors = computed(() => {
   }))
 })
 
-const getColorName = (color) => {
-  const colorInfo = colorNames[color] || colorNames[color.toLowerCase()]
-  if (colorInfo) {
-    if (locale.value === 'ar') return colorInfo.ar
-    if (locale.value === 'ku') return colorInfo.ku
-    return colorInfo.en
-  }
-  return color // Return the hex code if no name found
-}
-
 const fetchPatientProfile = async () => {
   const token = route.params.token
+  const clinicId = route.query.clinic
 
   if (!token) {
     error.value = t('publicProfile.invalidToken')
@@ -389,7 +394,8 @@ const fetchPatientProfile = async () => {
   }
 
   try {
-    const response = await patientService.getPublicPatientByToken(token)
+    // Pass clinic ID as query parameter if available
+    const response = await patientService.getPublicPatientByToken(token, clinicId)
     patientData.value = response.data || response
     console.log('Patient data:', patientData.value)
     
@@ -443,8 +449,10 @@ const viewImage = (image) => {
   imageDialog.value = true
 }
 
-onMounted(() => {
-  fetchPatientProfile()
+onMounted(async () => {
+  // Load clinic settings to get tooth colors
+  await loadSettings()
+  await fetchPatientProfile()
 })
 </script>
 

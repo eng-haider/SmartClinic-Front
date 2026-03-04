@@ -21,26 +21,39 @@ class AuthService {
    */
   async register(userData) {
     try {
-      const response = await apiClient.post('/auth/register', {
-        name: userData.name,
-        phone: userData.phone,
-        email: userData.email,
-        password: userData.password,
-        password_confirmation: userData.passwordConfirmation,
-        clinic_name: userData.clinicName,
-        clinic_address: userData.clinicAddress,
-        clinic_phone: userData.clinicPhone,
-        clinic_email: userData.clinicEmail
+      const response = await apiClient.post('/auth/demo-register', {
+        id: userData.tenantId || null,
+        name: userData.clinicName,
+        rx_img: userData.rxImg || null,
+        whatsapp_template_sid: userData.whatsappTemplateSid || null,
+        whatsapp_phone: userData.whatsappPhone || null,
+        logo: userData.logo || null,
+        user_name: userData.name,
+        user_phone: userData.phone,
+        user_email: userData.email || null,
+        user_password: userData.password
       })
 
-      if (response.success && response.data) {
-        this.saveAuthData(response.data)
+      // API returns: { success, data: { token, user, tenant_id, clinic_name } }
+      const data = response?.data || response || {}
+      const token = data.token
+      const user  = data.user
+      const tenantId = data.tenant_id  // string like "tenant_test"
+
+      if (token) {
+        localStorage.setItem('auth_token', token)
+      }
+      if (user) {
+        localStorage.setItem('user', JSON.stringify(user))
+      }
+      if (tenantId) {
+        localStorage.setItem('tenant_id', tenantId)
       }
 
       return {
-        success: true,
-        data: response.data,
-        message: response.message
+        success: !!token,
+        data,
+        message: response?.message || 'Registration successful'
       }
     } catch (error) {
       return this.handleError(error)
@@ -57,7 +70,7 @@ class AuthService {
     try {
       console.log('auth.service.login called with phone:', phone)
       
-      const response = await apiClient.post('/auth/login', {
+      const response = await apiClient.post('/auth/smart-login', {
         phone,
         password
       })
@@ -65,12 +78,18 @@ class AuthService {
       console.log('API response:', response)
 
       if (response.success && response.data) {
-        this.saveAuthData(response.data)
+        // Save tenant_id along with other auth data
+        const authData = {
+          token: response.data.token || response.token,
+          user: response.data.user || response.user,
+          tenant_id: response.data.tenant_id || response.tenant_id
+        }
+        this.saveAuthData(authData)
       }
 
       return {
         success: true,
-        data: response.data,
+        data: response.data || response,
         message: response.message
       }
     } catch (error) {
@@ -171,7 +190,7 @@ class AuthService {
 
   /**
    * Save authentication data to localStorage
-   * @param {Object} data - Auth data (user, token, clinic)
+   * @param {Object} data - Auth data (user, token, clinic, tenant_id)
    */
   saveAuthData(data) {
     if (data.token) {
@@ -184,6 +203,14 @@ class AuthService {
 
     if (data.clinic) {
       localStorage.setItem(CLINIC_KEY, JSON.stringify(data.clinic))
+    }
+    
+    if (data.tenant) {
+      localStorage.setItem(CLINIC_KEY, JSON.stringify(data.tenant))
+    }
+
+    if (data.tenant_id) {
+      localStorage.setItem('tenant_id', data.tenant_id)
     }
 
     if (data.expires_in) {
@@ -200,6 +227,7 @@ class AuthService {
     localStorage.removeItem(USER_KEY)
     localStorage.removeItem(CLINIC_KEY)
     localStorage.removeItem(TOKEN_EXPIRES_KEY)
+    localStorage.removeItem('tenant_id')
     
     // Clear old token keys for backward compatibility
     localStorage.removeItem('tokinn')

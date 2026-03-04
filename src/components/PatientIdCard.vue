@@ -89,7 +89,7 @@
           variant="flat"
           prepend-icon="mdi-whatsapp"
           @click="handleWhatsApp"
-          :loading="isSendingWhatsApp"
+          :loading="isSendingWhatsAppLocal"
           :disabled="isProcessing || !isReady || !hasPhone"
           class="whatsapp-btn"
           elevation="2"
@@ -155,6 +155,7 @@ const qrCanvasRef = ref(null)
 const isLoading = ref(false)
 const isDownloading = ref(false)
 const isPrinting = ref(false)
+const isSendingWhatsAppLocal = ref(false)
 const errorMessage = ref(null)
 const qrCodeContent = ref(null)
 const isQrGenerated = ref(false)
@@ -195,7 +196,7 @@ const isProcessing = computed(() => {
          isPrintingExport.value || 
          isDownloading.value || 
          isPrinting.value || 
-         isSendingWhatsApp.value
+         isSendingWhatsAppLocal.value
 })
 
 // Methods
@@ -218,54 +219,93 @@ const initializeCard = async () => {
   isQrGenerated.value = false
 
   try {
-    // Get public profile settings
-    let profileData = null
-    
-    try {
-      const response = await patientService.getPublicProfile(props.patient.id)
-      profileData = response.data || response
-      console.log('Public profile response:', profileData)
-    } catch (err) {
-      console.log('Failed to get profile, trying to enable:', err)
-      // If profile doesn't exist or is disabled, try to enable it
-      if (err.response?.status === 400 || err.response?.status === 404) {
-        try {
-          const enableResponse = await patientService.enablePublicProfile(props.patient.id)
-          profileData = enableResponse.data || enableResponse
-          console.log('Profile enabled:', profileData)
-        } catch (enableErr) {
-          console.error('Failed to enable profile:', enableErr)
-          // Don't throw - use fallback instead
-          profileData = null
-        }
-      } else {
-        console.error('API error:', err)
-        // Don't throw - use fallback instead
-        profileData = null
-      }
-    }
-
     // Extract QR code content from response
     // IMPORTANT: QR code should point to FRONTEND app, not API
     const frontendBaseUrl = window.location.origin // e.g., https://app.smartclinic.software
+    const tenantId = localStorage.getItem('tenant_id') || localStorage.getItem('clinic_id')
     
-    if (profileData?.public_token) {
-      // Use frontend URL with token
-      qrCodeContent.value = `${frontendBaseUrl}/public/patient/${profileData.public_token}`
-    } else if (profileData?.qr_code_content) {
-      // If backend provides a custom URL, use it
-      qrCodeContent.value = profileData.qr_code_content
-    } else if (profileData?.public_profile_url) {
-      // Replace API URL with frontend URL if needed
-      const token = profileData.public_profile_url.split('/').pop()
-      qrCodeContent.value = `${frontendBaseUrl}/public/patient/${token}`
+    console.log('🔧 Building QR URL with tenant:', tenantId)
+    console.log('📋 Patient data:', props.patient)
+    
+    let finalToken = null
+    
+    // Check if patient already has public_token in props
+    if (props.patient?.public_token) {
+      finalToken = props.patient.public_token
+      console.log('✅ Using public_token from patient props:', finalToken)
     } else {
-      // Fallback: use patient ID (for development/testing)
-      console.warn('No QR content in response, using fallback URL')
-      qrCodeContent.value = `${frontendBaseUrl}/public/patient/patient-${props.patient.id}`
+      // Need to fetch or generate public profile token
+      console.log('🔄 No public_token in props, fetching/generating...')
+      let profileData = null
+      
+      try {
+        console.log('📡 Attempting to get public profile...')
+        const response = await patientService.getPublicProfile(props.patient.id)
+        profileData = response.data || response
+        console.log('✅ Public profile response:', profileData)
+        
+        if (profileData?.public_token) {
+          finalToken = profileData.public_token
+          console.log('✅ Got public_token from API:', finalToken)
+        }
+      } catch (err) {
+        console.log('⚠️ Failed to get profile (status: ' + err.response?.status + '), trying to enable...')
+        
+        // Profile doesn't exist or is disabled - try to enable/create it
+        try {
+          console.log('🔄 Attempting to enable/generate public profile...')
+          const enableResponse = await patientService.enablePublicProfile(props.patient.id)
+          profileData = enableResponse.data || enableResponse
+          console.log('✅ Profile enabled/generated:', profileData)
+          
+          if (profileData?.public_token) {
+            finalToken = profileData.public_token
+            console.log('✅ Got new public_token:', finalToken)
+          }
+        } catch (enableErr) {
+          console.error('❌ Failed to enable profile:', enableErr)
+          console.error('Error details:', enableErr.response?.data)
+          
+          // Last attempt: check if error response contains token
+          if (enableErr.response?.data?.public_token) {
+            finalToken = enableErr.response.data.public_token
+            console.log('✅ Extracted token from error response:', finalToken)
+          }
+        }
+      }
+      
+      // Additional fallback checks
+      if (!finalToken && profileData) {
+        if (profileData.qr_code_content) {
+          // Extract token from qr_code_content URL if possible
+          const match = profileData.qr_code_content.match(/\/public\/patient\/([a-f0-9-]+)/i)
+          if (match && match[1]) {
+            finalToken = match[1]
+            console.log('✅ Extracted token from qr_code_content:', finalToken)
+          }
+        } else if (profileData.public_profile_url) {
+          // Extract token from public_profile_url
+          const token = profileData.public_profile_url.split('/').pop().split('?')[0]
+          if (token && token.length > 10) {
+            finalToken = token
+            console.log('✅ Extracted token from public_profile_url:', finalToken)
+          }
+        }
+      }
+    }
+    
+    // Build final QR URL
+    if (finalToken) {
+      qrCodeContent.value = `${frontendBaseUrl}/public/patient/${finalToken}${tenantId ? `?clinic=${tenantId}` : ''}`
+      console.log('✅ Successfully built QR URL with token')
+    } else {
+      // Ultimate fallback: use patient ID (should rarely happen)
+      console.warn('⚠️ No public_token could be obtained! Using fallback URL with patient ID.')
+      console.warn('This may not work properly. Backend should generate token.')
+      qrCodeContent.value = `${frontendBaseUrl}/public/patient/patient-${props.patient.id}${tenantId ? `?clinic=${tenantId}` : ''}`
     }
 
-    console.log('QR Code Content:', qrCodeContent.value)
+    console.log('📱 Final QR Code URL:', qrCodeContent.value)
 
     // Stop loading to render the card
     isLoading.value = false
@@ -384,29 +424,56 @@ const handleDownload = async () => {
  * Handle WhatsApp send action
  */
 const handleWhatsApp = async () => {
-  if (!idCardRef.value || !hasPhone.value) return
+  if (!hasPhone.value) {
+    alert(t('patientIdCard.noPhoneWarning'))
+    return
+  }
+
+  isSendingWhatsAppLocal.value = true
 
   try {
-    // Convert card to image
-    const dataUrl = await elementToDataUrl(idCardRef.value, { scale: 3 })
+    // Clean phone number (remove spaces and formatting)
+    let phone = patientPhone.value.replace(/\D/g, '')
+    
+    // Ensure phone starts with country code
+    if (!phone.startsWith('964')) {
+      // If starts with 0, replace with 964
+      if (phone.startsWith('0')) {
+        phone = '964' + phone.substring(1)
+      } else {
+        phone = '964' + phone
+      }
+    }
 
-    // Send via clipboard method (same as bills)
-    await sendViaClipboard({
-      dataUrl,
-      phone: patientPhone.value,
-      message: '',
-      filename: `بطاقة-${patientName.value}.png`
+    // Create message with profile link
+    const message = t('patientIdCard.whatsappMessage', {
+      name: patientName.value,
+      clinic: clinicName.value,
+      link: qrCodeContent.value
     })
 
-    // Show instruction to user
-    alert(t('patientIdCard.pasteInstruction'))
+    console.log('WhatsApp message:', message)
+    console.log('QR Code content:', qrCodeContent.value)
+
+    // Encode message for URL
+    const encodedMessage = encodeURIComponent(message)
+    
+    // Create WhatsApp URL
+    const whatsappUrl = `https://wa.me/${phone}?text=${encodedMessage}`
+    
+    // Open in new tab
+    window.open(whatsappUrl, '_blank')
+    
+    // Show success message
+    setTimeout(() => {
+      alert(t('patientIdCard.whatsappSuccess'))
+    }, 500)
+    
   } catch (err) {
     console.error('WhatsApp send failed:', err)
-    if (err.message === 'NO_PHONE') {
-      alert(t('patientIdCard.noPhoneWarning'))
-    } else {
-      alert(t('patientIdCard.errors.shareFailed'))
-    }
+    alert(t('patientIdCard.errors.shareFailed'))
+  } finally {
+    isSendingWhatsAppLocal.value = false
   }
 }
 

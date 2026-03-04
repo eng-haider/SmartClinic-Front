@@ -96,30 +96,39 @@
             class="mb-4"
           />
 
-          <!-- Appointment Type -->
-          <v-radio-group
-            v-model="bookingData.appointment_type"
-            inline
-            class="mb-4"
-          >
-            <v-radio
-              :label="$t('reservations.examination')"
-              value="examination"
-            />
-            <v-radio
-              :label="$t('reservations.other')"
-              value="other"
-            />
-          </v-radio-group>
+          <!-- Reservation Type -->
+          <div class="mb-1">
+            <div class="text-caption text-grey-darken-1 mb-2 font-weight-medium">
+              {{ $t('reservations.reservation_type') }}
+            </div>
+            <v-radio-group
+              v-model="bookingData.reservation_type_id"
+              inline
+              color="primary"
+              hide-details
+              class="mb-3"
+            >
+              <v-radio
+                v-for="rt in reservationTypes"
+                :key="rt.id"
+                :label="rt.name"
+                :value="rt.id"
+                color="primary"
+              />
+            </v-radio-group>
+          </div>
 
-          <!-- Notes (for Other type) -->
+          <!-- Reservation Type Note (when type != 1) -->
           <v-textarea
-            v-if="bookingData.appointment_type === 'other'"
-            v-model="bookingData.notes"
-            :label="$t('reservations.notes')"
+            v-if="bookingData.reservation_type_id && bookingData.reservation_type_id !== 1"
+            v-model="bookingData.reservation_type_note"
+            :label="$t('reservations.reservation_type_note')"
             variant="outlined"
             density="comfortable"
-            rows="3"
+            rows="2"
+            auto-grow
+            prepend-inner-icon="mdi-note-text-outline"
+            color="primary"
             class="mb-4"
           />
 
@@ -175,6 +184,7 @@ import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import reservationService from '@/services/reservation.service'
+import api from '@/services/api'
 
 const props = defineProps({
   modelValue: {
@@ -212,13 +222,19 @@ const bookingForm = ref(null)
 
 const patientSearch = ref('')
 const patientOptions = ref([])
+const reservationTypes = ref([
+  { id: 1, name: t('reservations.examination') },
+  { id: 2, name: t('reservations.other') }
+])
+const loadingTypes = ref(false)
 
 const bookingData = ref({
   patient: null,
   doctor_id: null,
   date: null,
   from_time: '09:00',
-  appointment_type: 'examination',
+  reservation_type_id: 1,
+  reservation_type_note: '',
   notes: '',
   sendWhatsApp: false
 })
@@ -282,7 +298,8 @@ const resetForm = () => {
     doctor_id: props.defaultDoctorId,
     date: props.selectedDate || formatDateISO(new Date()),
     from_time: '09:00',
-    appointment_type: 'examination',
+    reservation_type_id: reservationTypes.value[0]?.id || 1,
+    reservation_type_note: '',
     notes: '',
     sendWhatsApp: false
   }
@@ -318,9 +335,9 @@ const handleSave = async () => {
       reservation_start_date: bookingData.value.date,
       reservation_end_date: bookingData.value.date,
       reservation_from_time: fromTime,
-      notes: bookingData.value.appointment_type === 'examination' 
-        ? t('reservations.examination')
-        : bookingData.value.notes,
+      reservation_type_id: bookingData.value.reservation_type_id || null,
+      reservation_type_note: bookingData.value.reservation_type_id !== 1 ? bookingData.value.reservation_type_note : '',
+      notes: bookingData.value.notes,
       is_waiting: false
     }
     
@@ -355,6 +372,21 @@ const loadInitialPatients = async () => {
     console.error('Failed to load patients:', error)
   } finally {
     searchingPatients.value = false
+  }
+}
+
+const loadReservationTypes = async () => {
+  try {
+    const response = await api.get('/reservation-types')
+    const data = response.data?.data || response.data || []
+    if (data.length) {
+      reservationTypes.value = data
+    }
+    if (!bookingData.value.reservation_type_id && reservationTypes.value.length) {
+      bookingData.value.reservation_type_id = reservationTypes.value[0].id
+    }
+  } catch (e) {
+    console.error('Failed to load reservation types, using defaults:', e)
   }
 }
 
@@ -404,6 +436,7 @@ watch(patientSearch, (newVal) => {
 
 watch(() => props.modelValue, (newVal) => {
   if (newVal) {
+    loadReservationTypes()
     resetForm()
   }
 })

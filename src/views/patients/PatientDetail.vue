@@ -16,8 +16,8 @@
       <v-card class="mb-4" elevation="2">
         <v-card-text>
           <div class="patient-header">
-            <!-- Patient Avatar -->
-            <v-avatar size="100" class="patient-avatar">
+            <!-- Patient Avatar (hidden on mobile) -->
+            <v-avatar size="100" class="patient-avatar d-none d-sm-block">
               <v-img
                 v-if="patient.photo"
                 :src="getPhotoUrl(patient.photo)"
@@ -122,91 +122,79 @@
         </v-card-text>
       </v-card>
 
-      <!-- Quick Stats -->
-      <div class="stats-container mb-4">
-        <div class="stats-scroll">
-          <!-- Cases Stats - only show if user can view cases -->
-          <v-card v-if="canViewCases" elevation="1" class="stats-card">
-            <v-card-text class="text-center">
-              <v-icon size="36" color="primary">mdi-tooth</v-icon>
-              <h3 class="text-h5 font-weight-bold mt-2">{{ patientCases.length }}</h3>
-              <p class="text-caption text-grey">{{ $t('patients.totalCases') }}</p>
+      <!-- Quick Stats - Grid Layout -->
+      <v-row class="mb-4" dense>
+        <!-- Cases Stats -->
+        <v-col v-if="canViewCases" cols="6" sm="4" md="2">
+          <v-card elevation="1" rounded="lg" class="stat-card-mini fill-height">
+            <v-card-text class="pa-3 text-center">
+              <v-icon size="24" color="primary">mdi-tooth</v-icon>
+              <div class="text-h5 font-weight-bold mt-1">{{ patientCases.length }}</div>
+              <div class="text-caption text-grey" style="line-height: 1.2;">{{ $t('patients.totalCases') }}</div>
             </v-card-text>
           </v-card>
+        </v-col>
 
+        <!-- Last Visit (hidden on mobile) -->
+        <v-col cols="6" sm="4" md="2" class="d-none d-sm-block">
+          <v-card elevation="1" rounded="lg" class="stat-card-mini fill-height">
+            <v-card-text class="pa-3 text-center">
+              <v-icon size="24" color="info">mdi-calendar</v-icon>
+              <div class="text-h6 font-weight-bold mt-1">{{ formatDate(patient.last_visit) || '-' }}</div>
+              <div class="text-caption text-grey" style="line-height: 1.2;">{{ $t('patients.lastVisit') }}</div>
+            </v-card-text>
+          </v-card>
+        </v-col>
 
-              <v-card elevation="1" class="stats-card">
-            <v-card-text class="text-center">
-              <v-icon size="36" color="info">mdi-calendar</v-icon>
-              <h3 class="text-h5 font-weight-bold mt-2">{{ formatDate(patient.last_visit) || '-' }}</h3>
-              <p class="text-caption text-grey">{{ $t('patients.lastVisit') }}</p>
+        <!-- Bills Stats -->
+        <v-col v-if="canViewBills" cols="6" sm="4" md="2">
+          <v-card elevation="1" rounded="lg" class="stat-card-mini fill-height">
+            <v-card-text class="pa-3 text-center">
+              <v-icon size="24" color="info">mdi-cash-multiple</v-icon>
+              <div class="text-h5 font-weight-bold mt-1">{{ formatCurrency(totalBills) }}</div>
+              <div class="text-caption text-grey" style="line-height: 1.2;">{{ $t('patients.totalBills') }}</div>
             </v-card-text>
           </v-card>
-          
-          <!-- Bills Stats - only show if user can view bills -->
-          <v-card v-if="canViewBills" elevation="1" class="stats-card">
-            <v-card-text class="text-center">
-              <v-icon size="36" color="info">mdi-cash-multiple</v-icon>
-              <h3 class="text-h5 font-weight-bold mt-2">{{ formatCurrency(totalBills) }}</h3>
-              <p class="text-caption text-grey">{{ $t('patients.totalBills') }}</p>
-            </v-card-text>
-          </v-card>
-          
-          <v-card v-if="canViewBills" elevation="1" class="stats-card">
-            <v-card-text class="text-center">
-              <v-icon size="36" color="success">mdi-check-circle</v-icon>
-              <h3 class="text-h5 font-weight-bold mt-2">{{ formatCurrency(totalPaid) }}</h3>
-              <p class="text-caption text-grey">{{ $t('patients.paidBills') }}</p>
-            </v-card-text>
-          </v-card>
-          
-          <v-card v-if="canViewBills" elevation="1" class="stats-card">
-            <v-card-text class="text-center">
-              <v-icon size="36" color="warning">mdi-cash-clock</v-icon>
-              <h3 class="text-h5 font-weight-bold mt-2">{{ formatCurrency(totalUnpaid) }}</h3>
-              <p class="text-caption text-grey">{{ $t('patients.remainingAmount') }}</p>
-            </v-card-text>
-          </v-card>
-          
-      
-        </div>
-      </div>
+        </v-col>
 
-      <!-- Tabs Section -->
-      <v-card elevation="2">
-        <v-tabs v-model="activeTab" color="primary" grow>
-          <v-tab v-if="canViewCases" value="teeth">
-            <v-icon start>mdi-tooth</v-icon>
-            {{ $t('patients.teethChart') }}
-            <v-badge v-if="patientCases.length" :content="patientCases.length" color="primary" inline class="ml-2" />
-          </v-tab>
-          <!-- Separate Bills Tab - only show if user has bills but NO cases permission -->
-          <v-tab v-if="canViewBills && !canViewCases" value="bills">
-            <v-icon start>mdi-receipt</v-icon>
-            {{ $t('patients.bill') }}
-            <v-badge v-if="patientBills.length" :content="patientBills.length" color="success" inline class="ml-2" />
-          </v-tab>
-          <v-tab v-if="canViewRecipes" value="recipes">
-            <v-icon start>mdi-pill</v-icon>
-            {{ $t('recipes.title') }}
-            <v-badge v-if="patientRecipes.length" :content="patientRecipes.length" color="warning" inline class="ml-2" />
-          </v-tab>
-          <v-tab v-if="canViewNotes" value="notes">
-            <v-icon start>mdi-note-text</v-icon>
-            {{ $t('patients.notes') }}
-          </v-tab>
-          <v-tab value="images">
-            <v-icon start>mdi-image-multiple</v-icon>
-            {{ $t('patients.images') }}
-          </v-tab>
-        </v-tabs>
+        <v-col v-if="canViewBills" cols="6" sm="4" md="2">
+          <v-card elevation="1" rounded="lg" class="stat-card-mini fill-height">
+            <v-card-text class="pa-3 text-center">
+              <v-icon size="24" color="success">mdi-check-circle</v-icon>
+              <div class="text-h5 font-weight-bold mt-1">{{ formatCurrency(totalPaid) }}</div>
+              <div class="text-caption text-grey" style="line-height: 1.2;">{{ $t('patients.paidBills') }}</div>
+            </v-card-text>
+          </v-card>
+        </v-col>
 
-        <v-tabs-window v-model="activeTab">
-          <!-- Teeth Chart Tab with Cases & Bills -->
-          <v-tabs-window-item v-if="canViewCases" value="teeth">
-            <v-card-text>
-              <!-- Teeth Chart -->
+        <v-col v-if="canViewBills" cols="6" sm="4" md="2">
+          <v-card elevation="1" rounded="lg" class="stat-card-mini fill-height">
+            <v-card-text class="pa-3 text-center">
+              <v-icon size="24" color="warning">mdi-cash-clock</v-icon>
+              <div class="text-h5 font-weight-bold mt-1">{{ formatCurrency(totalUnpaid) }}</div>
+              <div class="text-caption text-grey" style="line-height: 1.2;">{{ $t('patients.remainingAmount') }}</div>
+            </v-card-text>
+          </v-card>
+        </v-col>
+      </v-row>
+
+      <!-- Teeth Chart Section (No Tabs) -->
+      <v-card v-if="canViewCases" elevation="2" rounded="lg" class="mb-4">
+        <v-card-text class="pa-3 pa-sm-4">
+              <!-- Teeth Chart - Mobile version for small screens -->
+              <TeethChartMobile
+                v-if="isMobile"
+                :categories="categories"
+                :patient-cases="patientCases"
+                :patient-data="patient"
+                @tooth-selected="handleToothSelected"
+                @case-added="handleCaseAdded"
+                @color-changed="handleToothColorChanged"
+              />
+
+              <!-- Teeth Chart - Desktop version for larger screens -->
               <TeethChart
+                v-else
                 :categories="categories"
                 :patient-cases="patientCases"
                 :patient-data="patient"
@@ -216,14 +204,50 @@
                 @general-examination="openGeneralExamination"
                 @color-changed="handleToothColorChanged"
               />
+        </v-card-text>
+      </v-card>
 
-              <!-- Cases Section -->
-              <v-divider class="my-6" />
+      <!-- General Patient Note -->
+      <v-card elevation="2" rounded="lg" class="mb-4">
+        <v-card-title class="d-flex align-center ga-2 py-3 px-4">
+          <v-icon color="primary" size="20">mdi-note-text-outline</v-icon>
+          <span class="text-subtitle-1 font-weight-bold">{{ $t('patients.general_note') }}</span>
+        </v-card-title>
+        <v-divider />
+        <v-card-text class="pa-4">
+          <v-textarea
+            v-model="patientNote"
+            :placeholder="$t('patients.general_note_hint')"
+            variant="outlined"
+            auto-grow
+            rows="3"
+            hide-details
+            :readonly="!canEditPatient"
+            prepend-inner-icon="mdi-pencil-outline"
+            color="primary"
+          />
+        </v-card-text>
+        <v-card-actions v-if="canEditPatient" class="px-4 pb-4 pt-0 justify-end">
+          <v-btn
+            color="primary"
+            variant="elevated"
+            :loading="savingPatientNote"
+            prepend-icon="mdi-content-save"
+            @click="savePatientNote"
+          >
+            {{ $t('common.save') }}
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+
+      <!-- Cases Section -->
+      <v-card v-if="canViewCases" elevation="2" rounded="lg" class="mb-4">
+        <v-card-text class="pa-3 pa-sm-4">
               <div class="d-flex justify-space-between align-center mb-4">
-                <h3 class="text-h6 font-weight-bold">
-                  <v-icon start color="primary">mdi-clipboard-list</v-icon>
+                <h3 class="text-subtitle-1 font-weight-bold">
+                  <v-icon start color="primary" size="20">mdi-clipboard-list</v-icon>
                   {{ $t('patients.cases') }}
-                  <v-chip size="small" color="primary" variant="tonal" class="ml-2">{{ patientCases.length }}</v-chip>
+                  <v-chip size="x-small" color="primary" variant="tonal" class="ml-1">{{ patientCases.length }}</v-chip>
                 </h3>
               </div>
 
@@ -231,10 +255,12 @@
                 :headers="caseHeaders"
                 :items="filteredCases"
                 :search="caseSearch"
-                :items-per-page="10"
-                class="elevation-1 rounded-lg"
+                :items-per-page="-1"
+                class="elevation-0 rounded-lg cases-table-compact"
                 density="compact"
                 mobile-breakpoint="md"
+                :hide-default-footer="true"
+                :sort-by="[]"
               >
                 <template #item.tooth_num="{ item }">
                   <v-chip
@@ -393,18 +419,21 @@
                   </v-btn>
                 </template>
               </v-data-table>
+        </v-card-text>
+      </v-card>
 
               <!-- Case Photos Section -->
-              <v-card variant="outlined" class="mt-4 pa-4" rounded="lg">
-                <div class="d-flex justify-space-between align-center mb-3">
-                  <h4 class="text-subtitle-1 font-weight-bold">
-                    <v-icon start color="primary" size="20">mdi-image-multiple</v-icon>
-                    {{ $t('patients.casePhotos') || 'Case Photos' }}
-                  </h4>
-                  <v-chip size="small" color="primary" variant="tonal">
-                    {{ casePhotos.length }}
-                  </v-chip>
-                </div>
+      <v-card v-if="canViewCases" elevation="2" rounded="lg" class="mb-4">
+        <v-card-text class="pa-3 pa-sm-4">
+              <div class="d-flex justify-space-between align-center mb-3">
+                <h4 class="text-subtitle-1 font-weight-bold">
+                  <v-icon start color="primary" size="20">mdi-image-multiple</v-icon>
+                  {{ $t('patients.casePhotos') || 'Case Photos' }}
+                </h4>
+                <v-chip size="small" color="primary" variant="tonal">
+                  {{ casePhotos.length }}
+                </v-chip>
+              </div>
 
                 <!-- Drop Zone -->
                 <div
@@ -487,37 +516,34 @@
                     </v-card>
                   </v-col>
                 </v-row>
-              </v-card>
+        </v-card-text>
+      </v-card>
 
-              <!-- Bills Section -->
-              <template v-if="canViewBills">
-                <v-divider class="my-6" />
-                <div class="d-flex align-center justify-space-between mb-4 flex-wrap">
-                  <h3 class="text-h6 font-weight-bold">
-                    <v-icon start color="success">mdi-receipt</v-icon>
-                    {{ $t('patients.bill') }}
-                  </h3>
-                  <div class="d-flex ga-2 flex-wrap">
-                    <v-chip color="info" size="small" variant="flat">
-                      {{ $t('patients.totalCases') || 'Total Cases' }}: {{ formatCurrency(totalBills) }}
-                    </v-chip>
-                    <v-chip color="success" size="small" variant="flat">
-                      {{ $t('caseManagement.totalPaid') }}: {{ formatCurrency(totalPaid) }}
-                    </v-chip>
-                    <v-chip color="warning" size="small" variant="flat">
-                      {{ $t('caseManagement.totalUnpaid') }}: {{ formatCurrency(totalUnpaid) }}
-                    </v-chip>
-                  </div>
+      <!-- Bills Section -->
+      <v-card v-if="canViewBills" elevation="2" rounded="lg" class="mb-4">
+        <v-card-text class="pa-3 pa-sm-4">
+              <div class="d-flex align-center justify-space-between mb-3 flex-wrap ga-2">
+                <h3 class="text-subtitle-1 font-weight-bold">
+                  <v-icon start color="success" size="20">mdi-receipt</v-icon>
+                  {{ $t('patients.bill') }}
+                </h3>
+                <div class="d-flex ga-1 flex-wrap">
+                  <v-chip color="info" size="x-small" variant="flat">
+                    {{ formatCurrency(totalBills) }}
+                  </v-chip>
+                  <v-chip color="success" size="x-small" variant="flat">
+                    {{ formatCurrency(totalPaid) }}
+                  </v-chip>
+                  <v-chip color="warning" size="x-small" variant="flat">
+                    {{ formatCurrency(totalUnpaid) }}
+                  </v-chip>
                 </div>
+              </div>
 
-                <!-- Add Bill Form -->
-                <v-card v-if="canCreateBill" variant="outlined" class="mb-4 pa-5" rounded="lg" elevation="1">
-                  <div class="d-flex align-center mb-4">
-                    <v-icon color="primary" size="28" class="mr-2">mdi-cash-plus</v-icon>
-                    <h4 class="text-h6 font-weight-bold">{{ $t('caseManagement.createBill') }}</h4>
-                  </div>
-                  <v-row align="center">
-                  <v-col cols="12" md="6">
+              <!-- Compact Add Bill Form -->
+              <v-card v-if="canCreateBill" variant="outlined" class="mb-3 pa-3" rounded="lg">
+                <v-row dense align="center">
+                  <v-col cols="12" sm="5">
                     <v-select
                       v-model="newBill.case_id"
                       :items="unpaidCases"
@@ -525,94 +551,54 @@
                       item-value="id"
                       :label="$t('caseManagement.selectCase')"
                       variant="outlined"
-                      density="default"
+                      density="compact"
                       prepend-inner-icon="mdi-clipboard-list"
                       :no-data-text="$t('patients.no_unpaid_cases') || 'No unpaid cases'"
                       color="primary"
-                      class="case-select"
-                      :menu-props="{ maxHeight: 400 }"
+                      class="case-select-compact"
+                      :menu-props="{ maxHeight: 300 }"
+                      hide-details
                     >
                       <template #selection="{ item }">
-                        <div class="d-flex align-center flex-wrap ga-2 py-1">
-                          <v-chip 
-                            size="default" 
-                            :color="item.raw.category?.color || 'primary'" 
-                            variant="flat"
-                            class="font-weight-medium"
-                          >
+                        <div class="d-flex align-center ga-1">
+                          <v-chip size="x-small" :color="item.raw.category?.color || 'primary'" variant="flat">
                             {{ item.raw.category?.name || getCategoryName(item.raw.case_categores_id) }}
                           </v-chip>
-                          <v-chip v-if="item.raw.tooth_num" size="default" color="info" variant="tonal">
-                            <v-icon start size="16">mdi-tooth</v-icon>
-                            {{ item.raw.tooth_num }}
-                          </v-chip>
-                          <div class="d-flex align-center ga-2">
-                            <span class="text-body-2 text-grey-darken-1">
-                              {{ formatNumberWithCommas(item.raw.price) }} IQD
-                            </span>
-                            <v-chip 
-                              v-if="getRemainingAmount(item.raw) > 0" 
-                              size="small" 
-                              color="warning" 
-                              variant="flat"
-                              class="font-weight-bold"
-                            >
-                              {{ $t('patients.remaining') }}: {{ formatNumberWithCommas(getRemainingAmount(item.raw)) }}
-                            </v-chip>
-                          </div>
+                          <span v-if="item.raw.tooth_num" class="text-caption">#{{ item.raw.tooth_num }}</span>
+                          <span class="text-caption text-grey-darken-1">{{ formatNumberWithCommas(getRemainingAmount(item.raw)) }} IQD</span>
                         </div>
                       </template>
                       <template #item="{ props, item }">
                         <v-list-item 
                           v-bind="props" 
-                          class="py-3 px-4"
+                          class="py-2 px-3"
                           :title="null"
                           :subtitle="null"
+                          density="compact"
                         >
-                          <div class="case-item-content">
-                            <!-- Category & Tooth Row -->
-                            <div class="d-flex align-center flex-wrap ga-2 mb-2">
-                              <v-chip 
-                                size="default" 
-                                :color="item.raw.category?.color || 'primary'" 
-                                variant="flat"
-                                class="font-weight-bold"
-                              >
+                          <div class="case-item-compact">
+                            <div class="d-flex align-center ga-1 mb-1">
+                              <v-chip size="x-small" :color="item.raw.category?.color || 'primary'" variant="flat">
                                 {{ item.raw.category?.name || getCategoryName(item.raw.case_categores_id) }}
                               </v-chip>
-                              <v-chip v-if="item.raw.tooth_num" size="default" color="info" variant="tonal">
-                                <v-icon start size="16">mdi-tooth</v-icon>
-                                {{ $t('patients.tooth') }} {{ item.raw.tooth_num }}
+                              <v-chip v-if="item.raw.tooth_num" size="x-small" color="info" variant="tonal">
+                                <v-icon start size="10">mdi-tooth</v-icon>
+                                {{ item.raw.tooth_num }}
                               </v-chip>
                             </div>
-                            <!-- Price & Date Row -->
-                            <div class="d-flex align-center flex-wrap ga-3">
-                              <span class="text-body-2 text-grey-darken-1">
-                                <v-icon size="16" class="mr-1">mdi-calendar</v-icon>
-                                {{ formatDate(item.raw.created_at) }}
-                              </span>
-                              <span class="text-body-1 font-weight-bold text-success">
-                                <v-icon size="18" class="mr-1">mdi-cash</v-icon>
-                                {{ formatNumberWithCommas(item.raw.price) }} IQD
-                              </span>
+                            <div class="d-flex align-center ga-2">
+                              <span class="text-caption text-grey-darken-1">{{ formatNumberWithCommas(item.raw.price) }} IQD</span>
                               <v-chip 
                                 v-if="getRemainingAmount(item.raw) > 0" 
-                                size="small" 
+                                size="x-small" 
                                 color="warning" 
                                 variant="flat"
-                                class="font-weight-bold"
                               >
-                                <v-icon start size="14">mdi-alert-circle</v-icon>
-                                {{ $t('patients.remaining') }}: {{ formatNumberWithCommas(getRemainingAmount(item.raw)) }} IQD
+                                {{ $t('patients.remaining') }}: {{ formatNumberWithCommas(getRemainingAmount(item.raw)) }}
                               </v-chip>
-                              <v-chip 
-                                v-else
-                                size="small" 
-                                color="success" 
-                                variant="outlined"
-                              >
-                                <v-icon start size="14">mdi-check-circle</v-icon>
-                                {{ $t('patients.fullyPaid') || 'Fully Paid' }}
+                              <v-chip v-else size="x-small" color="success" variant="outlined">
+                                <v-icon start size="10">mdi-check-circle</v-icon>
+                                {{ $t('patients.fullyPaid') || 'Paid' }}
                               </v-chip>
                             </div>
                           </div>
@@ -620,35 +606,33 @@
                       </template>
                     </v-select>
                   </v-col>
-                  <v-col cols="12" md="4">
+                  <v-col cols="7" sm="4">
                     <v-text-field 
                       :model-value="formatNumberWithCommas(newBill.price)"
                       @update:model-value="newBill.price = parseFormattedNumber($event)"
                       :label="$t('cases.price')"
                       type="text"
                       variant="outlined"
-                      density="default"
+                      density="compact"
                       prepend-inner-icon="mdi-currency-usd"
-                      :hint="selectedCaseRemainingAmount > 0 ? `${$t('patients.remaining')}: ${formatNumberWithCommas(selectedCaseRemainingAmount)} IQD` : ''"
-                      persistent-hint
                       suffix="IQD"
                       :color="newBill.price > selectedCaseRemainingAmount ? 'error' : 'primary'"
                       :error="newBill.price > selectedCaseRemainingAmount"
-                      :error-messages="newBill.price > selectedCaseRemainingAmount ? $t('validation.billPriceExceedsRemaining') : ''"
-                      class="price-input"
+                      hide-details="auto"
+                      class="price-input-compact"
                     />
                   </v-col>
-                  <v-col cols="12" md="2">
+                  <v-col cols="5" sm="3">
                     <v-btn 
                       color="primary" 
                       block 
-                      size="x-large"
+                      size="default"
                       @click="createBill" 
                       :loading="addingBill" 
                       :disabled="!newBill.case_id || !newBill.price || newBill.price > selectedCaseRemainingAmount"
-                      class="text-body-1"
+                      rounded="lg"
                     >
-                      <v-icon start size="24">mdi-cash-plus</v-icon>
+                      <v-icon start size="18">mdi-plus</v-icon>
                       {{ $t('common.add') }}
                     </v-btn>
                   </v-col>
@@ -659,10 +643,11 @@
               <v-data-table
                 :headers="billHeaders"
                 :items="patientBills"
-                :items-per-page="5"
-                class="elevation-1 rounded-lg"
+                :items-per-page="-1"
+                class="elevation-0 rounded-lg bills-table-compact"
                 density="compact"
                 mobile-breakpoint="md"
+                :hide-default-footer="true"
               >
                 <template #item.category="{ item }">
                   <v-chip 
@@ -673,7 +658,7 @@
                   >
                     {{ getBillableCategoryName(item) }}
                   </v-chip>
-                  <span v-else class="text-grey">-</span>
+                  <span v-else class="text-grey text-body-2">-</span>
                 </template>
                 <template #item.tooth_num="{ item }">
                   <v-chip
@@ -685,19 +670,14 @@
                     <v-icon start size="14">mdi-tooth</v-icon>
                     {{ item.billable.tooth_num }}
                   </v-chip>
-                  <span v-else class="text-grey">{{ $t('patients.general') }}</span>
+                  <span v-else class="text-grey text-body-2">{{ $t('patients.general') }}</span>
                 </template>
                 <template #item.doctor="{ item }">
-                  <div v-if="item.billable?.doctor" class="d-flex align-center">
-                    <v-avatar size="24" color="primary" class="mr-2">
-                      <v-icon size="14" color="white">mdi-doctor</v-icon>
-                    </v-avatar>
-                    <span class="text-body-2">{{ item.billable.doctor.name }}</span>
-                  </div>
-                  <span v-else class="text-grey">{{ $t('common.not_assigned') }}</span>
+                  <span v-if="item.billable?.doctor" class="text-body-2">{{ item.billable.doctor.name }}</span>
+                  <span v-else class="text-grey text-body-2">-</span>
                 </template>
                 <template #item.price="{ item }">
-                  <span class="font-weight-bold">{{ formatCurrency(item.price) }}</span>
+                  <span class="font-weight-bold text-body-2">{{ formatCurrency(item.price) }}</span>
                 </template>
                 <template #item.is_paid="{ item }">
                   <v-chip 
@@ -706,407 +686,34 @@
                     class="cursor-pointer"
                     @click="canMarkBillPaid ? toggleBillPayment(item) : null"
                   >
-                    <v-icon start size="14">{{ item.is_paid ? 'mdi-check-circle' : 'mdi-clock' }}</v-icon>
+                    <v-icon start size="12">{{ item.is_paid ? 'mdi-check-circle' : 'mdi-clock' }}</v-icon>
                     {{ item.is_paid ? $t('cases.paid') : $t('cases.unpaid') }}
                   </v-chip>
                 </template>
-                <template #item.created_at="{ item }">{{ formatDate(item.created_at) }}</template>
+                <template #item.created_at="{ item }">
+                  <span class="text-body-2">{{ formatDate(item.created_at) }}</span>
+                </template>
                 <template #item.actions="{ item }">
-                  <v-btn v-if="canMarkBillPaid" icon variant="text" size="small" :color="item.is_paid ? 'warning' : 'success'" @click="toggleBillPayment(item)">
-                    <v-icon>{{ item.is_paid ? 'mdi-cash-remove' : 'mdi-cash-plus' }}</v-icon>
-                    <v-tooltip activator="parent">{{ item.is_paid ? $t('caseManagement.markUnpaid') : $t('caseManagement.markPaid') }}</v-tooltip>
-                  </v-btn>
-                  <v-btn v-if="canDeleteBill" icon variant="text" size="small" color="error" @click="deleteBill(item)">
-                    <v-icon>mdi-delete</v-icon>
-                  </v-btn>
+                  <div class="d-flex ga-0">
+                    <v-btn v-if="canMarkBillPaid" icon variant="text" size="small" :color="item.is_paid ? 'warning' : 'success'" @click="toggleBillPayment(item)">
+                      <v-icon size="16">{{ item.is_paid ? 'mdi-cash-remove' : 'mdi-cash-plus' }}</v-icon>
+                    </v-btn>
+                    <v-btn v-if="canDeleteBill" icon variant="text" size="small" color="error" @click="deleteBill(item)">
+                      <v-icon size="16">mdi-delete</v-icon>
+                    </v-btn>
+                  </div>
                 </template>
                 <template #no-data>
-                  <div class="text-center py-4 text-grey">
-                    <v-icon size="48" color="grey-lighten-2">mdi-receipt-text-outline</v-icon>
-                    <p class="mt-2">{{ $t('patients.no_bills') }}</p>
+                  <div class="text-center py-3 text-grey">
+                    <v-icon size="36" color="grey-lighten-2">mdi-receipt-text-outline</v-icon>
+                    <p class="text-caption mt-1">{{ $t('patients.no_bills') }}</p>
                   </div>
                 </template>
               </v-data-table>
-              </template>
-            </v-card-text>
-          </v-tabs-window-item>
-
-          <!-- Standalone Bills Tab - for users with bills permission but NO cases permission -->
-          <v-tabs-window-item v-if="canViewBills && !canViewCases" value="bills">
-            <v-card-text>
-              <!-- Bills Section -->
-              <template v-if="canViewBills">
-                <div class="d-flex align-center justify-space-between mb-4 flex-wrap">
-                  <h3 class="text-h6 font-weight-bold">
-                    <v-icon start color="success">mdi-receipt</v-icon>
-                    {{ $t('patients.bill') }}
-                  </h3>
-                  <div class="d-flex ga-2 flex-wrap">
-                    <v-chip color="info" size="small" variant="flat">
-                      {{ $t('patients.totalCases') || 'Total Cases' }}: {{ formatCurrency(totalBills) }}
-                    </v-chip>
-                    <v-chip color="success" size="small" variant="flat">
-                      {{ $t('caseManagement.totalPaid') }}: {{ formatCurrency(totalPaid) }}
-                    </v-chip>
-                    <v-chip color="warning" size="small" variant="flat">
-                      {{ $t('caseManagement.totalUnpaid') }}: {{ formatCurrency(totalUnpaid) }}
-                    </v-chip>
-                  </div>
-                </div>
-
-                <!-- Add Bill Form -->
-                <v-card v-if="canCreateBill" variant="outlined" class="mb-4 pa-5" rounded="lg" elevation="1">
-                  <div class="d-flex align-center mb-4">
-                    <v-icon color="primary" size="28" class="mr-2">mdi-cash-plus</v-icon>
-                    <h4 class="text-h6 font-weight-bold">{{ $t('caseManagement.createBill') }}</h4>
-                  </div>
-                  <v-row align="center">
-                    <v-col cols="12" md="6">
-                      <v-select
-                        v-model="newBill.case_id"
-                        :items="unpaidCases"
-                        :item-title="getCaseBillingTitle"
-                        item-value="id"
-                        :label="$t('caseManagement.selectCase')"
-                        variant="outlined"
-                        density="default"
-                        prepend-inner-icon="mdi-clipboard-list"
-                        :no-data-text="$t('patients.no_unpaid_cases') || 'No unpaid cases'"
-                        color="primary"
-                        class="case-select"
-                        :menu-props="{ maxHeight: 400 }"
-                      >
-                        <!-- Same select templates as in teeth tab -->
-                      </v-select>
-                    </v-col>
-                    <v-col cols="12" md="4">
-                      <v-text-field 
-                        :model-value="formatNumberWithCommas(newBill.price)"
-                        @update:model-value="newBill.price = parseFormattedNumber($event)"
-                        :label="$t('cases.price')"
-                        type="text"
-                        variant="outlined"
-                        density="default"
-                        prepend-inner-icon="mdi-currency-usd"
-                        :hint="selectedCaseRemainingAmount > 0 ? `${$t('patients.remaining')}: ${formatNumberWithCommas(selectedCaseRemainingAmount)} IQD` : ''"
-                        persistent-hint
-                        suffix="IQD"
-                        :color="newBill.price > selectedCaseRemainingAmount ? 'error' : 'primary'"
-                        :error="newBill.price > selectedCaseRemainingAmount"
-                        :error-messages="newBill.price > selectedCaseRemainingAmount ? $t('validation.billPriceExceedsRemaining') : ''"
-                        class="price-input"
-                      />
-                    </v-col>
-                    <v-col cols="12" md="2">
-                      <v-btn 
-                        color="primary" 
-                        block 
-                        size="x-large"
-                        @click="createBill" 
-                        :loading="addingBill" 
-                        :disabled="!newBill.case_id || !newBill.price || newBill.price > selectedCaseRemainingAmount"
-                        class="text-body-1"
-                      >
-                        <v-icon start size="24">mdi-cash-plus</v-icon>
-                        {{ $t('common.add') }}
-                      </v-btn>
-                    </v-col>
-                  </v-row>
-                </v-card>
-
-                <!-- Bills Table -->
-                <v-data-table
-                  :headers="billHeaders"
-                  :items="patientBills"
-                  :items-per-page="10"
-                  class="elevation-1 rounded-lg"
-                  density="compact"
-                  mobile-breakpoint="md"
-                >
-                  <template #item.category="{ item }">
-                    <v-chip 
-                      v-if="item.billable?.category"
-                      size="small" 
-                      :color="item.billable.category.color || 'primary'"
-                      variant="tonal"
-                    >
-                      {{ getBillableCategoryName(item) }}
-                    </v-chip>
-                    <span v-else class="text-grey">-</span>
-                  </template>
-                  <template #item.tooth_num="{ item }">
-                    <v-chip
-                      v-if="item.billable?.tooth_num"
-                      size="small"
-                      color="primary"
-                      variant="outlined"
-                    >
-                      <v-icon start size="14">mdi-tooth</v-icon>
-                      {{ item.billable.tooth_num }}
-                    </v-chip>
-                    <span v-else class="text-grey">{{ $t('patients.general') }}</span>
-                  </template>
-                  <template #item.doctor="{ item }">
-                    <div v-if="item.billable?.doctor" class="d-flex align-center">
-                      <v-avatar size="24" color="primary" class="mr-2">
-                        <v-icon size="14" color="white">mdi-doctor</v-icon>
-                      </v-avatar>
-                      <span class="text-body-2">{{ item.billable.doctor.name }}</span>
-                    </div>
-                    <span v-else class="text-grey">{{ $t('common.not_assigned') }}</span>
-                  </template>
-                  <template #item.price="{ item }">
-                    <span class="font-weight-bold">{{ formatCurrency(item.price) }}</span>
-                  </template>
-                  <template #item.is_paid="{ item }">
-                    <v-chip 
-                      :color="item.is_paid ? 'success' : 'warning'" 
-                      size="small"
-                      class="cursor-pointer"
-                      @click="canMarkBillPaid ? toggleBillPayment(item) : null"
-                    >
-                      <v-icon start size="14">{{ item.is_paid ? 'mdi-check-circle' : 'mdi-clock' }}</v-icon>
-                      {{ item.is_paid ? $t('cases.paid') : $t('cases.unpaid') }}
-                    </v-chip>
-                  </template>
-                  <template #item.created_at="{ item }">{{ formatDate(item.created_at) }}</template>
-                  <template #item.actions="{ item }">
-                    <v-btn v-if="canMarkBillPaid" icon variant="text" size="small" :color="item.is_paid ? 'warning' : 'success'" @click="toggleBillPayment(item)">
-                      <v-icon>{{ item.is_paid ? 'mdi-cash-remove' : 'mdi-cash-plus' }}</v-icon>
-                      <v-tooltip activator="parent">{{ item.is_paid ? $t('caseManagement.markUnpaid') : $t('caseManagement.markPaid') }}</v-tooltip>
-                    </v-btn>
-                    <v-btn v-if="canDeleteBill" icon variant="text" size="small" color="error" @click="deleteBill(item)">
-                      <v-icon>mdi-delete</v-icon>
-                    </v-btn>
-                  </template>
-                  <template #no-data>
-                    <div class="text-center py-4 text-grey">
-                      <v-icon size="48" color="grey-lighten-2">mdi-receipt-text-outline</v-icon>
-                      <p class="mt-2">{{ $t('patients.no_bills') }}</p>
-                    </div>
-                  </template>
-                </v-data-table>
-              </template>
-            </v-card-text>
-          </v-tabs-window-item>
-
-          <!-- Recipes Tab -->
-          <v-tabs-window-item v-if="canViewRecipes" value="recipes">
-            <v-card-text>
-              <div class="d-flex justify-space-between align-center mb-4">
-                <h3 class="text-h6 font-weight-bold">
-                  <v-icon start color="warning">mdi-pill</v-icon>
-                  {{ $t('recipes.title') }}
-                  <v-chip size="small" color="warning" variant="tonal" class="ml-2">{{ patientRecipes.length }}</v-chip>
-                </h3>
-                <v-btn
-                  v-if="canCreateRecipe"
-                  color="warning"
-                  variant="tonal"
-                  prepend-icon="mdi-plus"
-                  @click="openRecipes"
-                >
-                  {{ $t('recipes.add_recipe') }}
-                </v-btn>
-              </div>
-
-              <!-- Recipes List -->
-              <div v-if="patientRecipes.length > 0">
-                <v-card
-                  v-for="recipe in patientRecipes"
-                  :key="recipe.id"
-                  variant="outlined"
-                  class="mb-3 recipe-card"
-                  rounded="lg"
-                >
-                  <v-card-text class="pa-4">
-                    <div class="d-flex align-center justify-space-between mb-3">
-                      <div class="d-flex align-center gap-2">
-                        <v-avatar size="36" color="warning">
-                          <v-icon color="white" size="20">mdi-pill</v-icon>
-                        </v-avatar>
-                        <div>
-                          <div class="font-weight-medium">{{ $t('recipes.prescription') }} #{{ recipe.id }}</div>
-                          <div class="text-caption text-grey">
-                            <v-icon size="12" class="me-1">mdi-calendar</v-icon>
-                            {{ formatDate(recipe.created_at) }}
-                          </div>
-                        </div>
-                      </div>
-                      <div class="d-flex align-center gap-1">
-                        <v-chip size="small" color="info" variant="tonal">
-                          <v-icon start size="12">mdi-doctor</v-icon>
-                          {{ recipe.doctor?.name || '-' }}
-                        </v-chip>
-                        <v-chip size="small" color="warning" variant="flat">
-                          <v-icon start size="12">mdi-pill</v-icon>
-                          {{ recipe.recipe_items?.length || 0 }} {{ $t('recipes.medications') }}
-                        </v-chip>
-                      </div>
-                    </div>
-
-                    <!-- Medications List -->
-                    <v-table density="compact" class="mb-3">
-                      <thead>
-                        <tr>
-                          <th>#</th>
-                          <th>{{ $t('recipes.medication_name') }}</th>
-                          <th>{{ $t('recipes.dosage') }}</th>
-                          <th>{{ $t('recipes.frequency') }}</th>
-                          <th>{{ $t('recipes.duration') }}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr v-for="(item, idx) in recipe.recipe_items" :key="item.id">
-                          <td>{{ idx + 1 }}</td>
-                          <td class="font-weight-medium">{{ item.medication_name }}</td>
-                          <td>{{ item.dosage }}</td>
-                          <td>{{ item.frequency }}</td>
-                          <td>{{ item.duration }}</td>
-                        </tr>
-                      </tbody>
-                    </v-table>
-
-                    <!-- Notes -->
-                    <v-alert
-                      v-if="recipe.notes"
-                      type="info"
-                      variant="tonal"
-                      density="compact"
-                      class="mb-3"
-                    >
-                      <span class="text-caption">{{ recipe.notes }}</span>
-                    </v-alert>
-
-                    <!-- Actions -->
-                    <div class="d-flex justify-end gap-2">
-                      <v-btn
-                        icon="mdi-printer"
-                        variant="tonal"
-                        size="small"
-                        color="success"
-                        @click="printRecipe(recipe)"
-                      />
-                      <v-btn
-                        icon="mdi-pencil"
-                        variant="tonal"
-                        size="small"
-                        color="primary"
-                        @click="selectedRecipe = recipe; recipeDialog = true"
-                      />
-                    </div>
-                  </v-card-text>
-                </v-card>
-              </div>
-
-              <!-- Empty State -->
-              <div v-else class="text-center py-8">
-                <v-icon size="64" color="grey-lighten-1">mdi-pill-off</v-icon>
-                <p class="text-h6 text-grey mt-4">{{ $t('recipes.no_recipes') }}</p>
-                <v-btn
-                  color="warning"
-                  variant="tonal"
-                  class="mt-4"
-                  prepend-icon="mdi-plus"
-                  @click="openRecipes"
-                >
-                  {{ $t('recipes.add_first_recipe') }}
-                </v-btn>
-              </div>
-            </v-card-text>
-          </v-tabs-window-item>
-
-          <!-- Notes Tab -->
-          <v-tabs-window-item v-if="canViewNotes" value="notes">
-            <v-card-text>
-              <v-row>
-                <v-col cols="12" md="6">
-                  <v-card variant="outlined">
-                    <v-card-title class="text-body-1 font-weight-bold">
-                      <v-icon start color="primary">mdi-medical-bag</v-icon>
-                      {{ $t('patients.systemicConditions') }}
-                    </v-card-title>
-                    <v-card-text>
-                      <p v-if="patient.systemic_conditions" class="text-body-2">
-                        {{ patient.systemic_conditions }}
-                      </p>
-                      <p v-else class="text-grey text-body-2">{{ $t('common.noData') }}</p>
-                    </v-card-text>
-                  </v-card>
-                </v-col>
-                <v-col cols="12" md="6">
-                  <v-card variant="outlined">
-                    <v-card-title class="text-body-1 font-weight-bold">
-                      <v-icon start color="primary">mdi-note-text</v-icon>
-                      {{ $t('patients.generalNotes') }}
-                    </v-card-title>
-                    <v-card-text>
-                      <p v-if="patient.notes" class="text-body-2">
-                        {{ patient.notes }}
-                      </p>
-                      <p v-else class="text-grey text-body-2">{{ $t('common.noData') }}</p>
-                    </v-card-text>
-                  </v-card>
-                </v-col>
-              </v-row>
-            </v-card-text>
-          </v-tabs-window-item>
-
-          <!-- Images Tab -->
-          <v-tabs-window-item value="images">
-            <v-card-text>
-              <div class="d-flex justify-space-between align-center mb-4">
-                <h3 class="text-body-1 font-weight-bold">{{ $t('patients.patientImages') }}</h3>
-                <v-btn
-                  color="primary"
-                  variant="tonal"
-                  @click="uploadImage"
-                  prepend-icon="mdi-upload"
-                >
-                  {{ $t('patients.uploadImage') }}
-                </v-btn>
-              </div>
-
-              <v-row v-if="patientImages.length">
-                <v-col
-                  v-for="(image, index) in patientImages"
-                  :key="image.id || index"
-                  cols="6"
-                  sm="4"
-                  md="3"
-                  lg="2"
-                >
-                  <v-card
-                    class="image-card"
-                    @click="viewImage(image)"
-                    hover
-                  >
-                    <v-img
-                      :src="getImageUrl(image)"
-                      aspect-ratio="1"
-                      cover
-                      class="rounded"
-                    >
-                      <template #placeholder>
-                        <div class="d-flex align-center justify-center fill-height">
-                          <v-progress-circular indeterminate color="grey-lighten-5" />
-                        </div>
-                      </template>
-                    </v-img>
-                    <v-card-text class="pa-2 text-center text-caption">
-                      {{ formatDate(image.created_at) }}
-                    </v-card-text>
-                  </v-card>
-                </v-col>
-              </v-row>
-
-              <v-alert v-else type="info" variant="tonal">
-                {{ $t('patients.noImages') }}
-              </v-alert>
-            </v-card-text>
-          </v-tabs-window-item>
-        </v-tabs-window>
+        </v-card-text>
       </v-card>
+
+   
     </template>
 
     <!-- Patient Not Found -->
@@ -1310,8 +917,10 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { useDisplay } from 'vuetify'
 import api from '@/services/api'
 import TeethChart from '@/components/teeth/TeethChart.vue'
+import TeethChartMobile from '@/components/teeth/TeethChartMobile.vue'
 import PatientEditDialog from '@/components/PatientEditDialog.vue'
 import BookingDialog from '@/components/BookingDialog.vue'
 import RecipeDialog from '@/components/RecipeDialog.vue'
@@ -1328,6 +937,7 @@ const route = useRoute()
 const router = useRouter()
 const { t, locale } = useI18n()
 const authStore = useAuthStore()
+const { mobile: isMobile } = useDisplay()
 
 // Permissions
 const { hasPermissionFor, hasPermission, hasAnyPermission } = usePermissions()
@@ -1372,6 +982,8 @@ if (import.meta.env.DEV) {
 const loading = ref(true)
 const error = ref(null)
 const patient = ref(null)
+const patientNote = ref('')
+const savingPatientNote = ref(false)
 const patientCases = ref([])
 const patientImages = ref([])
 const categories = ref([])
@@ -1516,11 +1128,32 @@ const fetchPatient = async () => {
     // Using new API: GET /api/patients/{id}
     const response = await api.get(`/patients/${id}`)
     patient.value = response.data.data || response.data
+    patientNote.value = patient.value.notes || patient.value.note || ''
   } catch (err) {
     console.error('Error fetching patient:', err)
     error.value = err.response?.data?.message || t('errors.fetchFailed')
   } finally {
     loading.value = false
+  }
+}
+
+const savePatientNote = async () => {
+  if (!patient.value) return
+  savingPatientNote.value = true
+  try {
+    await api.put(`/patients/${patient.value.id}`, {
+      ...patient.value,
+      note: patientNote.value,
+      notes: patientNote.value
+    })
+    patient.value.note = patientNote.value
+    patient.value.notes = patientNote.value
+    showSnackbar(t('patients.note_saved'), 'success')
+  } catch (err) {
+    console.error('Error saving patient note:', err)
+    showSnackbar(err.response?.data?.message || t('errors.saveFailed'), 'error')
+  } finally {
+    savingPatientNote.value = false
   }
 }
 
@@ -2466,6 +2099,7 @@ const setDefaultTab = () => {
   margin: 0 auto;
 }
 
+/* Patient Header - Desktop: Original Layout */
 .patient-header {
   display: flex;
   gap: 24px;
@@ -2503,6 +2137,27 @@ const setDefaultTab = () => {
   margin-inline-start: auto;
 }
 
+/* Stat Cards */
+.stat-card-mini {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  border-radius: 12px !important;
+}
+
+.stat-card-mini:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
+}
+
+/* Cases table compact */
+.cases-table-compact :deep(.v-data-table-footer) {
+  display: none !important;
+}
+
+.cases-table-compact :deep(.v-data-table-header__content) {
+  font-size: 12px !important;
+}
+
+/* Image & Recipe cards */
 .image-card {
   cursor: pointer;
   transition: transform 0.2s ease;
@@ -2524,6 +2179,7 @@ const setDefaultTab = () => {
 /* Data Table Alignment for Arabic */
 :deep(.v-data-table th) {
   text-align: right !important;
+  font-size: 12px !important;
 }
 
 @media (max-width: 600px) {
@@ -2540,7 +2196,8 @@ const setDefaultTab = () => {
   text-align: right !important;
   font-weight: 600 !important;
   color: #424242 !important;
-  min-width: 120px !important;
+  min-width: 100px !important;
+  font-size: 12px !important;
 }
 
 :deep(.v-data-table__mobile-row__cell) {
@@ -2551,17 +2208,17 @@ const setDefaultTab = () => {
   justify-content: flex-start !important;
 }
 
-/* Mobile Card View Enhancements */
+/* Mobile Card View */
 :deep(.v-data-table__mobile-table-row) {
   border: 1px solid #e0e0e0 !important;
   border-radius: 8px !important;
-  margin-bottom: 12px !important;
+  margin-bottom: 8px !important;
   background: #fff !important;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04) !important;
 }
 
 :deep(.v-data-table__mobile-row) {
-  padding: 8px 16px !important;
+  padding: 6px 12px !important;
   border-bottom: 1px solid #f5f5f5 !important;
 }
 
@@ -2572,39 +2229,34 @@ const setDefaultTab = () => {
 :deep(.v-data-table__mobile-row__wrapper) {
   display: flex !important;
   align-items: center !important;
-  gap: 12px !important;
+  gap: 8px !important;
 }
 
-/* Better spacing on mobile */
+/* Mobile spacing */
 @media (max-width: 960px) {
   :deep(.v-data-table__wrapper) {
-    padding: 8px !important;
+    padding: 4px !important;
   }
   
   :deep(.v-data-table__mobile-table-row) {
-    padding: 12px !important;
+    padding: 8px !important;
   }
   
   :deep(.v-data-table__mobile-row__header) {
-    font-size: 13px !important;
+    font-size: 12px !important;
   }
   
   :deep(.v-data-table__mobile-row__cell) {
-    font-size: 14px !important;
+    font-size: 13px !important;
   }
   
-  /* Make textarea in notes column full width on mobile */
   :deep(.notes-column) {
     max-width: 100% !important;
     width: 100% !important;
   }
-  
-  :deep(.notes-textarea) {
-    width: 100% !important;
-  }
 }
 
-/* Mobile */
+/* Mobile Header - Keep Original Behavior */
 @media (max-width: 768px) {
   .patient-header {
     flex-direction: column;
@@ -2625,10 +2277,6 @@ const setDefaultTab = () => {
   .patient-actions {
     justify-content: center;
     margin-inline-start: 0;
-  }
-  
-  /* Stack action buttons vertically on very small screens */
-  .patient-actions {
     width: 100%;
   }
   
@@ -2637,11 +2285,11 @@ const setDefaultTab = () => {
   }
 }
 
-/* Drop Zone Styles */
+/* Drop Zone */
 .drop-zone {
   border: 2px dashed #e0e0e0;
   border-radius: 12px;
-  padding: 32px;
+  padding: 24px;
   text-align: center;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -2680,7 +2328,7 @@ const setDefaultTab = () => {
 
 @media (max-width: 600px) {
   .drop-zone {
-    padding: 20px;
+    padding: 16px;
   }
   
   .case-photo-card .photo-overlay {
@@ -2688,94 +2336,33 @@ const setDefaultTab = () => {
   }
 }
 
-/* Stats Container - Scrollable on Mobile */
-.stats-container {
-  width: 100%;
-  overflow: hidden;
+/* Compact Case Select */
+.case-select-compact :deep(.v-field__input) {
+  font-size: 13px !important;
+  min-height: 40px !important;
+  padding-top: 4px !important;
+  padding-bottom: 4px !important;
 }
 
-.stats-scroll {
-  display: flex;
-  gap: 16px;
-  overflow-x: auto;
-  padding-bottom: 8px;
-  scroll-behavior: smooth;
-  -webkit-overflow-scrolling: touch;
+.case-select-compact :deep(.v-select__selection) {
+  font-size: 13px !important;
 }
 
-.stats-scroll::-webkit-scrollbar {
-  height: 6px;
-}
-
-.stats-scroll::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 3px;
-}
-
-.stats-scroll::-webkit-scrollbar-thumb {
-  background: #888;
-  border-radius: 3px;
-}
-
-.stats-scroll::-webkit-scrollbar-thumb:hover {
-  background: #555;
-}
-
-.stats-card {
-  flex: 0 0 auto;
-  min-width: 200px;
-}
-
-/* Desktop: Grid Layout */
-@media (min-width: 601px) {
-  .stats-scroll {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    overflow-x: visible;
-  }
-  
-  .stats-card {
-    min-width: unset;
-  }
-}
-
-/* Mobile: Single Row Scroll */
-@media (max-width: 600px) {
-  .stats-card {
-    min-width: 160px;
-  }
-}
-
-/* Case Select Styles */
-.case-select {
-  font-size: 16px !important;
-}
-
-.case-select :deep(.v-field__input) {
-  font-size: 16px !important;
-  min-height: 56px !important;
-}
-
-.case-select :deep(.v-select__selection) {
-  font-size: 16px !important;
-}
-
-.case-item-content {
+.case-item-compact {
   width: 100%;
 }
 
-/* Price Input Styles */
-.price-input :deep(.v-field__input) {
-  font-size: 18px !important;
+/* Compact Price Input */
+.price-input-compact :deep(.v-field__input) {
+  font-size: 14px !important;
   font-weight: 600 !important;
 }
 
-.price-input :deep(.v-field__append-inner) {
-  font-size: 16px !important;
-  font-weight: 600 !important;
+.price-input-compact :deep(.v-field__append-inner) {
+  font-size: 12px !important;
 }
 
-/* List item hover effect */
+/* List item hover */
 :deep(.v-list-item:hover) {
   background-color: rgba(var(--v-theme-primary), 0.08) !important;
 }

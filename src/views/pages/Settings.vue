@@ -381,6 +381,80 @@
                             :disabled="!canEdit"
                           ></v-select>
                         </v-col>
+
+                        <!-- Tooth Colors Subsection -->
+                        <v-col cols="12">
+                          <v-divider class="my-4"></v-divider>
+                          <div class="text-h6 mb-4">
+                            <v-icon start color="primary">mdi-tooth</v-icon>
+                            {{ $t('clinicSettings.toothColors') || 'Tooth Colors for Dental Chart' }}
+                          </div>
+                        </v-col>
+                        
+                        <v-col 
+                          v-for="(colorItem, index) in toothColors"
+                          :key="colorItem.id"
+                          cols="12" 
+                          sm="6" 
+                          md="4"
+                        >
+                          <v-card variant="outlined" class="pa-3">
+                            <div class="d-flex align-center justify-space-between mb-3">
+                              <span class="text-subtitle-1 font-weight-medium">
+                                {{ $t(`toothStatus.${colorItem.id}`) || colorItem.name }}
+                              </span>
+                              <v-chip 
+                                :color="colorItem.color"
+                                size="small"
+                                class="tooth-color-chip"
+                              >
+                                <v-icon start size="small">mdi-tooth</v-icon>
+                              </v-chip>
+                            </div>
+                            
+                            <!-- Name Input -->
+                            <v-text-field
+                              v-model="toothColors[index].name"
+                              :label="$t('clinicSettings.statusName') || 'Status Name'"
+                              variant="outlined"
+                              density="compact"
+                              hide-details
+                              class="mb-3"
+                              :disabled="!canEdit"
+                              prepend-inner-icon="mdi-label"
+                            ></v-text-field>
+                            
+                            <!-- Color Input -->
+                            <v-text-field
+                              v-model="toothColors[index].color"
+                              :label="$t('clinicSettings.colorCode') || 'Color Code'"
+                              variant="outlined"
+                              density="compact"
+                              hide-details
+                              :disabled="!canEdit"
+                            >
+                              <template v-slot:append-inner>
+                                <v-menu :close-on-content-click="false">
+                                  <template v-slot:activator="{ props }">
+                                    <v-btn
+                                      v-bind="props"
+                                      :color="toothColors[index].color"
+                                      icon="mdi-eyedropper"
+                                      size="small"
+                                      variant="flat"
+                                      :disabled="!canEdit"
+                                    ></v-btn>
+                                  </template>
+                                  <v-color-picker
+                                    v-model="toothColors[index].color"
+                                    mode="hexa"
+                                    :disabled="!canEdit"
+                                  ></v-color-picker>
+                                </v-menu>
+                              </template>
+                            </v-text-field>
+                          </v-card>
+                        </v-col>
                       </v-row>
                     </v-card-text>
                   </v-card>
@@ -751,6 +825,17 @@ const toothStatuses = ref([
   { id: 8, name: 'Bridge', color: '#EC4899', icon: '⊞', is_active: true }
 ])
 
+// Tooth Colors from API (tooth_colors setting)
+const toothColors = ref([
+  { id: 'healthy', name: 'Healthy', color: '#4CAF50' },
+  { id: 'cavity', name: 'Cavity', color: '#F44336' },
+  { id: 'filling', name: 'Filling', color: '#2196F3' },
+  { id: 'crown', name: 'Crown', color: '#FFC107' },
+  { id: 'missing', name: 'Missing', color: '#9E9E9E' },
+  { id: 'implant', name: 'Implant', color: '#00BCD4' },
+  { id: 'root_canal', name: 'Root Canal', color: '#9C27B0' }
+])
+
 // Options
 const currencyOptions = [
   { title: 'IQD - Iraqi Dinar', value: 'IQD' },
@@ -907,6 +992,21 @@ const loadClinicSettings = async () => {
         }
       }
 
+      // Parse tooth colors (from display settings)
+      if (settings.tooth_colors) {
+        try {
+          const colors = typeof settings.tooth_colors === 'string'
+            ? JSON.parse(settings.tooth_colors)
+            : settings.tooth_colors
+          
+          if (Array.isArray(colors) && colors.length > 0) {
+            toothColors.value = colors
+          }
+        } catch (e) {
+          console.error('Error parsing tooth colors:', e)
+        }
+      }
+
       // Parse tooth statuses
       if (settings.tooth_statuses) {
         try {
@@ -1030,7 +1130,8 @@ const saveAllSettings = async () => {
       { key: 'twitter', value: clinicForm.value.twitter, type: 'string' },
       { key: 'whatsapp', value: clinicForm.value.whatsapp, type: 'string' },
       { key: 'working_hours', value: workingHoursFormatted, type: 'json' },
-      { key: 'tooth_condition_colors', value: toothConditionColors.value, type: 'json' }
+      { key: 'tooth_condition_colors', value: toothConditionColors.value, type: 'json' },
+      { key: 'tooth_colors', value: toothColors.value, type: 'json' }
       // { key: 'tooth_statuses', value: toothStatuses.value, type: 'json' } // Commented out
     ]
     
@@ -1069,5 +1170,11 @@ onMounted(() => {
 <style scoped>
 .border {
   border: 2px solid #e0e0e0 !important;
+}
+
+.tooth-color-chip {
+  min-width: 80px;
+  font-family: monospace;
+  font-size: 11px;
 }
 </style>

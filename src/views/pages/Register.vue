@@ -11,8 +11,8 @@
       <LanguageSwitcher />
     </div>
     
-    <v-container fluid class="fill-height">
-      <v-row class="fill-height" align="center" justify="center">
+    <v-container fluid class="register-container">
+      <v-row align="center" justify="center">
         <v-col cols="12" sm="10" md="8" lg="5">
           <v-card class="register-card pa-8" rounded="xl" elevation="20">
             <div class="text-center mb-6">
@@ -23,6 +23,11 @@
               <p class="text-grey">{{ $t('register.subtitle') }}</p>
             </div>
             
+            <v-alert v-if="successMessage" type="success" variant="tonal" class="mb-4">
+              <v-icon start>mdi-check-circle</v-icon>
+              {{ successMessage }}
+            </v-alert>
+
             <v-alert v-if="errors.length" type="error" variant="tonal" class="mb-4">
               <div v-for="(e, i) in errors" :key="i">{{ e }}</div>
             </v-alert>
@@ -49,7 +54,8 @@
                     variant="outlined"
                     type="tel"
                     :rules="phoneRules"
-                    placeholder="201001234567"
+                    placeholder="07XXXXXXXXX"
+                    prefix="07"
                   ></v-text-field>
                 </v-col>
                 
@@ -78,7 +84,7 @@
                 </v-col>
                 
                 <!-- Clinic Address -->
-                <v-col cols="12">
+                <!-- <v-col cols="12">
                   <v-textarea
                     v-model="clinicAddress"
                     :label="$t('register.clinic_address')"
@@ -87,7 +93,7 @@
                     rows="2"
                     :rules="[v => !!v || $t('validation.required')]"
                   ></v-textarea>
-                </v-col>
+                </v-col> -->
                 
                 <!-- Clinic Phone (Optional) -->
                 <v-col cols="12" md="6">
@@ -169,7 +175,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/authNew'
 import { useI18n } from 'vue-i18n'
@@ -182,7 +188,7 @@ const { t } = useI18n()
 const name = ref('')
 const email = ref('')
 const clinic = ref('')
-const clinicAddress = ref('')
+// const clinicAddress = ref('')
 const clinicPhone = ref('')
 const clinicEmail = ref('')
 const phone = ref('')
@@ -192,11 +198,12 @@ const show1 = ref(false)
 const show2 = ref(false)
 const loading = ref(false)
 const errors = ref([])
+const successMessage = ref('')
 
 // Validation Rules
 const phoneRules = [
   v => !!v || t('validation.required'),
-  v => /^[0-9]{10,15}$/.test(v) || t('validation.phone_format')
+  v => /^07[0-9]{9}$/.test(v) || 'Phone must be 11 digits starting with 07'
 ]
 
 const emailRules = [
@@ -205,7 +212,7 @@ const emailRules = [
 
 const passRules = [
   v => !!v || t('validation.required'),
-  v => (v && v.length >= 8) || t('validation.password_min_8')
+  v => (v && v.length >= 6) || 'Password must be at least 6 characters'
 ]
 
 const confirmRules = computed(() => [
@@ -215,70 +222,53 @@ const confirmRules = computed(() => [
 
 async function register() {
   // Validate required fields
-  if (!name.value || !phone.value || !clinic.value || !clinicAddress.value || !password.value || !confirmPass.value) {
+  if (!name.value || !phone.value || !clinic.value || !password.value || !confirmPass.value) {
     errors.value = [t('validation.required')]
     return
   }
-  
-  // Validate phone format
-  if (!/^[0-9]{10,15}$/.test(phone.value)) {
-    errors.value = [t('validation.phone_format')]
+
+  if (!/^07[0-9]{9}$/.test(phone.value)) {
+    errors.value = ['Phone must be 11 digits starting with 07']
     return
   }
-  
-  // Validate email format if provided
+
   if (email.value && !/.+@.+\..+/.test(email.value)) {
     errors.value = [t('validation.email_format')]
     return
   }
-  
-  // Validate password length
-  if (password.value.length < 8) {
-    errors.value = [t('validation.password_min_8')]
+
+  if (password.value.length < 6) {
+    errors.value = ['Password must be at least 6 characters']
     return
   }
-  
-  // Validate password confirmation
+
   if (password.value !== confirmPass.value) {
     errors.value = [t('validation.password_mismatch')]
     return
   }
-  
+
   loading.value = true
   errors.value = []
-  
+
   try {
-    const userData = {
+    const result = await authStore.register({
       name: name.value,
       phone: phone.value,
       email: email.value || undefined,
       password: password.value,
       passwordConfirmation: confirmPass.value,
       clinicName: clinic.value,
-      clinicAddress: clinicAddress.value,
       clinicPhone: clinicPhone.value || phone.value,
       clinicEmail: clinicEmail.value || email.value
-    }
-    
-    const result = await authStore.register(userData)
-    
+    })
+
     if (result.success) {
-      // Registration successful, redirect to dashboard
-      router.push('/dashboard')
+      successMessage.value = t('register.success') || 'تم التسجيل بنجاح! جاري التحويل...'
+      setTimeout(async () => {
+        await authStore.logout()
+      }, 1500)
     } else {
-      // Show error messages
-      if (result.errors && typeof result.errors === 'object') {
-        // Format validation errors
-        Object.keys(result.errors).forEach(key => {
-          if (Array.isArray(result.errors[key])) {
-            errors.value.push(...result.errors[key])
-          } else {
-            errors.value.push(result.errors[key])
-          }
-        })
-      } else {
-        errors.value = [result.message || t('register.error')]
-      }
+      errors.value = [result.message || t('register.error')]
     }
   } catch (e) {
     errors.value = [t('register.error')]
@@ -288,6 +278,12 @@ async function register() {
 }
 
 onMounted(() => {
+  // Allow scrolling on this page by overriding mobile.css height:100% lock
+  document.documentElement.style.height = 'auto'
+  document.documentElement.style.overflowY = 'auto'
+  document.body.style.height = 'auto'
+  document.body.style.overflowY = 'auto'
+
   // Initialize auth store
   authStore.initializeAuth()
   
@@ -296,14 +292,35 @@ onMounted(() => {
     router.push('/dashboard')
   }
 })
+
+onUnmounted(() => {
+  // Restore original scroll lock when leaving the page
+  document.documentElement.style.height = '100%'
+  document.documentElement.style.overflowY = ''
+  document.body.style.height = '100%'
+  document.body.style.overflowY = ''
+})
 </script>
 
 <style scoped>
 .register-page {
   min-height: 100vh;
   position: relative;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+}
+
+.register-container {
+  position: relative;
+  z-index: 10;
+  padding-top: 30px;
+  padding-bottom: 30px;
+  min-height: auto;
+  flex: 1;
 }
 
 .language-selector {
@@ -324,6 +341,7 @@ onMounted(() => {
   height: 100%;
   top: 0;
   left: 0;
+  pointer-events: none;
 }
 
 .circle {
@@ -346,5 +364,23 @@ onMounted(() => {
 .register-card {
   background: rgba(255,255,255,0.95) !important;
   backdrop-filter: blur(10px);
+  position: relative;
+  z-index: 10;
+}
+</style>
+
+<style>
+/* Global overrides for register page — allow body/html to scroll */
+body:has(.register-page),
+html:has(.register-page) {
+  height: auto !important;
+  overflow-y: auto !important;
+}
+
+body:has(.register-page) .v-application,
+body:has(.register-page) .v-application__wrap {
+  height: auto !important;
+  min-height: 100vh !important;
+  overflow: visible !important;
 }
 </style>

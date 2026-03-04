@@ -1,16 +1,58 @@
 /**
- * Main Entry Point - Vue 3
+ * Main Entry Point - Vue 3 + Ionic + Capacitor
  * نقطة الدخول الرئيسية للتطبيق
  * 
  * @author Clinic Management System
  * @version 3.0.0
  */
 
+// Clear old caches on every load to prevent stale versions
+if ('caches' in window) {
+  caches.keys().then(names => {
+    names.forEach(name => {
+      // Clear all workbox precache entries to force fresh content
+      if (name.includes('precache') || name.includes('runtime') || name.includes('api-cache')) {
+        caches.delete(name)
+        console.log('🗑️ Cleared cache:', name)
+      }
+    })
+  })
+}
+
+// Force unregister old service workers and re-register fresh one
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(registrations => {
+    registrations.forEach(registration => {
+      registration.update()
+      console.log('🔄 Forced SW update check')
+    })
+  })
+}
+
 import { createApp } from 'vue'
 import App from './App.vue'
 import router from './router'
 import { createPinia } from 'pinia'
 import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
+
+// Ionic
+import { IonicVue } from '@ionic/vue'
+
+/* Ionic CSS - Core */
+import '@ionic/vue/css/core.css'
+
+/* Ionic CSS - Basic */
+import '@ionic/vue/css/normalize.css'
+import '@ionic/vue/css/structure.css'
+import '@ionic/vue/css/typography.css'
+
+/* Ionic CSS - Optional (recommended for clean mobile UI) */
+import '@ionic/vue/css/padding.css'
+import '@ionic/vue/css/float-elements.css'
+import '@ionic/vue/css/text-alignment.css'
+import '@ionic/vue/css/text-transformation.css'
+import '@ionic/vue/css/flex-utils.css'
+import '@ionic/vue/css/display.css'
 
 // Vuetify
 import 'vuetify/styles'
@@ -32,6 +74,7 @@ import ku from './locales/ku.json'
 
 // Styles
 import './styles/main.css'
+import './styles/mobile.css'
 
 // Custom Directives
 import permissionDirective, { roleDirective as roleDir, canDirective } from './directives/permission'
@@ -39,6 +82,9 @@ import roleDirective from './directives/role'
 
 // Auth Store
 import { useAuthStore } from './stores/authNew'
+
+// Mobile utilities
+import { initMobileApp } from './composables/useMobile'
 
 // ==================== Vuetify Setup ====================
 const vuetify = createVuetify({
@@ -112,8 +158,17 @@ const app = createApp(App)
 app.config.globalProperties.$url = 'https://mina-api.tctate.com'
 app.config.globalProperties.$http = 'https://'
 
-// Use Plugins
+// Use Plugins (Ionic must be registered before router)
 app.use(pinia)
+
+// Initialize Auth Store BEFORE router so guards can read auth state immediately
+const authStore = useAuthStore()
+authStore.initializeAuth()
+
+app.use(IonicVue, {
+  mode: 'md', // Material Design mode for consistent look
+  animated: true,
+})
 app.use(router)
 app.use(vuetify)
 app.use(i18n)
@@ -123,15 +178,16 @@ app.directive('permission', permissionDirective)
 app.directive('role', roleDirective)
 app.directive('can', canDirective)  // Keyword-based permission check
 
-// Initialize Auth Store
-const authStore = useAuthStore()
-authStore.initializeAuth()
-
 // Set RTL Direction
 const currentLang = localStorage.getItem('locale') || 'ar'
 const rtlLangs = ['ar', 'ku']
 document.documentElement.dir = rtlLangs.includes(currentLang) ? 'rtl' : 'ltr'
 document.documentElement.lang = currentLang
 
-// Mount App
-app.mount('#app')
+// Mount App when Ionic router is ready
+router.isReady().then(() => {
+  app.mount('#app')
+  
+  // Initialize mobile-specific features (status bar, splash screen, etc.)
+  initMobileApp()
+})

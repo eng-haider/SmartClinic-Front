@@ -10,165 +10,12 @@
       </div>
     </div>
 
-    <!-- Statistics Cards -->
-    <v-row class="mb-6">
-      <!-- Total Bills Card -->
-      <v-col cols="12" sm="6" lg="4" xl="2">
-        <v-card class="stat-card" elevation="3" rounded="xl">
-          <v-card-text class="pa-5">
-            <div class="d-flex align-center justify-space-between">
-              <div>
-                <p class="text-caption text-grey-darken-1 mb-1 text-uppercase font-weight-medium">
-                  {{ $t('bills.stats.total_bills') }}
-                </p>
-                <h2 class="text-h5 font-weight-bold text-primary">
-                  {{ stats.total_bills || 0 }}
-                </h2>
-                <div class="d-flex align-center mt-2">
-                  <v-icon size="16" color="primary" class="me-1">mdi-file-document-multiple</v-icon>
-                  <span class="text-caption text-primary">{{ $t('bills.stats.all_bills') }}</span>
-                </div>
-              </div>
-              <v-avatar color="primary" size="56" variant="tonal">
-                <v-icon size="28">mdi-receipt-text</v-icon>
-              </v-avatar>
-            </div>
-          </v-card-text>
-        </v-card>
-      </v-col>
-
-      <!-- Paid Bills Card -->
-      <v-col cols="12" sm="6" lg="4" xl="2">
-        <v-card class="stat-card" elevation="3" rounded="xl">
-          <v-card-text class="pa-5">
-            <div class="d-flex align-center justify-space-between">
-              <div>
-                <p class="text-caption text-grey-darken-1 mb-1 text-uppercase font-weight-medium">
-                  {{ $t('bills.stats.paid_bills') }}
-                </p>
-                <h2 class="text-h5 font-weight-bold text-success">
-                  {{ stats.paid_bills || 0 }}
-                </h2>
-                <div class="d-flex align-center mt-2">
-                  <v-icon size="16" color="success" class="me-1">mdi-check-circle</v-icon>
-                  <span class="text-caption text-success">{{ $t('bills.stats.completed') }}</span>
-                </div>
-              </div>
-              <v-avatar color="success" size="56" variant="tonal">
-                <v-icon size="28">mdi-check-decagram</v-icon>
-              </v-avatar>
-            </div>
-          </v-card-text>
-        </v-card>
-      </v-col>
-
-      <!-- Unpaid Bills Card -->
-      <v-col cols="12" sm="6" lg="4" xl="2">
-        <v-card class="stat-card" elevation="3" rounded="xl">
-          <v-card-text class="pa-5">
-            <div class="d-flex align-center justify-space-between">
-              <div>
-                <p class="text-caption text-grey-darken-1 mb-1 text-uppercase font-weight-medium">
-                  {{ $t('bills.stats.unpaid_bills') }}
-                </p>
-                <h2 class="text-h5 font-weight-bold text-error">
-                  {{ stats.unpaid_bills || 0 }}
-                </h2>
-                <div class="d-flex align-center mt-2">
-                  <v-icon size="16" color="error" class="me-1">mdi-clock-alert</v-icon>
-                  <span class="text-caption text-error">{{ $t('bills.stats.pending') }}</span>
-                </div>
-              </div>
-              <v-avatar color="error" size="56" variant="tonal">
-                <v-icon size="28">mdi-alert-circle</v-icon>
-              </v-avatar>
-            </div>
-          </v-card-text>
-        </v-card>
-      </v-col>
-
-      <!-- Total Paid Price Card -->
-      <v-col cols="12" sm="6" lg="4" xl="2">
-        <v-card class="stat-card" elevation="3" rounded="xl">
-          <v-card-text class="pa-5">
-            <div class="d-flex align-center justify-space-between">
-              <div>
-                <p class="text-caption text-grey-darken-1 mb-1 text-uppercase font-weight-medium">
-                  {{ $t('bills.stats.total_paid_price') }}
-                </p>
-                <h2 class="text-h5 font-weight-bold text-success">
-                  {{ formatCurrency(stats.total_paid_price || 0) }}
-                </h2>
-                <div class="d-flex align-center mt-2">
-                  <v-icon size="16" color="success" class="me-1">mdi-cash-check</v-icon>
-                  <span class="text-caption text-success">{{ $t('bills.stats.collected') }}</span>
-                </div>
-              </div>
-              <v-avatar color="success" size="56" variant="tonal">
-                <v-icon size="28">mdi-cash-multiple</v-icon>
-              </v-avatar>
-            </div>
-          </v-card-text>
-        </v-card>
-      </v-col>
-
-      <!-- Total Unpaid Price Card -->
-      <v-col cols="12" sm="6" lg="4" xl="2">
-        <v-card class="stat-card" elevation="3" rounded="xl">
-          <v-card-text class="pa-5">
-            <div class="d-flex align-center justify-space-between">
-              <div>
-                <p class="text-caption text-grey-darken-1 mb-1 text-uppercase font-weight-medium">
-                  {{ $t('bills.stats.total_unpaid_price') }}
-                </p>
-                <h2 class="text-h5 font-weight-bold text-error">
-                  {{ formatCurrency(stats.total_unpaid_price || 0) }}
-                </h2>
-                <div class="d-flex align-center mt-2">
-                  <v-icon size="16" color="error" class="me-1">mdi-cash-remove</v-icon>
-                  <span class="text-caption text-error">{{ $t('bills.stats.outstanding') }}</span>
-                </div>
-              </div>
-              <v-avatar color="error" size="56" variant="tonal">
-                <v-icon size="28">mdi-cash-off</v-icon>
-              </v-avatar>
-            </div>
-          </v-card-text>
-        </v-card>
-      </v-col>
-
-      <!-- Total Outstanding Card -->
-      <v-col cols="12" sm="6" lg="4" xl="2">
-        <v-card class="stat-card" elevation="3" rounded="xl">
-          <v-card-text class="pa-5">
-            <div class="d-flex align-center justify-space-between">
-              <div>
-                <p class="text-caption text-grey-darken-1 mb-1 text-uppercase font-weight-medium">
-                  {{ $t('bills.stats.total_outstanding') }}
-                </p>
-                <h2 class="text-h5 font-weight-bold text-warning">
-                  {{ formatCurrency(stats.total_outstanding || 0) }}
-                </h2>
-                <div class="d-flex align-center mt-2">
-                  <v-icon size="16" color="warning" class="me-1">mdi-alert</v-icon>
-                  <span class="text-caption text-warning">{{ $t('bills.stats.remaining') }}</span>
-                </div>
-              </div>
-              <v-avatar color="warning" size="56" variant="tonal">
-                <v-icon size="28">mdi-clock-alert</v-icon>
-              </v-avatar>
-            </div>
-          </v-card-text>
-        </v-card>
-      </v-col>
-    </v-row>
-
-    <!-- Filters & Search Toolbar -->
+    <!-- Filters Toolbar - All in One Row -->
     <v-card class="toolbar-card mb-6" elevation="2" rounded="xl">
       <v-card-text>
         <v-row align="center">
           <!-- Search -->
-          <v-col cols="12" md="3">
+          <!-- <v-col cols="12" sm="6" md="2">
             <v-text-field
               v-model="search"
               :label="$t('bills.search')"
@@ -179,9 +26,9 @@
               clearable
               @update:model-value="debouncedSearch"
             />
-          </v-col>
+          </v-col> -->
 
-          <!-- Date Range -->
+          <!-- Date From -->
           <v-col cols="12" sm="6" md="2">
             <v-text-field
               v-model="filters.date_from"
@@ -191,10 +38,12 @@
               density="comfortable"
               hide-details
               clearable
-              @update:model-value="loadBills"
+              prepend-inner-icon="mdi-calendar-start"
+              @update:model-value="applyDateFilters"
             />
           </v-col>
 
+          <!-- Date To -->
           <v-col cols="12" sm="6" md="2">
             <v-text-field
               v-model="filters.date_to"
@@ -204,7 +53,8 @@
               density="comfortable"
               hide-details
               clearable
-              @update:model-value="loadBills"
+              prepend-inner-icon="mdi-calendar-end"
+              @update:model-value="applyDateFilters"
             />
           </v-col>
 
@@ -241,7 +91,7 @@
           </v-col>
 
           <!-- Per Page -->
-          <v-col cols="6" md="1">
+          <v-col cols="6" sm="6" md="1">
             <v-select
               v-model="perPage"
               :label="$t('bills.per_page')"
@@ -252,9 +102,154 @@
               @update:model-value="loadBills"
             />
           </v-col>
+
+          <!-- Clear Filters Button -->
+          <v-col cols="6" sm="6" md="1">
+            <v-btn
+              color="error"
+              variant="tonal"
+              icon="mdi-filter-remove"
+              @click="clearDateFilters"
+              :disabled="!filters.date_from && !filters.date_to"
+              size="large"
+            >
+              <v-icon>mdi-filter-remove</v-icon>
+              <v-tooltip activator="parent" location="top">
+                {{ $t('bills.clear_filters') }}
+              </v-tooltip>
+            </v-btn>
+          </v-col>
         </v-row>
       </v-card-text>
     </v-card>
+
+    <!-- Statistics Cards -->
+    <v-row class="mb-6">
+      <!-- Total Bills Card -->
+      <!-- <v-col cols="12" sm="6" md="3">
+        <v-card class="stat-card" elevation="3" rounded="xl">
+          <v-card-text class="pa-5">
+            <div class="d-flex align-center justify-space-between">
+              <div>
+                <p class="text-caption text-grey-darken-1 mb-1 text-uppercase font-weight-medium">
+                  {{ $t('bills.stats.total_bills') }}
+                </p>
+                <h2 class="text-h5 font-weight-bold text-primary">
+                  {{ stats.total_bills || 0 }}
+                </h2>
+                <div class="d-flex align-center mt-2">
+                  <v-icon size="16" color="primary" class="me-1">mdi-file-document-multiple</v-icon>
+                  <span class="text-caption text-primary">{{ $t('bills.stats.all_bills') }}</span>
+                </div>
+              </div>
+              <v-avatar color="primary" size="56" variant="tonal">
+                <v-icon size="28">mdi-receipt-text</v-icon>
+              </v-avatar>
+            </div>
+          </v-card-text>
+        </v-card>
+      </v-col> -->
+
+      <!-- Total Price Card (All Bills) -->
+      <v-col cols="12" sm="6" md="3">
+        <v-card class="stat-card" elevation="3" rounded="xl">
+          <v-card-text class="pa-5">
+            <div class="d-flex align-center justify-space-between">
+              <div>
+                <p class="text-caption text-grey-darken-1 mb-1 text-uppercase font-weight-medium">
+                  {{ $t('bills.stats.total_price') }}
+                </p>
+                <h2 class="text-h5 font-weight-bold text-info">
+                  {{ formatCurrency(stats.total_price || 0) }}
+                </h2>
+                <div class="d-flex align-center mt-2">
+                  <v-icon size="16" color="info" class="me-1">mdi-cash</v-icon>
+                  <span class="text-caption text-info">{{ $t('bills.stats.total_amount') }}</span>
+                </div>
+              </div>
+              <v-avatar color="info" size="56" variant="tonal">
+                <v-icon size="28">mdi-calculator</v-icon>
+              </v-avatar>
+            </div>
+          </v-card-text>
+        </v-card>
+      </v-col>
+
+      <!-- Total Paid Price Card -->
+      <v-col cols="12" sm="6" md="3">
+        <v-card class="stat-card" elevation="3" rounded="xl">
+          <v-card-text class="pa-5">
+            <div class="d-flex align-center justify-space-between">
+              <div>
+                <p class="text-caption text-grey-darken-1 mb-1 text-uppercase font-weight-medium">
+                  {{ $t('bills.stats.total_paid_price') }}
+                </p>
+                <h2 class="text-h5 font-weight-bold text-success">
+                  {{ formatCurrency(stats.total_paid_price || 0) }}
+                </h2>
+                <div class="d-flex align-center mt-2">
+                  <v-icon size="16" color="success" class="me-1">mdi-cash-check</v-icon>
+                  <span class="text-caption text-success">{{ $t('bills.stats.collected') }}</span>
+                </div>
+              </div>
+              <v-avatar color="success" size="56" variant="tonal">
+                <v-icon size="28">mdi-cash-multiple</v-icon>
+              </v-avatar>
+            </div>
+          </v-card-text>
+        </v-card>
+      </v-col>
+
+      <!-- Unpaid Case Price Card -->
+      <v-col cols="12" sm="6" md="3">
+        <v-card class="stat-card" elevation="3" rounded="xl">
+          <v-card-text class="pa-5">
+            <div class="d-flex align-center justify-space-between">
+              <div>
+                <p class="text-caption text-grey-darken-1 mb-1 text-uppercase font-weight-medium">
+                  {{ $t('bills.stats.unpaid_case_price') }}
+                </p>
+                <h2 class="text-h5 font-weight-bold text-warning">
+                  {{ formatCurrency(stats.unpaid_case_price || 0) }}
+                </h2>
+                <div class="d-flex align-center mt-2">
+                  <v-icon size="16" color="warning" class="me-1">mdi-alert-circle</v-icon>
+                  <span class="text-caption text-warning">{{ $t('bills.stats.remaining') }}</span>
+                </div>
+              </div>
+              <v-avatar color="warning" size="56" variant="tonal">
+                <v-icon size="28">mdi-cash-clock</v-icon>
+              </v-avatar>
+            </div>
+          </v-card-text>
+        </v-card>
+      </v-col>
+
+      <!-- Total Expenses Card -->
+      <v-col cols="12" sm="6" md="3">
+        <v-card class="stat-card" elevation="3" rounded="xl">
+          <v-card-text class="pa-5">
+            <div class="d-flex align-center justify-space-between">
+              <div>
+                <p class="text-caption text-grey-darken-1 mb-1 text-uppercase font-weight-medium">
+                  {{ $t('bills.stats.total_expenses') }}
+                </p>
+                <h2 class="text-h5 font-weight-bold text-error">
+                  {{ formatCurrency(stats.total_expenses || 0) }}
+                </h2>
+                <div class="d-flex align-center mt-2">
+                  <v-icon size="16" color="error" class="me-1">mdi-arrow-down</v-icon>
+                  <span class="text-caption text-error">{{ $t('bills.stats.expenses') }}</span>
+                </div>
+              </div>
+              <v-avatar color="error" size="56" variant="tonal">
+                <v-icon size="28">mdi-cash-minus</v-icon>
+              </v-avatar>
+            </div>
+          </v-card-text>
+        </v-card>
+      </v-col>
+    </v-row>
 
     <!-- Bills Table -->
     <v-card elevation="2" rounded="xl">
@@ -286,6 +281,7 @@
         density="compact"
         mobile-breakpoint="md"
         hover
+        hide-default-footer
         @update:page="loadBills"
         @update:items-per-page="loadBills"
       >
@@ -600,6 +596,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRouter, useRoute } from 'vue-router'
 import { billService } from '@/services/bill.service'
 import DoctorService from '@/services/doctor.service'
 
@@ -613,6 +610,8 @@ const debounce = (fn, delay) => {
 }
 
 const { t, locale } = useI18n()
+const router = useRouter()
+const route = useRoute()
 
 // ==================== Reactive State ====================
 const loading = ref(false)
@@ -627,18 +626,30 @@ const doctors = ref([])
 const stats = ref({})
 
 // Pagination
-const currentPage = ref(1)
-const perPage = ref(15)
+const currentPage = ref(Number(route.query.page) || 1)
+const perPage = ref(Number(route.query.per_page) || 15)
 const totalBills = ref(0)
 
 // Filters
-const search = ref('')
+const search = ref(route.query.search || '')
 const filters = ref({
-  date_from: '',
-  date_to: '',
-  is_paid: null,
-  doctor_id: null
+  date_from: route.query.date_from || '',
+  date_to: route.query.date_to || '',
+  is_paid: route.query.is_paid !== undefined ? Number(route.query.is_paid) : null,
+  doctor_id: route.query.doctor_id ? Number(route.query.doctor_id) : null
 })
+
+function syncUrl() {
+  const q = {}
+  if (currentPage.value > 1) q.page = String(currentPage.value)
+  if (perPage.value !== 15) q.per_page = String(perPage.value)
+  if (search.value) q.search = search.value
+  if (filters.value.date_from) q.date_from = filters.value.date_from
+  if (filters.value.date_to) q.date_to = filters.value.date_to
+  if (filters.value.is_paid !== null) q.is_paid = String(filters.value.is_paid)
+  if (filters.value.doctor_id) q.doctor_id = String(filters.value.doctor_id)
+  router.replace({ query: q })
+}
 
 // Dialogs
 const viewDialog = ref(false)
@@ -675,6 +686,7 @@ const paginationInfo = computed(() => ({
 
 // ==================== Methods ====================
 const loadBills = async () => {
+  syncUrl()
   loading.value = true
   error.value = ''
   
@@ -695,13 +707,18 @@ const loadBills = async () => {
     if (filters.value.doctor_id) {
       params['filter[doctor_id]'] = filters.value.doctor_id
     }
+    
+    // Add date filters to bills API
+    if (filters.value.date_from) {
+      params['filter[date_from]'] = filters.value.date_from
+    }
+    if (filters.value.date_to) {
+      params['filter[date_to]'] = filters.value.date_to
+    }
 
     const response = await billService.getAll(params)
-    bills.value = response.data.data || response.data
-    totalBills.value = response.data.pagination?.total || response.data.meta?.total || bills.value.length
-
-    // Load statistics with date filters
-    await loadStatistics()
+    bills.value = response.data || []
+    totalBills.value = response.pagination?.total || response.meta?.total || 0
   } catch (err) {
     console.error('Error loading bills:', err)
     error.value = t('errors.fetchFailed')
@@ -713,15 +730,44 @@ const loadBills = async () => {
 const loadStatistics = async () => {
   try {
     const params = {}
-    if (filters.value.date_from) params.date_from = filters.value.date_from
-    if (filters.value.date_to) params.date_to = filters.value.date_to
-    if (filters.value.doctor_id) params.doctor_id = filters.value.doctor_id
+    
+    // Add date filters to statistics API
+    if (filters.value.date_from) {
+      params.date_from = filters.value.date_from
+    }
+    if (filters.value.date_to) {
+      params.date_to = filters.value.date_to
+    }
+    if (filters.value.doctor_id) {
+      params.doctor_id = filters.value.doctor_id
+    }
 
     const response = await billService.getStatistics(params)
     stats.value = response.data.data || response.data
   } catch (err) {
     console.error('Error loading statistics:', err)
   }
+}
+
+const applyDateFilters = async () => {
+  currentPage.value = 1
+  loading.value = true
+  
+  try {
+    // Load both bills and statistics with date filters
+    await Promise.all([
+      loadBills(),
+      loadStatistics()
+    ])
+  } finally {
+    loading.value = false
+  }
+}
+
+const clearDateFilters = () => {
+  filters.value.date_from = ''
+  filters.value.date_to = ''
+  applyDateFilters()
 }
 
 const loadDoctors = async () => {
@@ -735,6 +781,7 @@ const loadDoctors = async () => {
 
 const debouncedSearch = debounce(() => {
   currentPage.value = 1
+  syncUrl()
   loadBills()
 }, 500)
 
@@ -840,9 +887,10 @@ const getBillableLabel = (type) => {
 }
 
 // ==================== Lifecycle ====================
-onMounted(() => {
-  loadBills()
-  loadDoctors()
+onMounted(async () => {
+  await loadDoctors()
+  await loadStatistics()
+  await loadBills()
 })
 </script>
 

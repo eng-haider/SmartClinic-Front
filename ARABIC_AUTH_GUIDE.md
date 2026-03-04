@@ -717,7 +717,7 @@ const canManagePatients = hasAnyPermission([
 </script>
 
 <template>
-  <v-btn v-if="canCreatePatient">إضافة مريض</v-btn>
+  <v-btn v-if="canCreatePatient">إضافة مراجع</v-btn>
   <v-btn v-if="canManagePatients">إدارة المراجعين</v-btn>
   <v-card v-if="isSuperAdmin">لوحة المدير</v-card>
 </template>
@@ -1096,7 +1096,7 @@ async function loadPatients() {
   }
 }
 
-// إضافة مريض
+// إضافة مراجع
 async function createPatient() {
   try {
     const response = await api.post("/patients", newPatient.value);
@@ -1108,12 +1108,12 @@ async function createPatient() {
   }
 }
 
-// تعديل مريض
+// تعديل مراجع
 function editPatient(patient) {
   // فتح dialog التعديل
 }
 
-// حذف مريض
+// حذف مراجع
 async function deletePatient(patient) {
   if (confirm("هل أنت متأكد من الحذف؟")) {
     try {
@@ -1125,7 +1125,7 @@ async function deletePatient(patient) {
   }
 }
 
-// عرض مريض
+// عرض مراجع
 function viewPatient(patient) {
   // الانتقال لصفحة التفاصيل
 }

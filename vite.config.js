@@ -12,40 +12,20 @@ export default defineConfig({
       // Use autoUpdate so the service worker checks for new builds and updates automatically.
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'logomain.png', 'robots.txt'],
-      manifest: {
-        name: 'SmartClinic - نظام إدارة العيادات',
-        short_name: 'SmartClinic',
-        description: 'نظام إدارة العيادات الذكي - Smart Clinic Management System',
-        theme_color: '#17638D',
-        background_color: '#ffffff',
-        display: 'standalone',
-        orientation: 'portrait',
-        scope: '/',
-        start_url: '/',
-        // Use the provided logomain.png as the primary icon for the PWA.
-        icons: [
-          {
-            src: '/logomain.png',
-            sizes: '192x192',
-            type: 'image/png',
-            purpose: 'any'
-          },
-          {
-            src: '/logomain.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'any maskable'
-          }
-        ]
-      },
+      // Force service worker to update immediately
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+        // Only cache JS/CSS/fonts/images - NOT html files
+        globPatterns: ['**/*.{js,css,ico,png,svg,woff,woff2}'],
         // Ensure new service worker takes control immediately so clients receive updates.
         skipWaiting: true,
         clientsClaim: true,
+        // Don't cache index.html to always get fresh version
+        navigateFallback: null,
+        // Clean up old caches from previous builds
+        cleanupOutdatedCaches: true,
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/mina-api\.tctate\.com\/.*/i,
+            urlPattern: /^https:\/\/api\.smartclinic\.software\/.*/i,
             handler: 'NetworkFirst',
             options: {
               cacheName: 'api-cache',
@@ -59,6 +39,42 @@ export default defineConfig({
             }
           }
         ]
+      },
+      manifest: {
+        name: 'SmartClinic - نظام إدارة العيادات',
+        short_name: 'SmartClinic',
+        description: 'نظام إدارة العيادات الذكي - Smart Clinic Management System',
+        theme_color: '#17638D',
+        background_color: '#17638D',
+        display: 'standalone',
+        orientation: 'portrait',
+        scope: '/',
+        start_url: '/?v=' + Date.now(),
+        dir: 'rtl',
+        lang: 'ar',
+        // Use the provided logomain.png as the primary icon for the PWA.
+        icons: [
+          {
+            src: '/logomain.png',
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'any'
+          },
+          {
+            src: '/logomain.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'any'
+          },
+          {
+            src: '/logomain.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable'
+          }
+        ],
+        categories: ['medical', 'health', 'productivity'],
+        screenshots: []
       },
       devOptions: {
         enabled: true
@@ -80,6 +96,14 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: false
+    sourcemap: false,
+    // Add timestamp to file names for cache busting
+    rollupOptions: {
+      output: {
+        entryFileNames: `assets/[name]-[hash]-${Date.now()}.js`,
+        chunkFileNames: `assets/[name]-[hash]-${Date.now()}.js`,
+        assetFileNames: `assets/[name]-[hash]-${Date.now()}.[ext]`
+      }
+    }
   }
 })

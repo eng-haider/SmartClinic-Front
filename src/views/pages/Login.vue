@@ -33,6 +33,8 @@
                 prepend-inner-icon="mdi-phone"
                 variant="outlined"
                 class="mb-3"
+                placeholder="07XXXXXXXXX"
+                prefix="07"
               ></v-text-field>
               
               <v-text-field

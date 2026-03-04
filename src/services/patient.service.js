@@ -168,10 +168,12 @@ export const patientService = {
    * Get public patient profile by token
    * This endpoint is accessed via QR code scanning
    * @param {string} token - Public profile token (UUID)
+   * @param {string} clinicId - Clinic/Tenant ID (optional)
    * @returns {Promise} - Public patient data
    */
-  async getPublicPatientByToken(token) {
-    return await api.get(`/public/patients/${token}`)
+  async getPublicPatientByToken(token, clinicId = null) {
+    const params = clinicId ? { clinic: clinicId } : {}
+    return await api.get(`/public/patients/${token}`, { params })
   },
 
   /**

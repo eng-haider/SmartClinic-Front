@@ -1,0 +1,77 @@
+/**
+ * Mobile-Specific Styles
+ * أنماط خاصة بالموبايل
+ */
+
+/* ==================== Base ==================== */
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overscroll-behavior-y: none;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* ==================== Touch ==================== */
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.v-btn,
+.v-list-item,
+.v-app-bar,
+.v-bottom-navigation,
+.v-navigation-drawer {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+input, textarea, [contenteditable],
+.v-text-field, .v-textarea {
+  -webkit-user-select: auto;
+  user-select: auto;
+}
+
+/* ==================== Keyboard ==================== */
+
+body.keyboard-is-open .bottom-tab-bar {
+  display: none !important;
+}
+
+/* ==================== Small Screen ==================== */
+
+@media (max-width: 600px) {
+  .v-list-item {
+    min-height: 52px !important;
+  }
+
+  .v-btn:not(.v-btn--icon) {
+    min-height: 44px !important;
+  }
+
+  .v-dialog {
+    margin: 8px !important;
+    max-height: calc(100vh - 16px) !important;
+  }
+
+  .v-dialog > .v-card {
+    border-radius: 16px !important;
+  }
+
+  .v-toolbar-title {
+    font-size: 1rem !important;
+  }
+}
+
+/* ==================== Z-Index ==================== */
+
+.v-overlay-container {
+  z-index: 10000 !important;
+}
+
+.v-dialog__content {
+  z-index: 10001 !important;
+}

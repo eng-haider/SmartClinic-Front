@@ -204,11 +204,18 @@
 
       <!-- Pagination Info -->
       <v-divider />
-      <div class="d-flex align-center justify-space-between pa-4">
+      <div class="d-flex align-center justify-space-between pa-3">
         <div class="text-caption text-grey">
           {{ $t('doctors.showing') }} {{ paginationInfo.from }}-{{ paginationInfo.to }} 
           {{ $t('doctors.of') }} {{ paginationInfo.total }} {{ $t('doctors.doctors') }}
         </div>
+        <v-pagination
+          v-model="currentPage"
+          :length="paginationInfo.lastPage"
+          :total-visible="7"
+          density="compact"
+          @update:model-value="loadDoctors"
+        />
       </div>
     </v-card>
 
@@ -474,10 +481,13 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRouter, useRoute } from 'vue-router'
 import DoctorService from '@/services/doctor.service'
 
 // ==================== Composables ====================
 const { t } = useI18n()
+const router = useRouter()
+const route = useRoute()
 
 // ==================== State ====================
 const doctors = ref([])
@@ -485,9 +495,9 @@ const loading = ref(false)
 const saving = ref(false)
 const deleting = ref(false)
 const error = ref('')
-const search = ref('')
-const perPage = ref(15)
-const currentPage = ref(1)
+const search = ref(route.query.search || '')
+const perPage = ref(Number(route.query.per_page) || 15)
+const currentPage = ref(Number(route.query.page) || 1)
 const totalDoctors = ref(0)
 
 // Dialogs
@@ -515,8 +525,17 @@ const doctorData = reactive({
 const formErrors = reactive({})
 
 const filters = reactive({
-  is_active: null
+  is_active: route.query.is_active !== undefined ? (route.query.is_active === '1' ? true : false) : null
 })
+
+function syncUrl() {
+  const q = {}
+  if (currentPage.value > 1) q.page = String(currentPage.value)
+  if (perPage.value !== 15) q.per_page = String(perPage.value)
+  if (search.value) q.search = search.value
+  if (filters.is_active !== null) q.is_active = filters.is_active ? '1' : '0'
+  router.replace({ query: q })
+}
 
 // Snackbar
 const snackbar = reactive({
@@ -553,7 +572,8 @@ const paginationInfo = computed(() => {
   return {
     from: totalDoctors.value > 0 ? from : 0,
     to: totalDoctors.value > 0 ? to : 0,
-    total: totalDoctors.value
+    total: totalDoctors.value,
+    lastPage: Math.ceil(totalDoctors.value / perPage.value) || 1
   }
 })
 
@@ -564,12 +584,15 @@ let searchTimeout
 const debouncedSearch = () => {
   clearTimeout(searchTimeout)
   searchTimeout = setTimeout(() => {
+    currentPage.value = 1
+    syncUrl()
     loadDoctors()
   }, 500)
 }
 
 // Load Doctors
 async function loadDoctors() {
+  syncUrl()
   loading.value = true
   error.value = ''
 

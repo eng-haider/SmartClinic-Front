@@ -1,3 +1,10 @@
 node_modules/
 dist
 public/
+
+# Capacitor native platforms (rebuild with npm run mobile:add:ios/android)
+ios/
+android/
+
+# Capacitor
+.capacitor/

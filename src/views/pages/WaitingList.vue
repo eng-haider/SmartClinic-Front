@@ -45,7 +45,7 @@
           <v-col cols="12" sm="6" md="4">
             <v-text-field
               v-model="patientSearch"
-              :label="$t('waitingList.searchPatient') || 'بحث عن مريض'"
+              :label="$t('waitingList.searchPatient') || 'بحث عن مراجع'"
               prepend-inner-icon="mdi-magnify"
               variant="outlined"
               density="compact"
@@ -114,6 +114,24 @@
             <div class="d-flex align-center gap-2">
               <v-icon size="small" color="primary">mdi-clock-outline</v-icon>
               <span>{{ formatTime(item.reservation_from_time) }}</span>
+            </div>
+          </template>
+
+          <!-- Reservation Type Column -->
+          <template #item.reservation_type="{ item }">
+            <v-chip
+              v-if="item.reservation_type"
+              size="small"
+              :color="item.reservation_type.id === 1 ? 'teal' : 'purple'"
+              variant="tonal"
+            >
+              <v-icon start size="14">{{ item.reservation_type.id === 1 ? 'mdi-stethoscope' : 'mdi-dots-horizontal-circle-outline' }}</v-icon>
+              {{ item.reservation_type.name }}
+            </v-chip>
+            <span v-else class="text-medium-emphasis text-caption">-</span>
+            <!-- reservation_type_note if exists -->
+            <div v-if="item.reservation_type_note" class="text-caption text-medium-emphasis mt-1">
+              {{ item.reservation_type_note }}
             </div>
           </template>
           
@@ -217,6 +235,7 @@ const headers = computed(() => [
   { title: t('waitingList.patient') || 'المراجع', key: 'patient', sortable: true },
   { title: t('waitingList.doctor') || 'الطبيب', key: 'doctor', sortable: true },
   { title: t('waitingList.reservationTime') || 'وقت الحجز', key: 'reservation_from_time', sortable: true },
+  { title: t('reservations.reservation_type') || 'نوع الحجز', key: 'reservation_type', sortable: false },
   { title: t('waitingList.notes') || 'ملاحظات', key: 'notes', sortable: false },
   { title: t('waitingList.status') || 'الحالة', key: 'status', sortable: true },
   { title: t('common.actions') || 'الإجراءات', key: 'actions', sortable: false, align: 'center' }
@@ -254,7 +273,7 @@ async function loadReservations() {
     const params = {
       from_date: today,
       to_date: today,
-      include: 'patient,doctor,status',
+      include: 'patient,doctor,status,reservationType',
       per_page: 500
     }
     

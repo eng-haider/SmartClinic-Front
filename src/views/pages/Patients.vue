@@ -1,13 +1,15 @@
 <template>
   <div class="patients-page">
-    <!-- Page Header -->
-    <div class="page-header mb-6">
+    <!-- Page Header (hidden on mobile) -->
+    <div class="page-header mb-6 d-none d-sm-block">
       <div class="d-flex flex-wrap align-center justify-space-between ga-4">
-        <div>
+        <!-- Title: hidden on mobile -->
+        <div class="d-none d-sm-block">
           <h1 class="text-h4 font-weight-bold text-primary">{{ $t('patients.title') }}</h1>
           <p class="text-grey mt-1">{{ $t('patients.subtitle') }}</p>
         </div>
-        <div class="d-flex ga-2">
+        <!-- Action buttons: hidden on mobile (replaced by FABs) -->
+        <div class="d-none d-sm-flex ga-2">
           <v-btn
             color="purple"
             size="large"
@@ -31,12 +33,28 @@
       </div>
     </div>
 
-    <!-- Filters & Search Toolbar -->
-    <v-card class="toolbar-card mb-6" elevation="2" rounded="xl">
+    <!-- Mobile Search Bar (visible on mobile only) -->
+    <div class="d-sm-none mb-4">
+      <v-text-field
+        v-model="search"
+        :label="$t('patients.search')"
+        prepend-inner-icon="mdi-magnify"
+        variant="outlined"
+        density="comfortable"
+        hide-details
+        clearable
+        bg-color="white"
+        rounded="xl"
+        @update:model-value="debouncedSearch"
+      />
+    </div>
+
+    <!-- Filters & Search Toolbar (hidden on mobile) -->
+    <v-card class="toolbar-card mb-6 d-none d-sm-block" elevation="2" rounded="xl">
       <v-card-text>
         <v-row align="center">
           <!-- Search -->
-          <v-col cols="12" md="8">
+          <v-col cols="12" sm="6" md="4">
             <v-text-field
               v-model="search"
               :label="$t('patients.search')"
@@ -49,8 +67,25 @@
             />
           </v-col>
 
+          <!-- Payment Status Filter -->
+          <v-col cols="12" sm="6" md="3">
+            <v-select
+              v-model="filters.payment_status"
+              :label="$t('patients.payment_status')"
+              :items="paymentStatusOptions"
+              item-title="text"
+              item-value="value"
+              variant="outlined"
+              density="comfortable"
+              hide-details
+              clearable
+              prepend-inner-icon="mdi-cash-check"
+              @update:model-value="loadPatients"
+            />
+          </v-col>
+
           <!-- Per Page -->
-          <v-col cols="6" md="4">
+          <v-col cols="6" sm="6" md="2">
             <v-select
               v-model="perPage"
               :label="$t('patients.per_page')"
@@ -60,6 +95,19 @@
               hide-details
               @update:model-value="loadPatients"
             />
+          </v-col>
+
+          <!-- Clear Filters Button -->
+          <v-col cols="6" sm="6" md="3" class="d-flex justify-end">
+            <v-btn
+              color="error"
+              variant="tonal"
+              prepend-icon="mdi-filter-remove"
+              @click="clearFilters"
+              :disabled="!search && !filters.payment_status"
+            >
+              {{ $t('patients.clear_filters') }}
+            </v-btn>
           </v-col>
         </v-row>
       </v-card-text>
@@ -87,8 +135,9 @@
         density="compact"
         mobile-breakpoint="md"
         hover
-        @update:page="loadPatients"
-        @update:items-per-page="loadPatients"
+        hide-default-footer
+        @update:page="handlePageChange"
+        @update:items-per-page="handleItemsPerPageChange"
         @click:row="(event, { item }) => goToPatient(item)"
       >
         <!-- Avatar & Name -->
@@ -234,162 +283,34 @@
         </template>
       </v-data-table-server>
 
-      <!-- Pagination Info -->
+      <!-- Numbered Pagination -->
       <v-divider />
-      <div class="d-flex align-center justify-space-between pa-4">
+      <div class="d-flex align-center justify-space-between pa-3">
         <div class="text-caption text-grey">
-          {{ $t('patients.showing') }} {{ paginationInfo.from }}-{{ paginationInfo.to }} 
-          {{ $t('patients.of') }} {{ paginationInfo.total }} {{ $t('patients.patients') }}
+          {{ $t('patients.showing') || 'Showing' }}
+          {{ paginationInfo.from }}-{{ paginationInfo.to }}
+          {{ $t('patients.of') || 'of' }}
+          {{ paginationInfo.total }}
         </div>
+        <v-pagination
+          v-model="currentPage"
+          :length="paginationInfo.lastPage"
+          :total-visible="7"
+          density="compact"
+          @update:model-value="handlePageChange"
+        />
       </div>
     </v-card>
 
     <!-- Add/Edit Patient Dialog -->
-    <v-dialog v-model="patientDialog" max-width="700" persistent>
-      <v-card rounded="xl">
-        <v-card-title class="d-flex align-center justify-space-between pa-4 bg-primary">
-          <span class="text-white">
-            {{ editMode ? $t('patients.edit_patient') : $t('patients.add_patient') }}
-          </span>
-          <v-btn icon="mdi-close" variant="text" color="white" @click="closeDialog" />
-        </v-card-title>
-
-        <v-card-text class="pa-6">
-          <v-form ref="patientForm" @submit.prevent="savePatient">
-            <v-row>
-              <!-- Name Field with Patient Combobox -->
-              <v-col cols="12">
-                <v-combobox
-                  v-model="patientData.name"
-                  :items="patientSearchList"
-                  :loading="loadingPatientSearch"
-                  :search-input.sync="patientNameSearch"
-                  item-title="text"
-                  item-value="value"
-                  :rules="[v => !!v || $t('validation.required')]"
-                  :label="$t('patients.name') + ' *'"
-                  prepend-inner-icon="mdi-account"
-                  variant="outlined"
-                  clearable
-                  :error-messages="formErrors.name"
-                  @update:search="searchPatientsByName"
-                  @update:model-value="handlePatientNameSelect"
-                >
-                  <template v-slot:no-data>
-                    <v-list-item>
-                      <v-list-item-title>
-                        {{ patientNameSearch ? $t('patients.add_new_name') : $t('patients.type_to_search_patients') }}
-                      </v-list-item-title>
-                    </v-list-item>
-                  </template>
-                  
-                  <template v-slot:item="{ props, item }">
-                    <v-list-item v-bind="props">
-                      <template v-slot:title>
-                        {{ item.raw.text || item.raw.name }}
-                      </template>
-                      <template v-slot:subtitle>
-                        {{ item.raw.phone }} - {{ $t('patients.age') }}: {{ item.raw.age || $t('patients.not_specified') }}
-                      </template>
-                    </v-list-item>
-                  </template>
-                </v-combobox>
-              </v-col>
-
-              <!-- Birth Date -->
-              <v-col cols="12" md="6">
-                <v-text-field
-                  v-model="birthDateDisplay"
-                  :label="$t('patients.birth_date')"
-                  prepend-inner-icon="mdi-calendar-blank"
-                  variant="outlined"
-                  placeholder="YYYY or YYYY-MM-DD"
-                  :hint="$t('patients.birth_date_hint')"
-                  persistent-hint
-                  :error-messages="formErrors.birth_date"
-                  @input="handleBirthDateInput"
-                />
-              </v-col>
-
-              <!-- Phone -->
-              <v-col cols="12" md="6">
-                <v-text-field
-                  v-model="patientData.phone"
-                  :label="$t('patients.phone')"
-                  prepend-inner-icon="mdi-phone"
-                  variant="outlined"
-                  dir="ltr"
-                  placeholder="07XX XXX XXXX"
-                  maxlength="13"
-                  :error-messages="formErrors.phone"
-                  @input="formatPhoneNumber"
-                />
-              </v-col>
-
-              <!-- Gender/Sex -->
-              <v-col cols="12" md="6">
-                <div class="text-subtitle-2 mb-2">{{ $t('patients.sex') }}</div>
-                <v-radio-group
-                  v-model="patientData.sex"
-                  :error-messages="formErrors.sex"
-                  inline
-                >
-                  <v-radio
-                    v-for="option in genderOptions"
-                    :key="option.value"
-                    :label="option.text"
-                    :value="option.value"
-                    color="primary"
-                  />
-                </v-radio-group>
-              </v-col>
-
-              <!-- Address -->
-              <v-col cols="12">
-                <v-textarea
-                  v-model="patientData.address"
-                  :label="$t('patients.address')"
-                  prepend-inner-icon="mdi-map-marker"
-                  variant="outlined"
-                  rows="2"
-                  :error-messages="formErrors.address"
-                />
-              </v-col>
-
-              <!-- Note -->
-              <v-col cols="12">
-                <v-textarea
-                  v-model="patientData.note"
-                  :label="$t('patients.note')"
-                  prepend-inner-icon="mdi-note"
-                  variant="outlined"
-                  rows="3"
-                  :error-messages="formErrors.note"
-                />
-              </v-col>
-            </v-row>
-          </v-form>
-        </v-card-text>
-
-        <v-divider />
-
-        <v-card-actions class="pa-4">
-          <v-spacer />
-          <v-btn variant="text" @click="closeDialog">
-            {{ $t('common.cancel') }}
-          </v-btn>
-          <v-btn
-            color="primary"
-            variant="elevated"
-            :loading="saving"
-            @click="savePatient"
-          >
-            {{ editMode ? $t('common.update') : $t('common.save') }}
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-
+    <PatientFormDialog
+      v-model="patientDialog"
+      :edit-mode="editMode"
+      :patient="selectedPatient"
+      :doctors="doctors"
+      @saved="handlePatientSaved"
+      @error="handlePatientError"
+    />
     <!-- View Patient Dialog -->
     <v-dialog v-model="viewDialog" max-width="600">
       <v-card v-if="selectedPatient" rounded="xl">
@@ -635,6 +556,35 @@
       @scan-error="handleScanError"
     />
 
+    <!-- Floating Action Buttons (mobile only) -->
+    <div class="d-sm-none fab-container">
+      <!-- QR Scan FAB -->
+      <v-btn
+        color="purple"
+        size="large"
+        icon
+        elevation="4"
+        variant="tonal"
+        class="fab-btn"
+        @click="openScanner"
+      >
+        <v-icon>mdi-qrcode-scan</v-icon>
+        <v-tooltip activator="parent" location="top">{{ $t('patients.scanQr') }}</v-tooltip>
+      </v-btn>
+      <!-- Add Patient FAB -->
+      <v-btn
+        color="primary"
+        size="large"
+        icon
+        elevation="6"
+        class="fab-btn"
+        @click="openAddDialog"
+      >
+        <v-icon>mdi-plus</v-icon>
+        <v-tooltip activator="parent" location="top">{{ $t('patients.add') }}</v-tooltip>
+      </v-btn>
+    </div>
+
     <!-- Snackbar Notifications -->
     <v-snackbar
       v-model="snackbar.show"
@@ -655,37 +605,54 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import api from '@/services/api'
 import BookingDialog from '@/components/BookingDialog.vue'
+import PatientFormDialog from '@/components/PatientFormDialog.vue'
 import PatientIdCard from '@/components/PatientIdCard.vue'
 import QrScanner from '@/components/QrScanner.vue'
 import { useClinicSettings } from '@/composables/useClinicSettings'
 
 const { t } = useI18n()
 const router = useRouter()
+const route = useRoute()
 const { clinicSettings } = useClinicSettings()
 
 // ==================== State ====================
 const loading = ref(false)
-const saving = ref(false)
 const deleting = ref(false)
 const error = ref('')
-const search = ref('')
+const search = ref(route.query.search || '')
 const patients = ref([])
 const doctors = ref([])
-const currentPage = ref(1)
-const perPage = ref(15)
+const currentPage = ref(Number(route.query.page) || 1)
+const perPage = ref(Number(route.query.per_page) || 15)
 const totalPatients = ref(0)
 
 // Filters
 const filters = reactive({
-  sex: null,
-  doctor_id: null,
-  clinics_id: null
+  sex: route.query.sex || null,
+  doctor_id: route.query.doctor_id ? Number(route.query.doctor_id) : null,
+  clinics_id: route.query.clinics_id ? Number(route.query.clinics_id) : null,
+  payment_status: route.query.payment_status || null
 })
 
-const sortBy = ref('-created_at')
+
+
+const sortBy = ref('-created_at') // Default sorting by newest
+
+// Sync current state into URL
+function syncUrl() {
+  const q = {}
+  if (currentPage.value > 1) q.page = String(currentPage.value)
+  if (perPage.value !== 15) q.per_page = String(perPage.value)
+  if (search.value) q.search = search.value
+  if (filters.payment_status) q.payment_status = filters.payment_status
+  if (filters.sex) q.sex = filters.sex
+  if (filters.doctor_id) q.doctor_id = String(filters.doctor_id)
+  if (filters.clinics_id) q.clinics_id = String(filters.clinics_id)
+  router.replace({ query: q })
+}
 
 // Dialogs
 const patientDialog = ref(false)
@@ -706,42 +673,17 @@ const selectedPatientForQrCard = ref(null)
 const whatsappMessage = ref('')
 const selectedTemplate = ref(null)
 
-// Birth date mode
-const yearOnlyMode = ref(false)
-const birthYear = ref('')
-const birthDateDisplay = ref('')
-
-// Patient search for combobox
-const patientSearchList = ref([])
-const loadingPatientSearch = ref(false)
-const patientNameSearch = ref('')
-let patientSearchTimeout = null
-
 // Selected Patient
 const selectedPatient = ref(null)
 const patientToDelete = ref(null)
 
-// Form Data
-const patientData = reactive({
-  name: '',
-  phone: '',
-  sex: null,
-  age: null,
-  doctor_id: null,
-  identifier: '',
-  address: '',
-  notes: '',
-  birth_date: '',
-  systemic_conditions: '',
-  rx_id: '',
-  note: '',
-  credit_balance: null,
-  credit_balance_add_at: '',
-  from_where_come_id: null
-})
-
-const formErrors = reactive({})
-const patientForm = ref(null)
+// ==================== Computed Properties ====================
+// Payment Status Filter Options
+const paymentStatusOptions = computed(() => [
+  { text: t('patients.all_patients'), value: null },
+  { text: t('patients.has_unpaid_cases'), value: 'has_unpaid_cases' },
+  { text: t('patients.all_cases_paid'), value: 'all_cases_paid' }
+])
 
 // Snackbar
 const snackbar = reactive({
@@ -751,11 +693,6 @@ const snackbar = reactive({
 })
 
 // ==================== Options ====================
-const genderOptions = computed(() => [
-  { text: t('patients.male'), value: 1 },     // 1 = Male
-  { text: t('patients.female'), value: 2 }    // 2 = Female
-])
-
 const sortOptions = computed(() => [
   { text: t('patients.newest'), value: '-created_at' },
   { text: t('patients.oldest'), value: 'created_at' },
@@ -823,10 +760,26 @@ const headers = computed(() => [
 const paginationInfo = computed(() => ({
   from: (currentPage.value - 1) * perPage.value + 1,
   to: Math.min(currentPage.value * perPage.value, totalPatients.value),
-  total: totalPatients.value
+  total: totalPatients.value,
+  lastPage: Math.ceil(totalPatients.value / perPage.value) || 1
 }))
 
 // ==================== Methods ====================
+
+// Handle page change
+function handlePageChange(page) {
+  currentPage.value = page
+  syncUrl()
+  loadPatients()
+}
+
+// Handle items per page change
+function handleItemsPerPageChange(itemsPerPage) {
+  perPage.value = itemsPerPage
+  currentPage.value = 1
+  syncUrl()
+  loadPatients()
+}
 
 // Debounced Search
 let searchTimeout = null
@@ -834,6 +787,7 @@ function debouncedSearch() {
   clearTimeout(searchTimeout)
   searchTimeout = setTimeout(() => {
     currentPage.value = 1
+    syncUrl()
     loadPatients()
   }, 500)
 }
@@ -842,6 +796,8 @@ function debouncedSearch() {
 async function loadPatients() {
   loading.value = true
   error.value = ''
+
+  console.log('🔄 Loading patients - Page:', currentPage.value, 'Per page:', perPage.value)
 
   try {
     const params = {
@@ -879,10 +835,29 @@ async function loadPatients() {
       params['filter[clinics_id]'] = filters.clinics_id
     }
 
+    // Payment status filters (scope filters)
+    if (filters.payment_status === 'has_unpaid_cases') {
+      params['filter[has_unpaid_cases]'] = 1
+    } else if (filters.payment_status === 'all_cases_paid') {
+      params['filter[all_cases_paid]'] = 1
+    }
+
     const response = await api.get('/patients', { params })
     
+    console.log('📊 API Response:', response)
+    
     patients.value = response.data || []
-    totalPatients.value = response.meta?.total || response.total || 0
+    
+    // Check multiple possible locations for total count
+    totalPatients.value = response.pagination?.total || 
+                          response.meta?.total || 
+                          response.total || 
+                          0
+    
+    console.log('✅ Loaded patients:', patients.value.length)
+    console.log('📈 Total patients:', totalPatients.value)
+    console.log('📄 Current page:', currentPage.value)
+    console.log('📋 Per page:', perPage.value)
     
   } catch (err) {
     console.error('Failed to load patients:', err)
@@ -890,6 +865,18 @@ async function loadPatients() {
   } finally {
     loading.value = false
   }
+}
+
+// Clear Filters
+function clearFilters() {
+  search.value = ''
+  filters.payment_status = null
+  filters.sex = null
+  filters.doctor_id = null
+  filters.clinics_id = null
+  currentPage.value = 1
+  syncUrl()
+  loadPatients()
 }
 
 // Load Doctors for Filter
@@ -902,78 +889,10 @@ async function loadDoctors() {
   }
 }
 
-// Search Patients for Combobox
-async function searchPatientsByName(searchTerm) {
-  // Clear existing timeout
-  if (patientSearchTimeout) {
-    clearTimeout(patientSearchTimeout)
-  }
-
-  // If search term is empty or too short, clear list
-  if (!searchTerm || searchTerm.length < 2) {
-    patientSearchList.value = []
-    return
-  }
-
-  // Debounce search to avoid too many API calls
-  patientSearchTimeout = setTimeout(async () => {
-    try {
-      loadingPatientSearch.value = true
-      const params = {
-        search: searchTerm,
-        per_page: 20
-      }
-      
-      const response = await api.get('/patients', { params })
-      
-      if (response.data) {
-        patientSearchList.value = response.data.map(patient => ({
-          text: patient.name,
-          value: patient.name,
-          name: patient.name,
-          phone: patient.phone || '',
-          age: patient.age || t('patients.not_specified'),
-          id: patient.id,
-          fullData: patient
-        }))
-      }
-    } catch (err) {
-      console.error('Failed to search patients:', err)
-      patientSearchList.value = []
-    } finally {
-      loadingPatientSearch.value = false
-    }
-  }, 300)
-}
-
-// Handle Patient Name Selection from Combobox
-function handlePatientNameSelect(selectedItem) {
-  console.log('Patient selected:', selectedItem, typeof selectedItem)
-  
-  if (!selectedItem) return
-
-  // If selectedItem is a string, it's a new patient name
-  if (typeof selectedItem === 'string') {
-    patientData.name = selectedItem
-    return
-  }
-
-  // If selectedItem is an object with patient data, only set the name
-  if (selectedItem && typeof selectedItem === 'object') {
-    if (selectedItem.fullData) {
-      // Only set the name, don't fill other fields
-      patientData.name = selectedItem.fullData.name || ''
-    } else {
-      // Just set the name
-      patientData.name = selectedItem.name || selectedItem.text || selectedItem
-    }
-  }
-}
-
 // Open Add Dialog
 function openAddDialog() {
   editMode.value = false
-  resetForm()
+  selectedPatient.value = null
   patientDialog.value = true
 }
 
@@ -981,28 +900,6 @@ function openAddDialog() {
 function editPatient(patient) {
   editMode.value = true
   selectedPatient.value = patient
-  
-  Object.assign(patientData, {
-    name: patient.name,
-    phone: patient.phone,
-    sex: patient.sex,
-    age: patient.age,
-    doctor_id: patient.doctor_id,
-    identifier: patient.identifier,
-    address: patient.address,
-    notes: patient.notes,
-    birth_date: patient.birth_date || '',
-    systemic_conditions: patient.systemic_conditions || '',
-    rx_id: patient.rx_id || '',
-    note: patient.note || '',
-    credit_balance: patient.credit_balance,
-    credit_balance_add_at: patient.credit_balance_add_at || '',
-    from_where_come_id: patient.from_where_come_id
-  })
-  
-  // Set birth date display
-  birthDateDisplay.value = patient.birth_date || ''
-  
   patientDialog.value = true
 }
 
@@ -1023,148 +920,15 @@ function viewPatient(patient) {
   viewDialog.value = true
 }
 
-// Close Dialog
-function closeDialog() {
-  patientDialog.value = false
-  resetForm()
+// Handle PatientFormDialog saved event
+function handlePatientSaved({ message, color }) {
+  showSnackbar(message, color || 'success')
+  loadPatients()
 }
 
-// Reset Form
-function resetForm() {
-  Object.assign(patientData, {
-    name: '',
-    phone: '',
-    sex: null,
-    age: null,
-    doctor_id: null,
-    identifier: '',
-    address: '',
-    notes: '',
-    birth_date: '',
-    systemic_conditions: '',
-    rx_id: '',
-    note: '',
-    credit_balance: null,
-    credit_balance_add_at: '',
-    from_where_come_id: null
-  })
-  Object.keys(formErrors).forEach(key => delete formErrors[key])
-  yearOnlyMode.value = false
-  birthYear.value = ''
-  birthDateDisplay.value = ''
-  patientNameSearch.value = ''
-  patientSearchList.value = []
-}
-
-// Handle birth date input - automatically convert year-only to full date
-function handleBirthDateInput(event) {
-  let value = event.target ? event.target.value : event
-  
-  if (!value) {
-    patientData.birth_date = ''
-    birthDateDisplay.value = ''
-    return
-  }
-
-  // Remove any extra characters, keep only digits and dashes
-  let cleanValue = value.replace(/[^\d-]/g, '')
-  
-  // Auto-add dash after 4 digits (year)
-  if (cleanValue.length === 4 && !cleanValue.includes('-')) {
-    cleanValue = cleanValue + '-'
-    birthDateDisplay.value = cleanValue
-    if (event.target) {
-      event.target.value = cleanValue
-    }
-    return
-  }
-  
-  // Auto-add dash after month (YYYY-MM format)
-  if (/^\d{4}-\d{2}$/.test(cleanValue) && cleanValue.length === 7) {
-    cleanValue = cleanValue + '-'
-    birthDateDisplay.value = cleanValue
-    if (event.target) {
-      event.target.value = cleanValue
-    }
-    return
-  }
-  
-  const trimmedValue = cleanValue.trim()
-  
-  // If user enters exactly 4 digits (year only)
-  if (/^\d{4}$/.test(trimmedValue)) {
-    const formattedDate = `${trimmedValue}-01-01`
-    patientData.birth_date = formattedDate
-    birthDateDisplay.value = trimmedValue
-    console.log('✅ Year converted to:', formattedDate)
-  }
-  // If user enters year-month (YYYY-MM)
-  else if (/^\d{4}-\d{1,2}$/.test(trimmedValue)) {
-    const [year, month] = trimmedValue.split('-')
-    const formattedDate = `${year}-${month.padStart(2, '0')}-01`
-    patientData.birth_date = formattedDate
-    birthDateDisplay.value = trimmedValue
-    console.log('✅ Year-Month converted to:', formattedDate)
-  }
-  // If user enters full date (YYYY-MM-DD)
-  else if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(trimmedValue)) {
-    const parts = trimmedValue.split('-')
-    const formattedDate = `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`
-    patientData.birth_date = formattedDate
-    birthDateDisplay.value = cleanValue
-    console.log('✅ Full date:', formattedDate)
-  }
-  // Any other format
-  else {
-    patientData.birth_date = trimmedValue
-    birthDateDisplay.value = cleanValue
-  }
-}
-
-// Save Patient
-async function savePatient() {
-  // Validate form
-  const { valid } = await patientForm.value.validate()
-  if (!valid) return
-
-  saving.value = true
-  Object.keys(formErrors).forEach(key => delete formErrors[key])
-
-  try {
-    const payload = { ...patientData }
-    
-    console.log('💾 Saving patient data:', payload)
-    console.log('📅 Birth date being sent:', payload.birth_date)
-    
-    let response
-    if (editMode.value) {
-      response = await api.put(`/patients/${selectedPatient.value.id}`, payload)
-    } else {
-      response = await api.post('/patients', payload)
-    }
-
-    showSnackbar(
-      editMode.value ? t('patients.updated') : t('patients.created'),
-      'success'
-    )
-    
-    closeDialog()
-    loadPatients()
-    
-  } catch (err) {
-    console.error('Failed to save patient:', err)
-    
-    if (err.response?.status === 422) {
-      const errors = err.response.data.errors
-      Object.keys(errors).forEach(key => {
-        formErrors[key] = errors[key][0]
-      })
-    } else {
-      showSnackbar(t('patients.save_error'), 'error')
-    }
-  } finally {
-    saving.value = false
-  }
+// Handle PatientFormDialog error event
+function handlePatientError({ message, color }) {
+  showSnackbar(message, color || 'error')
 }
 
 // Confirm Delete
@@ -1303,26 +1067,6 @@ function sendWhatsAppMessage() {
 
 // ==================== Helpers ====================
 
-// ==================== Helpers ====================
-
-function formatPhoneNumber(event) {
-  let value = event.target.value.replace(/\D/g, '') // Remove non-digits
-  
-  // Add space formatting: 07XX XXX XXXX
-  if (value.length > 4 && value.length <= 7) {
-    value = value.substring(0, 4) + ' ' + value.substring(4)
-  } else if (value.length > 7) {
-    value = value.substring(0, 4) + ' ' + value.substring(4, 7) + ' ' + value.substring(7, 11)
-  }
-  
-  // Limit to 13 characters (11 digits + 2 spaces)
-  value = value.substring(0, 13)
-  
-  // Update both the model and the input value
-  patientData.phone = value
-  event.target.value = value
-}
-
 function getInitials(name) {
   if (!name) return '?'
   return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
@@ -1436,5 +1180,21 @@ onMounted(() => {
   .patients-page {
     padding: 16px;
   }
+}
+
+/* Floating Action Buttons */
+.fab-container {
+  position: fixed;
+  bottom: calc(70px + env(safe-area-inset-bottom, 0px));
+  inset-inline-end: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 999;
+}
+
+.fab-btn {
+  width: 56px !important;
+  height: 56px !important;
 }
 </style>

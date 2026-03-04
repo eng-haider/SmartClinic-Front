@@ -27,8 +27,8 @@
       </template>
     </v-snackbar>
 
-    <!-- App Bar -->
-    <v-app-bar color="primary" elevation="2">
+    <!-- App Bar (hidden on mobile, shown on md+) -->
+    <v-app-bar color="primary" elevation="2" class="d-none d-md-flex">
       <v-app-bar-nav-icon @click="drawer = !drawer" class="d-md-none"></v-app-bar-nav-icon>
       
       <v-toolbar-title class="text-white font-weight-bold">
@@ -102,6 +102,14 @@
           color="primary"
         ></v-list-item>
       </v-list>
+
+      <!-- Logout button (mobile only) -->
+      <v-divider  class="my-2"></v-divider>
+      <v-list  density="compact">
+        <v-list-item @click="handleLogout" prepend-icon="mdi-logout">
+          <v-list-item-title>تسجيل الخروج</v-list-item-title>
+        </v-list-item>
+      </v-list>
     </v-navigation-drawer>
 
     <!-- Main Content -->
@@ -109,34 +117,40 @@
       <router-view></router-view>
     </v-main>
 
-    <!-- Mobile Bottom Navigation -->
-    <v-bottom-navigation
-      v-if="isMobile"
-      grow
-      color="primary"
-      class="d-md-none"
-    >
-      <v-btn
+    <!-- Bottom Tab Bar (mobile only) -->
+    <div v-if="isMobile" class="bottom-tab-bar">
+      <!-- Hamburger menu button -->
+      <button
+        class="tab-item"
+        @click="drawer = !drawer"
+      >
+        <v-icon size="22">mdi-menu</v-icon>
+        <span class="tab-label">القائمة</span>
+      </button>
+      <button
         v-for="item in filteredBottomNavItems"
         :key="item.to"
-        :to="item.to"
+        class="tab-item"
+        :class="{ 'tab-active': isActiveRoute(item.to) }"
+        @click="navigateTo(item.to)"
       >
-        <v-icon>{{ item.icon }}</v-icon>
-        <span>{{ item.title }}</span>
-      </v-btn>
-    </v-bottom-navigation>
+        <v-icon size="22">{{ item.icon }}</v-icon>
+        <span class="tab-label">{{ item.title }}</span>
+      </button>
+    </div>
   </v-app>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/authNew'
 import { usePermissions } from '@/composables/usePermissions'
 import { setupPermissionWatcher } from '@/utils/permissionWatcher'
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 const { 
   filteredNavItems, 
@@ -205,6 +219,19 @@ const userRoleDisplay = computed(() => {
   return role
 })
 
+// Check if current route is active (for tab highlighting)
+const isActiveRoute = (path) => {
+  if (path === '/' || path === '/dashboard') {
+    return route.path === '/' || route.path === '/dashboard'
+  }
+  return route.path.startsWith(path)
+}
+
+// Navigate to route
+const navigateTo = (path) => {
+  router.push(path)
+}
+
 // Methods
 const handleLogout = async () => {
   await authStore.logout()
@@ -244,7 +271,97 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.v-main {
-  background-color: #f5f5f5;
+/* ==================== App Bar (Safe Area Support) ==================== */
+:deep(.v-toolbar) {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* ==================== Navigation Drawer (Safe Area Support) ==================== */
+:deep(.v-navigation-drawer) {
+  padding-top: env(safe-area-inset-top, 0px) !important;
+}
+
+@media (max-width: 959px) {
+  :deep(.v-navigation-drawer) {
+    margin-top: 0 !important;
+    top: 0 !important;
+  }
+}
+
+/* ==================== Main Content (Enable Scroll) ==================== */
+:deep(.v-main) {
+  padding-bottom: calc(65px + env(safe-area-inset-bottom, 0px)) !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  height: 100vh !important;
+}
+
+@media (max-width: 959px) {
+  :deep(.v-main) {
+    padding-top: 0px !important;
+  }
+}
+
+:deep(.v-main__wrap) {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+/* ==================== Bottom Tab Bar ==================== */
+.bottom-tab-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-around;
+  align-items: flex-start;
+  background: #17638D;
+  height: calc(60px + env(safe-area-inset-bottom, 0px));
+  padding-top: 6px;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  z-index: 1000;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.15);
+}
+
+.tab-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  height: 54px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  padding: 4px 2px;
+  transition: color 0.2s;
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+}
+
+.tab-item:active {
+  transform: scale(0.93);
+}
+
+.tab-item.tab-active {
+  color: #ffffff;
+}
+
+.tab-item.tab-active .tab-label {
+  font-weight: 700;
+}
+
+.tab-label {
+  font-size: 10px;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 72px;
+  font-family: "Cairo", sans-serif;
 }
 </style>

@@ -236,11 +236,18 @@
 
       <!-- Pagination Info -->
       <v-divider />
-      <div class="d-flex align-center justify-space-between pa-4">
+      <div class="d-flex align-center justify-space-between pa-3">
         <div class="text-caption text-grey">
           {{ $t('cases.showing') }} {{ paginationInfo.from }}-{{ paginationInfo.to }} 
           {{ $t('cases.of') }} {{ paginationInfo.total }} {{ $t('cases.cases') }}
         </div>
+        <v-pagination
+          v-model="currentPage"
+          :length="paginationInfo.lastPage"
+          :total-visible="7"
+          density="compact"
+          @update:model-value="loadCases"
+        />
       </div>
     </v-card>
 
@@ -378,21 +385,22 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import api from '@/services/api'
 
 const { t } = useI18n()
 const router = useRouter()
+const route = useRoute()
 
 // ==================== State ====================
 const loading = ref(false)
 const error = ref('')
-const search = ref('')
+const search = ref(route.query.search || '')
 const cases = ref([])
 const categories = ref([])
 const doctors = ref([])
-const currentPage = ref(1)
-const perPage = ref(15)
+const currentPage = ref(Number(route.query.page) || 1)
+const perPage = ref(Number(route.query.per_page) || 15)
 const totalCases = ref(0)
 
 // Dialogs
@@ -401,11 +409,23 @@ const selectedCase = ref(null)
 
 // Filters
 const filters = reactive({
-  status_id: null,
-  is_paid: null,
-  case_categores_id: null,
-  doctor_id: null,
+  status_id: route.query.status_id ? Number(route.query.status_id) : null,
+  is_paid: route.query.is_paid !== undefined ? Number(route.query.is_paid) : null,
+  case_categores_id: route.query.case_categores_id ? Number(route.query.case_categores_id) : null,
+  doctor_id: route.query.doctor_id ? Number(route.query.doctor_id) : null,
 })
+
+function syncUrl() {
+  const q = {}
+  if (currentPage.value > 1) q.page = String(currentPage.value)
+  if (perPage.value !== 15) q.per_page = String(perPage.value)
+  if (search.value) q.search = search.value
+  if (filters.status_id !== null) q.status_id = String(filters.status_id)
+  if (filters.is_paid !== null) q.is_paid = String(filters.is_paid)
+  if (filters.case_categores_id !== null) q.case_categores_id = String(filters.case_categores_id)
+  if (filters.doctor_id !== null) q.doctor_id = String(filters.doctor_id)
+  router.replace({ query: q })
+}
 
 // ==================== Computed ====================
 const statusOptions = computed(() => [
@@ -435,7 +455,8 @@ const headers = computed(() => [
 const paginationInfo = computed(() => ({
   from: ((currentPage.value - 1) * perPage.value) + 1,
   to: Math.min(currentPage.value * perPage.value, totalCases.value),
-  total: totalCases.value
+  total: totalCases.value,
+  lastPage: Math.ceil(totalCases.value / perPage.value) || 1
 }))
 
 // ==================== Methods ====================
@@ -444,12 +465,14 @@ function debouncedSearch() {
   clearTimeout(searchTimeout)
   searchTimeout = setTimeout(() => {
     currentPage.value = 1
+    syncUrl()
     loadCases()
   }, 500)
 }
 
 // Load Cases
 async function loadCases() {
+  syncUrl()
   loading.value = true
   error.value = ''
 

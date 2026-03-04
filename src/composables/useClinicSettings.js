@@ -109,18 +109,20 @@ export function useClinicSettings() {
 
   /**
    * Get tooth condition colors from settings
+   * Fetches from display.tooth_colors
    */
   const toothConditionColors = computed(() => {
-    const colors = getSetting('medical', 'tooth_condition_colors')
+    const colors = getSetting('display', 'tooth_colors')
     if (!colors || !Array.isArray(colors)) {
       // Default colors if not set
       return [
-        { id: 1, name: 'Red', color: '#FF5252', hex_code: '#FF5252' },
-        { id: 2, name: 'Blue', color: '#2196F3', hex_code: '#2196F3' },
-        { id: 3, name: 'Green', color: '#4CAF50', hex_code: '#4CAF50' },
-        { id: 4, name: 'Yellow', color: '#FFEB3B', hex_code: '#FFEB3B' },
-        { id: 5, name: 'Orange', color: '#FF9800', hex_code: '#FF9800' },
-        { id: 6, name: 'Purple', color: '#9C27B0', hex_code: '#9C27B0' }
+        { id: 'healthy', name: 'Healthy', color: '#4CAF50' },
+        { id: 'cavity', name: 'Cavity', color: '#FF6B6B' },
+        { id: 'filling', name: 'Filling', color: '#4ECDC4' },
+        { id: 'crown', name: 'Crown', color: '#FFD93D' },
+        { id: 'missing', name: 'Missing', color: '#95A5A6' },
+        { id: 'implant', name: 'Implant', color: '#3498DB' },
+        { id: 'root_canal', name: 'Root Canal', color: '#9B59B6' }
       ]
     }
     return colors

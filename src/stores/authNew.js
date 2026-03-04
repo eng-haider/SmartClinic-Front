@@ -59,9 +59,13 @@ export const useAuthStore = defineStore('auth', () => {
       const result = await authService.register(userData)
       
       if (result.success) {
-        user.value = result.data.user
-        clinic.value = result.data.clinic
-        token.value = result.data.token
+        const data = result.data || {}
+        user.value = data.user || null
+        token.value = data.token || null
+        // API returns tenant_id as a direct string, not a nested object
+        if (data.tenant_id) {
+          localStorage.setItem('tenant_id', data.tenant_id)
+        }
       } else {
         error.value = result.message
       }
@@ -325,5 +329,11 @@ export const useAuthStore = defineStore('auth', () => {
     refreshPermissions,
     startPermissionRefresh,
     stopPermissionRefresh
+  }
+}, {
+  persist: {
+    key: 'auth',
+    storage: localStorage,
+    paths: ['user', 'clinic', 'token']
   }
 })
