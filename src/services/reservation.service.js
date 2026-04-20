@@ -161,6 +161,15 @@ export const reservationService = {
     return await apiClient.get('/statuses', {
       params: { per_page: 100 }
     })
+  },
+
+  /**
+   * Update reservation status
+   * @param {number} id - Reservation ID
+   * @param {number} statusId - New status ID
+   */
+  async updateStatus(id, statusId) {
+    return await apiClient.patch(`/reservations/${id}/status`, { status_id: statusId })
   }
 }
 

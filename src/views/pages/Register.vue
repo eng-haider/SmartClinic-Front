@@ -82,9 +82,21 @@
                     :rules="[v => !!v || $t('validation.required')]"
                   ></v-text-field>
                 </v-col>
+
+                <!-- Specialty -->
+                <v-col cols="12">
+                  <v-select
+                    v-model="specialty"
+                    :items="specialtyOptions"
+                    :label="$t('register.specialty')"
+                    prepend-inner-icon="mdi-medical-bag"
+                    variant="outlined"
+                    :rules="[v => !!v || $t('validation.required')]"
+                  ></v-select>
+                </v-col>
                 
                 <!-- Clinic Address -->
-                <!-- <v-col cols="12">
+                <v-col cols="12">
                   <v-textarea
                     v-model="clinicAddress"
                     :label="$t('register.clinic_address')"
@@ -93,7 +105,7 @@
                     rows="2"
                     :rules="[v => !!v || $t('validation.required')]"
                   ></v-textarea>
-                </v-col> -->
+                </v-col>
                 
                 <!-- Clinic Phone (Optional) -->
                 <v-col cols="12" md="6">
@@ -188,7 +200,7 @@ const { t } = useI18n()
 const name = ref('')
 const email = ref('')
 const clinic = ref('')
-// const clinicAddress = ref('')
+const clinicAddress = ref('')
 const clinicPhone = ref('')
 const clinicEmail = ref('')
 const phone = ref('')
@@ -199,6 +211,13 @@ const show2 = ref(false)
 const loading = ref(false)
 const errors = ref([])
 const successMessage = ref('')
+const specialty = ref('')
+
+const specialtyOptions = computed(() => [
+  { title: t('register.specialty_dental'), value: 'dental' },
+  { title: t('register.specialty_ophthalmology'), value: 'ophthalmology' },
+  { title: t('register.specialty_general'), value: 'general' }
+])
 
 // Validation Rules
 const phoneRules = [
@@ -222,7 +241,7 @@ const confirmRules = computed(() => [
 
 async function register() {
   // Validate required fields
-  if (!name.value || !phone.value || !clinic.value || !password.value || !confirmPass.value) {
+  if (!name.value || !phone.value || !clinic.value || !clinicAddress.value || !specialty.value || !password.value || !confirmPass.value) {
     errors.value = [t('validation.required')]
     return
   }
@@ -258,8 +277,10 @@ async function register() {
       password: password.value,
       passwordConfirmation: confirmPass.value,
       clinicName: clinic.value,
+      clinicAddress: clinicAddress.value,
       clinicPhone: clinicPhone.value || phone.value,
-      clinicEmail: clinicEmail.value || email.value
+      clinicEmail: clinicEmail.value || email.value,
+      specialty: specialty.value
     })
 
     if (result.success) {

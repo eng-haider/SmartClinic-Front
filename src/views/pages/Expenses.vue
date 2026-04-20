@@ -27,6 +27,15 @@
           >
             {{ $t('expenses.addExpense') }}
           </v-btn>
+          <v-btn
+            color="success"
+            variant="tonal"
+            size="small"
+            prepend-icon="mdi-calendar-check"
+            @click="openBulkMarkPaidDialog"
+          >
+            تسوية دفعات
+          </v-btn>
         </div>
       </div>
     </div>
@@ -164,7 +173,7 @@
               <v-divider class="mb-3" />
               
               <!-- Simple Stats -->
-              <div class="d-flex justify-space-between align-center">
+              <div class="d-flex justify-space-between align-center mb-3">
                 <div class="text-center flex-grow-1">
                   <div class="text-h5 font-weight-bold text-primary">{{ category.expenses_count || 0 }}</div>
                   <div class="text-caption text-medium-emphasis">{{ $t('expenses.items') }}</div>
@@ -177,6 +186,17 @@
                   <div class="text-caption text-medium-emphasis">{{ $t('expenses.totalAmount') }}</div>
                 </div>
               </div>
+
+              <v-btn
+                color="success"
+                variant="tonal"
+                size="small"
+                block
+                prepend-icon="mdi-calendar-check"
+                @click.stop="selectCategory(category); openBulkMarkPaidDialog()"
+              >
+                تسوية دفعات
+              </v-btn>
             </v-card-text>
           </v-card>
         </div>
@@ -336,14 +356,31 @@
         </template>
         
         <template v-slot:item.is_paid="{ item }">
-          <v-chip
-            :color="item.is_paid ? 'success' : 'error'"
-            size="small"
-            variant="flat"
-          >
-            <v-icon start size="small">{{ item.is_paid ? 'mdi-check-circle' : 'mdi-clock-alert' }}</v-icon>
-            {{ item.is_paid ? $t('expenses.paid') : $t('expenses.unpaid') }}
-          </v-chip>
+          <div style="min-width:170px">
+            <v-chip
+              :color="getExpensePaymentInfo(item).status === 'paid' ? 'success' : getExpensePaymentInfo(item).status === 'partial' ? 'warning' : 'error'"
+              size="small"
+              variant="flat"
+              class="mb-1"
+              style="cursor:pointer"
+              @click="openPaymentsListDialog(item)"
+            >
+              <v-icon start size="small">
+                {{ getExpensePaymentInfo(item).status === 'paid' ? 'mdi-check-circle' : getExpensePaymentInfo(item).status === 'partial' ? 'mdi-progress-clock' : 'mdi-clock-alert' }}
+              </v-icon>
+              {{ getExpensePaymentInfo(item).status === 'paid' ? $t('expenses.paid') : getExpensePaymentInfo(item).status === 'partial' ? 'جزئي' : $t('expenses.unpaid') }}
+            </v-chip>
+            <v-progress-linear
+              :model-value="getExpensePaymentInfo(item).total > 0 ? (getExpensePaymentInfo(item).amount_paid / getExpensePaymentInfo(item).total) * 100 : 0"
+              :color="getExpensePaymentInfo(item).status === 'paid' ? 'success' : getExpensePaymentInfo(item).status === 'partial' ? 'warning' : 'grey-lighten-1'"
+              rounded
+              height="4"
+              class="mb-1"
+            />
+            <div class="text-caption text-medium-emphasis">
+              {{ formatCurrency(getExpensePaymentInfo(item).amount_paid) }} / {{ formatCurrency(getExpensePaymentInfo(item).total) }}
+            </div>
+          </div>
         </template>
         
         <template v-slot:item.doctor="{ item }">
@@ -353,20 +390,6 @@
         
         <template v-slot:item.actions="{ item }">
           <div class="d-flex ga-1">
-            <v-tooltip :text="item.is_paid ? $t('expenses.markAsUnpaid') : $t('expenses.markAsPaid')" location="top">
-              <template v-slot:activator="{ props }">
-                <v-btn
-                  v-bind="props"
-                  :icon="item.is_paid ? 'mdi-close-circle' : 'mdi-check-circle'"
-                  :color="item.is_paid ? 'warning' : 'success'"
-                  size="x-small"
-                  variant="tonal"
-                  :loading="item.loading"
-                  @click="togglePaymentStatus(item)"
-                />
-              </template>
-            </v-tooltip>
-            
             <v-tooltip :text="$t('common.edit')" location="top">
               <template v-slot:activator="{ props }">
                 <v-btn
@@ -379,7 +402,7 @@
                 />
               </template>
             </v-tooltip>
-            
+
             <v-tooltip :text="$t('common.delete')" location="top">
               <template v-slot:activator="{ props }">
                 <v-btn
@@ -464,7 +487,7 @@
     </v-dialog>
 
     <!-- Expense Dialog -->
-    <v-dialog v-model="expenseDialog" max-width="600" persistent>
+    <v-dialog v-model="expenseDialog" max-width="750" persistent scrollable>
       <v-card rounded="xl">
         <v-card-title class="d-flex align-center justify-space-between pa-4 bg-primary">
           <span class="text-white text-h6">
@@ -472,7 +495,7 @@
           </span>
           <v-btn icon="mdi-close" variant="text" color="white" @click="closeExpenseDialog" />
         </v-card-title>
-        
+
         <v-card-text class="pa-6">
           <v-form ref="expenseForm" v-model="expenseFormValid">
             <v-select
@@ -487,7 +510,7 @@
               prepend-inner-icon="mdi-folder"
               class="mb-4"
             />
-            
+
             <v-text-field
               v-model="expenseData.name"
               :label="$t('expenses.expenseName')"
@@ -497,7 +520,7 @@
               prepend-inner-icon="mdi-text"
               class="mb-4"
             />
-            
+
             <v-row dense class="mb-4">
               <v-col cols="6">
                 <v-text-field
@@ -525,14 +548,9 @@
                 />
               </v-col>
             </v-row>
-            
+
             <!-- Total Display -->
-            <v-alert
-              color="primary"
-              variant="tonal"
-              density="compact"
-              class="mb-4"
-            >
+            <v-alert color="primary" variant="tonal" density="compact" class="mb-4">
               <div class="d-flex justify-space-between align-center">
                 <span>{{ $t('expenses.totalAmount') }}:</span>
                 <span class="text-h6 font-weight-bold">
@@ -540,7 +558,7 @@
                 </span>
               </div>
             </v-alert>
-            
+
             <v-text-field
               v-model="expenseData.date"
               :label="$t('expenses.date')"
@@ -551,7 +569,7 @@
               prepend-inner-icon="mdi-calendar"
               class="mb-4"
             />
-            
+
             <v-select
               v-model="expenseData.doctor_id"
               :items="doctors"
@@ -564,7 +582,7 @@
               clearable
               class="mb-4"
             />
-            
+
             <v-switch
               v-model="expenseData.is_paid"
               :label="$t('expenses.markAsPaid')"
@@ -572,10 +590,126 @@
               hide-details
             />
           </v-form>
+
+          <!-- ── Payments Section (only when editing) ── -->
+          <template v-if="editingExpense">
+            <v-divider class="my-5" />
+
+            <!-- Payment summary bar -->
+            <div class="d-flex align-center justify-space-between mb-3">
+              <div class="d-flex align-center ga-2">
+                <v-icon color="success">mdi-cash-multiple</v-icon>
+                <span class="text-subtitle-2 font-weight-bold">الدفعات</span>
+                <v-chip
+                  :color="getExpensePaymentInfo(editingExpense).status === 'paid' ? 'success' : getExpensePaymentInfo(editingExpense).status === 'partial' ? 'warning' : 'error'"
+                  size="x-small"
+                  variant="flat"
+                >
+                  {{ getExpensePaymentInfo(editingExpense).status === 'paid' ? 'مدفوع' : getExpensePaymentInfo(editingExpense).status === 'partial' ? 'جزئي' : 'غير مدفوع' }}
+                </v-chip>
+              </div>
+              <span class="text-caption text-medium-emphasis">
+                {{ formatCurrency(getExpensePaymentInfo(editingExpense).amount_paid) }}
+                / {{ formatCurrency(getExpensePaymentInfo(editingExpense).total) }}
+                (متبقي: {{ formatCurrency(getExpensePaymentInfo(editingExpense).amount_remaining) }})
+              </span>
+            </div>
+            <v-progress-linear
+              :model-value="getExpensePaymentInfo(editingExpense).total > 0 ? (getExpensePaymentInfo(editingExpense).amount_paid / getExpensePaymentInfo(editingExpense).total) * 100 : 0"
+              :color="getExpensePaymentInfo(editingExpense).status === 'paid' ? 'success' : getExpensePaymentInfo(editingExpense).status === 'partial' ? 'warning' : 'grey-lighten-1'"
+              rounded height="6" class="mb-4"
+            />
+
+            <!-- Existing bills list -->
+            <v-list
+              v-if="editingExpense.bills?.length"
+              lines="one"
+              density="compact"
+              class="rounded-lg mb-4"
+              style="background:rgba(0,0,0,0.03)"
+            >
+              <v-list-item
+                v-for="bill in editingExpense.bills"
+                :key="bill.id"
+              >
+                <template v-slot:prepend>
+                  <v-avatar color="success" size="30" variant="tonal">
+                    <v-icon size="15">mdi-cash</v-icon>
+                  </v-avatar>
+                </template>
+                <template v-slot:title>
+                  <span class="font-weight-bold text-success text-body-2">{{ formatCurrency(bill.price) }}</span>
+                </template>
+                <template v-slot:subtitle>
+                  {{ formatDate((bill.bill_date || bill.created_at || '').split('T')[0].replace(' ', '-').split(' ')[0]) }}
+                </template>
+                <template v-slot:append>
+                  <v-btn
+                    icon="mdi-delete"
+                    color="error"
+                    size="x-small"
+                    variant="text"
+                    :loading="deletingBill === bill.id"
+                    @click="deletePayment(bill)"
+                  />
+                </template>
+              </v-list-item>
+            </v-list>
+            <div v-else class="text-caption text-grey mb-4 text-center">لا توجد دفعات مسجلة بعد</div>
+
+            <!-- Add instalment inline row -->
+            <v-expand-transition>
+              <div v-if="!expenseData.is_paid && getExpensePaymentInfo(editingExpense).status !== 'paid'">
+                <v-divider class="mb-3" />
+                <div class="text-caption text-medium-emphasis mb-2">
+                  <v-icon size="14" class="me-1">mdi-plus-circle-outline</v-icon>إضافة دفعة جديدة
+                </div>
+                <v-row dense>
+                  <v-col cols="12" sm="5">
+                    <v-text-field
+                      v-model.number="inlinePaymentAmount"
+                      label="المبلغ"
+                      type="number"
+                      min="1"
+                      variant="outlined"
+                      density="compact"
+                      prepend-inner-icon="mdi-cash"
+                      :hint="`الحد الأقصى: ${formatCurrency(getExpensePaymentInfo(editingExpense).amount_remaining)}`"
+                      persistent-hint
+                      hide-details="auto"
+                    />
+                  </v-col>
+                  <v-col cols="12" sm="5">
+                    <v-text-field
+                      v-model="inlinePaymentDate"
+                      label="تاريخ الدفعة"
+                      type="date"
+                      variant="outlined"
+                      density="compact"
+                      prepend-inner-icon="mdi-calendar"
+                      hide-details
+                    />
+                  </v-col>
+                  <v-col cols="12" sm="2" class="d-flex align-start">
+                    <v-btn
+                      color="success"
+                      variant="elevated"
+                      block
+                      :loading="addingPayment"
+                      :disabled="!inlinePaymentAmount || inlinePaymentAmount <= 0"
+                      @click="addInlinePayment"
+                    >
+                      إضافة
+                    </v-btn>
+                  </v-col>
+                </v-row>
+              </div>
+            </v-expand-transition>
+          </template>
         </v-card-text>
-        
+
         <v-divider />
-        
+
         <v-card-actions class="pa-4">
           <v-spacer />
           <v-btn variant="text" @click="closeExpenseDialog">{{ $t('common.cancel') }}</v-btn>
@@ -622,6 +756,215 @@
       </v-card>
     </v-dialog>
 
+    <!-- ─── Add Payment Dialog & Payments List Dialog removed ─── -->
+    <!-- (payments are now inline inside the Expense dialog above)   -->
+    <!-- Add Payment Dialog (kept for standalone openPaymentDialog calls) -->
+    <v-dialog v-model="paymentDialog" max-width="480" persistent>
+      <v-card rounded="xl">
+        <v-card-title class="d-flex align-center justify-space-between pa-4 bg-success">
+          <div class="d-flex align-center ga-2">
+            <v-icon color="white">mdi-cash-plus</v-icon>
+            <span class="text-white text-h6">إضافة دفعة</span>
+          </div>
+          <v-btn icon="mdi-close" variant="text" color="white" @click="paymentDialog = false" />
+        </v-card-title>
+
+        <v-card-text class="pa-6">
+          <!-- Expense info banner -->
+          <v-alert v-if="activeExpenseForPayment" type="info" variant="tonal" density="compact" class="mb-4">
+            <div class="font-weight-medium">{{ activeExpenseForPayment.name }}</div>
+            <div class="text-caption mt-1">
+              المدفوع: {{ formatCurrency(getExpensePaymentInfo(activeExpenseForPayment).amount_paid) }}
+              — المتبقي: <strong>{{ formatCurrency(getExpensePaymentInfo(activeExpenseForPayment).amount_remaining) }}</strong>
+              من أصل {{ formatCurrency(getExpensePaymentInfo(activeExpenseForPayment).total) }}
+            </div>
+          </v-alert>
+
+          <v-form ref="paymentForm" v-model="paymentFormValid">
+            <!-- Amount -->
+            <v-text-field
+              v-model.number="paymentData.amount"
+              label="المبلغ"
+              type="number"
+              min="1"
+              variant="outlined"
+              density="comfortable"
+              prepend-inner-icon="mdi-cash"
+              :rules="[
+                v => (!!v && v > 0) || 'يجب أن يكون المبلغ أكبر من صفر',
+                v => !activeExpenseForPayment || v <= getExpensePaymentInfo(activeExpenseForPayment).amount_remaining || `الحد الأقصى: ${formatCurrency(getExpensePaymentInfo(activeExpenseForPayment).amount_remaining)}`
+              ]"
+              class="mb-4"
+            />
+
+            <!-- Date -->
+            <v-text-field
+              v-model="paymentData.bill_date"
+              label="تاريخ الدفعة"
+              type="date"
+              variant="outlined"
+              density="comfortable"
+              prepend-inner-icon="mdi-calendar"
+            />
+          </v-form>
+        </v-card-text>
+
+        <v-divider />
+
+        <v-card-actions class="pa-4">
+          <v-spacer />
+          <v-btn variant="text" @click="paymentDialog = false">إلغاء</v-btn>
+          <v-btn
+            color="success"
+            variant="elevated"
+            :loading="addingPayment"
+            :disabled="!paymentFormValid"
+            @click="addPayment"
+          >
+            إضافة دفعة
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Payments List Dialog -->
+    <v-dialog v-model="paymentsListDialog" max-width="550">
+      <v-card rounded="xl">
+        <v-card-title class="d-flex align-center justify-space-between pa-4 bg-info">
+          <div class="d-flex align-center ga-2">
+            <v-icon color="white">mdi-cash-multiple</v-icon>
+            <span class="text-white text-h6">سجل الدفعات — {{ activeExpenseForPayment?.name }}</span>
+          </div>
+          <v-btn icon="mdi-close" variant="text" color="white" @click="paymentsListDialog = false" />
+        </v-card-title>
+
+        <v-card-text class="pa-4">
+          <!-- Summary -->
+          <v-alert v-if="activeExpenseForPayment" type="info" variant="tonal" density="compact" class="mb-4">
+            <div class="d-flex justify-space-between text-caption">
+              <span>الإجمالي: {{ formatCurrency(getExpensePaymentInfo(activeExpenseForPayment).total) }}</span>
+              <span>المدفوع: {{ formatCurrency(getExpensePaymentInfo(activeExpenseForPayment).amount_paid) }}</span>
+              <span>المتبقي: {{ formatCurrency(getExpensePaymentInfo(activeExpenseForPayment).amount_remaining) }}</span>
+            </div>
+            <v-progress-linear
+              :model-value="getExpensePaymentInfo(activeExpenseForPayment).total > 0 ? (getExpensePaymentInfo(activeExpenseForPayment).amount_paid / getExpensePaymentInfo(activeExpenseForPayment).total) * 100 : 0"
+              :color="getExpensePaymentInfo(activeExpenseForPayment).status === 'paid' ? 'success' : getExpensePaymentInfo(activeExpenseForPayment).status === 'partial' ? 'warning' : 'error'"
+              rounded
+              height="6"
+              class="mt-2"
+            />
+          </v-alert>
+
+          <!-- Bills list -->
+          <v-list v-if="activeExpenseForPayment?.bills?.length" lines="two" density="compact">
+            <v-list-item
+              v-for="bill in activeExpenseForPayment.bills"
+              :key="bill.id"
+              :subtitle="formatDate((bill.bill_date || bill.created_at || '').split('T')[0].split(' ')[0])"
+            >
+              <template v-slot:prepend>
+                <v-avatar color="success" size="36" variant="tonal">
+                  <v-icon size="18">mdi-cash</v-icon>
+                </v-avatar>
+              </template>
+              <template v-slot:title>
+                <span class="font-weight-bold text-success">{{ formatCurrency(bill.price) }}</span>
+              </template>
+              <template v-slot:append>
+                <v-btn
+                  icon="mdi-delete"
+                  color="error"
+                  size="x-small"
+                  variant="text"
+                  :loading="deletingBill === bill.id"
+                  @click="deletePayment(bill)"
+                />
+              </template>
+            </v-list-item>
+          </v-list>
+          <div v-else class="text-center py-6 text-grey">
+            <v-icon size="48" color="grey-lighten-1">mdi-cash-off</v-icon>
+            <p class="mt-2">لا توجد دفعات مسجلة</p>
+          </div>
+        </v-card-text>
+
+        <v-divider />
+
+        <v-card-actions class="pa-4">
+          <v-btn
+            color="success"
+            variant="tonal"
+            prepend-icon="mdi-cash-plus"
+            :disabled="activeExpenseForPayment && getExpensePaymentInfo(activeExpenseForPayment).status === 'paid'"
+            @click="paymentsListDialog = false; openPaymentDialog(activeExpenseForPayment)"
+          >
+            إضافة دفعة
+          </v-btn>
+          <v-spacer />
+          <v-btn variant="text" @click="paymentsListDialog = false">إغلاق</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Bulk Mark Paid Dialog -->
+    <v-dialog v-model="bulkMarkPaidDialog" max-width="450" persistent>
+      <v-card rounded="xl">
+        <v-card-title class="d-flex align-center justify-space-between pa-4 bg-success">
+          <div class="d-flex flex-column">
+            <div class="d-flex align-center ga-2">
+              <v-icon color="white">mdi-calendar-check</v-icon>
+              <span class="text-white text-h6">تسوية المصاريف بالتاريخ</span>
+            </div>
+            <span v-if="selectedCategory" class="text-white text-caption opacity-80 ms-7">{{ selectedCategory.name }}</span>
+          </div>
+          <v-btn icon="mdi-close" variant="text" color="white" @click="closeBulkMarkPaidDialog" />
+        </v-card-title>
+        <v-card-text class="pa-6">
+          <v-alert
+            v-if="bulkMarkPaidResult"
+            :type="bulkMarkPaidResult.success ? 'success' : 'error'"
+            variant="tonal"
+            density="compact"
+            class="mb-4"
+          >
+            تم تسوية <strong>{{ bulkMarkPaidResult.marked }}</strong> مصروف،
+            تم تخطي <strong>{{ bulkMarkPaidResult.skipped }}</strong> (مدفوعة مسبقاً)
+          </v-alert>
+          <v-text-field
+            v-model="bulkMarkPaidFrom"
+            label="من تاريخ"
+            type="date"
+            variant="outlined"
+            density="comfortable"
+            prepend-inner-icon="mdi-calendar-start"
+            class="mb-4"
+          />
+          <v-text-field
+            v-model="bulkMarkPaidTo"
+            label="إلى تاريخ"
+            type="date"
+            variant="outlined"
+            density="comfortable"
+            prepend-inner-icon="mdi-calendar-end"
+          />
+        </v-card-text>
+        <v-divider />
+        <v-card-actions class="pa-4">
+          <v-spacer />
+          <v-btn variant="text" @click="closeBulkMarkPaidDialog">إغلاق</v-btn>
+          <v-btn
+            color="success"
+            variant="elevated"
+            :loading="bulkMarkPaidLoading"
+            :disabled="!bulkMarkPaidFrom || !bulkMarkPaidTo || bulkMarkPaidTo < bulkMarkPaidFrom"
+            @click="executeBulkMarkPaid"
+          >
+            تسوية الآن
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <!-- Snackbar -->
     <v-snackbar v-model="snackbar.show" :color="snackbar.color" :timeout="3000" location="top">
       {{ snackbar.message }}
@@ -638,6 +981,7 @@ import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import expenseService from '@/services/expense.service'
 import reservationService from '@/services/reservation.service'
+import api from '@/services/api'
 
 const { t, locale } = useI18n()
 const authStore = useAuthStore()
@@ -697,6 +1041,26 @@ const editingExpense = ref(null)
 const categoryToDelete = ref(null)
 const expenseToDelete = ref(null)
 
+// Payment dialog state
+const paymentDialog = ref(false)
+const paymentsListDialog = ref(false)
+const activeExpenseForPayment = ref(null)
+const paymentForm = ref(null)
+const paymentFormValid = ref(false)
+const addingPayment = ref(false)
+const deletingBill = ref(null)
+const paymentData = ref({ amount: null, bill_date: '' })
+// Inline payment fields (used inside expense dialog)
+const inlinePaymentAmount = ref(null)
+const inlinePaymentDate = ref('')
+
+// Bulk mark paid dialog state
+const bulkMarkPaidDialog = ref(false)
+const bulkMarkPaidFrom = ref('')
+const bulkMarkPaidTo = ref('')
+const bulkMarkPaidLoading = ref(false)
+const bulkMarkPaidResult = ref(null)
+
 const categoryData = ref({
   name: '',
   description: '',
@@ -726,9 +1090,9 @@ const expenseHeaders = computed(() => [
   { title: t('expenses.price'), key: 'price', sortable: true, align: 'end' },
   { title: t('expenses.total'), key: 'total', sortable: true, align: 'end' },
   { title: t('expenses.date'), key: 'date', sortable: true },
-  { title: t('expenses.status'), key: 'is_paid', sortable: true, align: 'center' },
+  { title: t('expenses.status'), key: 'is_paid', sortable: false, align: 'start', minWidth: '190px' },
   { title: t('expenses.doctor'), key: 'doctor', sortable: false },
-  { title: t('common.actions'), key: 'actions', sortable: false, align: 'center', width: 150 }
+  { title: t('common.actions'), key: 'actions', sortable: false, align: 'center', width: 165 }
 ])
 
 const paymentStatusOptions = computed(() => [
@@ -913,11 +1277,12 @@ async function loadExpenses() {
       'filter[clinic_expense_category_id]': selectedCategory.value.id,
       per_page: expensesPagination.value.per_page,
       page: expensesPagination.value.current_page,
-      sort: '-date'
+      sort: '-date',
+      include: 'bills'
     }
     
     if (expenseSearch.value) {
-      params.search = expenseSearch.value
+      params['filter[name]'] = expenseSearch.value
     }
     
     if (expenseFilters.value.is_paid !== null) {
@@ -995,6 +1360,9 @@ function onExpenseItemsPerPageChange(itemsPerPage) {
 
 function openExpenseDialog(expense = null) {
   editingExpense.value = expense
+  activeExpenseForPayment.value = expense
+  inlinePaymentAmount.value = null
+  inlinePaymentDate.value = formatDateISO(new Date())
   if (expense) {
     expenseData.value = {
       name: expense.name,
@@ -1027,23 +1395,31 @@ function closeExpenseDialog() {
 
 async function saveExpense() {
   if (!expenseFormValid.value) return
-  
+
   savingExpense.value = true
   try {
     const payload = {
       ...expenseData.value,
       clinic_id: authStore.clinicInfo?.id || 1
     }
-    
+
     if (editingExpense.value) {
       await expenseService.updateExpense(editingExpense.value.id, payload)
       showSnackbar(t('expenses.expenseUpdated'))
+      // Keep dialog open — user may still want to manage payments
+      await refreshExpense(editingExpense.value.id)
     } else {
-      await expenseService.createExpense(payload)
-      showSnackbar(t('expenses.expenseCreated'))
+      const result = await expenseService.createExpense(payload)
+      // Normalise: API may return { data: {...} } or the object directly
+      const created = result?.data || result
+      showSnackbar(t('expenses.expenseCreated') + ' — يمكنك إضافة دفعات الآن')
+      // Transition to edit mode without closing — payments section appears
+      editingExpense.value = { ...created, bills: created.bills || [] }
+      activeExpenseForPayment.value = editingExpense.value
+      inlinePaymentAmount.value = null
+      inlinePaymentDate.value = formatDateISO(new Date())
     }
-    
-    closeExpenseDialog()
+
     loadExpenses()
     loadCategories()
     loadStatistics()
@@ -1101,6 +1477,197 @@ async function togglePaymentStatus(expense) {
     showSnackbar(error.response?.data?.message || t('errors.saveFailed'), 'error')
   } finally {
     expense.loading = false
+  }
+}
+
+// ==================== Partial Payments ====================
+function getExpensePaymentInfo(expense) {
+  const bills = expense?.bills || []
+  const amount_paid = bills.reduce((sum, b) => sum + Number(b.price || 0), 0)
+  const total = Number(expense?.total || ((expense?.quantity || 0) * (expense?.price || 0)) || 0)
+  const amount_remaining = Math.max(0, total - amount_paid)
+  const status = amount_paid === 0 ? 'unpaid' : amount_paid >= total ? 'paid' : 'partial'
+  return { amount_paid, amount_remaining, total, status }
+}
+
+function openPaymentDialog(expense) {
+  activeExpenseForPayment.value = expense
+  const { amount_remaining } = getExpensePaymentInfo(expense)
+  paymentData.value = {
+    amount: amount_remaining > 0 ? amount_remaining : null,
+    bill_date: formatDateISO(new Date())
+  }
+  paymentFormValid.value = false
+  paymentDialog.value = true
+}
+
+function openPaymentsListDialog(expense) {
+  activeExpenseForPayment.value = expense
+  paymentsListDialog.value = true
+}
+
+async function addPayment() {
+  const expense = activeExpenseForPayment.value
+  if (!expense) return
+  const { amount_remaining } = getExpensePaymentInfo(expense)
+
+  if (!paymentData.value.amount || paymentData.value.amount <= 0) {
+    showSnackbar('يجب أن يكون المبلغ أكبر من صفر', 'error')
+    return
+  }
+  if (paymentData.value.amount > amount_remaining) {
+    showSnackbar(`الحد الأقصى المسموح به: ${formatCurrency(amount_remaining)}`, 'error')
+    return
+  }
+
+  addingPayment.value = true
+  try {
+    const billDate = paymentData.value.bill_date
+      ? `${paymentData.value.bill_date} 12:00:00`
+      : undefined
+    await expenseService.addBillPayment({
+      billable_id: expense.id,
+      billable_type: 'App\\Models\\ClinicExpense',
+      price: Math.round(paymentData.value.amount),
+      ...(billDate && { bill_date: billDate })
+    })
+    showSnackbar('تمت إضافة الدفعة بنجاح')
+    paymentDialog.value = false
+    await refreshExpense(expense.id)
+    loadStatistics()
+    loadCategories()
+  } catch (error) {
+    const errData = error.response?.data
+    const msg = errData?.message
+      || (errData?.errors && Object.values(errData.errors)[0]?.[0])
+      || 'فشل حفظ الدفعة'
+    showSnackbar(msg, 'error')
+  } finally {
+    addingPayment.value = false
+  }
+}
+
+async function addInlinePayment() {
+  const expense = editingExpense.value
+  if (!expense) return
+  const { amount_remaining } = getExpensePaymentInfo(expense)
+
+  if (!inlinePaymentAmount.value || inlinePaymentAmount.value <= 0) {
+    showSnackbar('يجب أن يكون المبلغ أكبر من صفر', 'error')
+    return
+  }
+  if (inlinePaymentAmount.value > amount_remaining) {
+    showSnackbar(`الحد الأقصى المسموح به: ${formatCurrency(amount_remaining)}`, 'error')
+    return
+  }
+
+  addingPayment.value = true
+  try {
+    const billDate = inlinePaymentDate.value
+      ? `${inlinePaymentDate.value} 12:00:00`
+      : undefined
+    await expenseService.addBillPayment({
+      billable_id: expense.id,
+      billable_type: 'App\\Models\\ClinicExpense',
+      price: Math.round(inlinePaymentAmount.value),
+      ...(billDate && { bill_date: billDate })
+    })
+    showSnackbar('تمت إضافة الدفعة بنجاح')
+    inlinePaymentAmount.value = null
+    inlinePaymentDate.value = formatDateISO(new Date())
+    await refreshExpense(expense.id)
+    loadStatistics()
+    loadCategories()
+  } catch (error) {
+    const errData = error.response?.data
+    const msg = errData?.message
+      || (errData?.errors && Object.values(errData.errors)[0]?.[0])
+      || 'فشل حفظ الدفعة'
+    showSnackbar(msg, 'error')
+  } finally {
+    addingPayment.value = false
+  }
+}
+
+async function deletePayment(bill) {
+  deletingBill.value = bill.id
+  try {
+    await expenseService.deleteBillPayment(bill.id)
+    showSnackbar('تم حذف الدفعة')
+    const expenseId = editingExpense.value?.id || activeExpenseForPayment.value?.id
+    if (expenseId) await refreshExpense(expenseId)
+    loadStatistics()
+    loadCategories()
+  } catch (error) {
+    showSnackbar(error.response?.data?.message || 'فشل حذف الدفعة', 'error')
+  } finally {
+    deletingBill.value = null
+  }
+}
+
+function openBulkMarkPaidDialog() {
+  bulkMarkPaidResult.value = null
+  bulkMarkPaidFrom.value = ''
+  bulkMarkPaidTo.value = ''
+  bulkMarkPaidDialog.value = true
+}
+
+function closeBulkMarkPaidDialog() {
+  bulkMarkPaidDialog.value = false
+}
+
+async function executeBulkMarkPaid() {
+  if (!bulkMarkPaidFrom.value || !bulkMarkPaidTo.value) return
+  if (bulkMarkPaidTo.value < bulkMarkPaidFrom.value) {
+    showSnackbar('يجب أن يكون تاريخ النهاية بعد تاريخ البداية', 'error')
+    return
+  }
+  bulkMarkPaidLoading.value = true
+  bulkMarkPaidResult.value = null
+  try {
+    const res = await expenseService.bulkMarkPaid(bulkMarkPaidFrom.value, bulkMarkPaidTo.value, selectedCategory.value?.id)
+    bulkMarkPaidResult.value = {
+      success: true,
+      marked: res.data?.marked ?? 0,
+      skipped: res.data?.skipped ?? 0
+    }
+    showSnackbar(res.message || `تم تسوية ${res.data?.marked} مصروف`)
+    loadExpenses()
+    loadCategories()
+    loadStatistics()
+  } catch (error) {
+    const msg = error.response?.data?.message || 'فشلت عملية التسوية'
+    bulkMarkPaidResult.value = { success: false, marked: 0, skipped: 0 }
+    showSnackbar(msg, 'error')
+  } finally {
+    bulkMarkPaidLoading.value = false
+  }
+}
+
+async function refreshExpense(expenseId) {
+  try {
+    const result = await expenseService.getExpenseWithBills(expenseId)
+    // Handle { data: {...expense, bills:[]} } or the expense object directly
+    const updated = (result && typeof result === 'object' && 'id' in result)
+      ? result
+      : (result?.data || result)
+    const bills = updated?.bills || []
+
+    // Update the main expenses list
+    const idx = expenses.value.findIndex(e => e.id === expenseId)
+    if (idx !== -1) {
+      expenses.value[idx] = { ...expenses.value[idx], ...updated, bills }
+    }
+
+    // Force editingExpense to a brand-new object so Vue detects the change
+    if (editingExpense.value?.id === expenseId) {
+      editingExpense.value = { ...editingExpense.value, ...updated, bills: [...bills] }
+    }
+    if (activeExpenseForPayment.value?.id === expenseId) {
+      activeExpenseForPayment.value = editingExpense.value
+    }
+  } catch {
+    loadExpenses()
   }
 }
 

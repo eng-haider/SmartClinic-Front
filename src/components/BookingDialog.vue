@@ -27,8 +27,9 @@
             class="mb-4"
           />
 
-          <!-- Patient Search -->
+          <!-- Patient Search (hidden when patient is pre-selected from parent) -->
           <v-autocomplete
+            v-if="!props.patientId"
             v-model="bookingData.patient"
             v-model:search="patientSearch"
             :items="patientOptions"
@@ -393,14 +394,10 @@ const loadReservationTypes = async () => {
 const loadPatientById = async (patientId) => {
   searchingPatients.value = true
   try {
-    const response = await reservationService.searchPatients('')
-    patientOptions.value = response.data || []
-    
-    // Find and set the patient
-    const patient = patientOptions.value.find(p => p.id === patientId)
-    if (patient) {
-      bookingData.value.patient = patient
-    }
+    const response = await api.get(`/patients/${patientId}`)
+    const patient = response.data || response
+    patientOptions.value = [patient]
+    bookingData.value.patient = patient
   } catch (error) {
     console.error('Failed to load patient:', error)
   } finally {

@@ -137,6 +137,38 @@ const expenseService = {
       params: { start_date: startDate, end_date: endDate }
     })
     return response.data
+  },
+
+  /**
+   * Get single expense with its bills (payment instalments)
+   */
+  async getExpenseWithBills(id) {
+    const response = await api.get(`/clinic-expenses/${id}`, { params: { include: 'bills' } })
+    return response.data
+  },
+
+  /**
+   * Add a payment instalment to a clinic expense via POST /bills
+   */
+  async addBillPayment(data) {
+    const response = await api.post('/bills', data)
+    return response.data
+  },
+
+  /**
+   * Delete a payment instalment
+   */
+  async deleteBillPayment(billId) {
+    const response = await api.delete(`/bills/${billId}`)
+    return response.data
+  },
+
+  /**
+   * Bulk mark expenses as paid within a date range
+   */
+  async bulkMarkPaid(from, to, categoryId) {
+    const response = await api.post('/clinic-expenses/bulk-mark-paid', { from, to, category_id: categoryId })
+    return response.data
   }
 }
 

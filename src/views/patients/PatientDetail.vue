@@ -178,34 +178,22 @@
         </v-col>
       </v-row>
 
-      <!-- Teeth Chart Section (No Tabs) -->
-      <v-card v-if="canViewCases" elevation="2" rounded="lg" class="mb-4">
-        <v-card-text class="pa-3 pa-sm-4">
-              <!-- Teeth Chart - Mobile version for small screens -->
-              <TeethChartMobile
-                v-if="isMobile"
-                :categories="categories"
-                :patient-cases="patientCases"
-                :patient-data="patient"
-                @tooth-selected="handleToothSelected"
-                @case-added="handleCaseAdded"
-                @color-changed="handleToothColorChanged"
-              />
-
-              <!-- Teeth Chart - Desktop version for larger screens -->
-              <TeethChart
-                v-else
-                :categories="categories"
-                :patient-cases="patientCases"
-                :patient-data="patient"
-                @tooth-selected="handleToothSelected"
-                @tooth-right-click="handleToothRightClick"
-                @case-added="handleCaseAdded"
-                @general-examination="openGeneralExamination"
-                @color-changed="handleToothColorChanged"
-              />
-        </v-card-text>
-      </v-card>
+      <!-- Specialty Patient View (e.g. Teeth Chart) -->
+      <component
+        v-if="canViewCases && specialtyViews[authStore.specialty]"
+        :is="specialtyViews[authStore.specialty]"
+        :categories="categories"
+        :patient-cases="patientCases"
+        :patient-data="patient"
+        :beauty-categories="beautyCategories"
+        @tooth-selected="handleToothSelected"
+        @tooth-right-click="handleToothRightClick"
+        @case-added="handleCaseAdded"
+        @case-removed="handleCaseRemoved"
+        @general-examination="openGeneralExamination"
+        @color-changed="handleToothColorChanged"
+        @beauty-category-click="handleBeautyCategoryClick"
+      />
 
       <!-- General Patient Note -->
       <v-card elevation="2" rounded="lg" class="mb-4">
@@ -243,182 +231,201 @@
       <!-- Cases Section -->
       <v-card v-if="canViewCases" elevation="2" rounded="lg" class="mb-4">
         <v-card-text class="pa-3 pa-sm-4">
-              <div class="d-flex justify-space-between align-center mb-4">
-                <h3 class="text-subtitle-1 font-weight-bold">
-                  <v-icon start color="primary" size="20">mdi-clipboard-list</v-icon>
-                  {{ $t('patients.cases') }}
-                  <v-chip size="x-small" color="primary" variant="tonal" class="ml-1">{{ patientCases.length }}</v-chip>
-                </h3>
-              </div>
+          <div class="d-flex justify-space-between align-center mb-4">
+            <h3 class="text-subtitle-1 font-weight-bold">
+              <v-icon start color="primary" size="20">mdi-clipboard-list</v-icon>
+              {{ $t('patients.cases') }}
+              <v-chip size="x-small" color="primary" variant="tonal" class="ml-1">{{ patientCases.length }}</v-chip>
+            </h3>
+            <v-btn color="primary" prepend-icon="mdi-plus" @click="openAddCaseModal">
+              {{ $t('cases.add_case') || 'إضافة حالة' }}
+            </v-btn>
+          </div>
 
-              <v-data-table
-                :headers="caseHeaders"
-                :items="filteredCases"
-                :search="caseSearch"
-                :items-per-page="-1"
-                class="elevation-0 rounded-lg cases-table-compact"
-                density="compact"
-                mobile-breakpoint="md"
-                :hide-default-footer="true"
-                :sort-by="[]"
+          <!-- Cases v-data-table (all specialties) -->
+          <v-data-table
+            :headers="caseHeaders"
+            :items="filteredCases"
+            density="compact"
+            mobile-breakpoint="sm"
+            :hide-default-footer="true"
+            class="elevation-0 rounded-lg cases-data-table"
+          >
+            <!-- Tooth number -->
+            <template #item.tooth_num="{ item }">
+              <v-chip v-if="item.tooth_num" size="small" color="info" variant="flat">
+                <v-icon start size="13">mdi-tooth</v-icon>
+                {{ item.tooth_num }}
+              </v-chip>
+              <span v-else class="text-grey text-caption">{{ $t('patients.general') }}</span>
+            </template>
+
+            <!-- Category -->
+            <template #item.category="{ item }">
+              <v-chip
+                size="small"
+                :color="item.category?.color || getCategoryColor(item.category?.id || item.case_categores_id)"
+                variant="tonal"
               >
-                <template #item.tooth_num="{ item }">
-                  <v-chip
-                    v-if="item.tooth_num"
-                    size="small"
-                    color="primary"
+                {{ item.category?.name || getCategoryName(item.category?.id || item.case_categores_id) }}
+              </v-chip>
+            </template>
+
+            <!-- Doctor -->
+            <template #item.doctor="{ item }">
+              <div class="d-flex align-center ga-1">
+                <v-icon size="14" color="primary">mdi-doctor</v-icon>
+                <span class="text-body-2">{{ item.doctor?.name || '-' }}</span>
+              </div>
+            </template>
+
+            <!-- Price -->
+            <template #item.price="{ item }">
+              <input
+                :value="item.price ? formatNumberWithCommas(item.price) : ''"
+                type="text"
+                inputmode="numeric"
+                class="case-price-input"
+                @focus="(e) => { e.target.value = item.price || ''; e.target.select() }"
+                @input="(e) => { const d = e.target.value.replace(/[^0-9]/g, ''); e.target.value = d ? d.replace(/\B(?=(\d{3})+(?!\d))/g, ',') : '' }"
+                @blur="(e) => { item.price = parseInt(e.target.value.replace(/[^0-9]/g, '')) || 0; saveCaseBackground(item) }"
+                @keyup.enter="(e) => e.target.blur()"
+              />
+            </template>
+
+            <!-- Paid -->
+            <template #item.paid="{ item }">
+              <v-chip v-if="(item.bills || []).length" size="small" color="success" variant="flat">
+                <v-icon start size="12">mdi-cash-check</v-icon>
+                {{ formatNumberWithCommas((item.bills || []).reduce((s, b) => s + (b.price || 0), 0)) }}
+              </v-chip>
+             <span v-else class="text-grey text-caption">لاتوجد</span>
+            </template>
+
+            <!-- Remaining -->
+            <template #item.remaining="{ item }">
+              <v-chip v-if="getCaseRemainingAmount(item) > 0" size="small" color="warning" variant="flat">
+                <v-icon start size="12">mdi-cash-clock</v-icon>
+                {{ formatNumberWithCommas(getCaseRemainingAmount(item)) }}
+              </v-chip>
+              <v-chip v-else size="small" color="success" variant="flat">
+                <v-icon start size="12">mdi-check-circle</v-icon>
+                {{ $t('patients.fullyPaid') || 'مدفوع' }}
+              </v-chip>
+            </template>
+
+            <!-- Status -->
+            <template #item.status="{ item }">
+              <div class="d-flex align-center ga-1">
+                <v-switch
+                  :model-value="getCaseStatusId(item) === 3"
+                  color="success"
+                  hide-details
+                  density="compact"
+                  class="case-status-switch"
+                  :disabled="savingCase"
+                  @update:model-value="(val) => updateCaseStatus(item, val ? 3 : 2)"
+                />
+                <span
+                  class="text-caption font-weight-medium"
+                  :class="getCaseStatusId(item) === 3 ? 'text-success' : 'text-warning'"
+                >
+                  {{ getCaseStatusId(item) === 3 ? $t('common.completed') : $t('common.pending') }}
+                </span>
+              </div>
+            </template>
+
+            <!-- Date -->
+            <template #item.case_date="{ item }">
+              <span class="text-caption">{{ formatDate(item.case_date || item.created_at) }}</span>
+            </template>
+
+            <!-- Notes inline -->
+            <template #item.notes="{ item }">
+              <div class="notes-container" style="min-width:210px;max-width:260px">
+                <!-- New note textarea + add button -->
+                <div class="d-flex align-start ga-1 mb-1">
+                  <v-textarea
+                    v-model="noteInputs[item.id]"
+                    placeholder="ملاحظات الحالة الرئيسية..."
                     variant="outlined"
-                  >
-                    <v-icon start size="14">mdi-tooth</v-icon>
-                    {{ item.tooth_num }}
-                  </v-chip>
-                  <span v-else class="text-grey">{{ $t('patients.general') }}</span>
-                </template>
-
-                <template #item.category="{ item }">
-                  <v-chip 
-                    size="small" 
-                    :color="item.category?.color || getCategoryColor(item.category?.id || item.category_id || item.case_categores_id)"
-                  >
-                    {{ item.category?.name || getCategoryName(item.category_id || item.case_categores_id) }}
-                  </v-chip>
-                </template>
-
-                <template #item.price="{ item }">
-                  <v-text-field
-                    :model-value="formatNumberWithCommas(item.price)"
-                    @update:model-value="item.price = parseFormattedNumber($event)"
                     density="compact"
+                    rows="1"
+                    auto-grow
                     hide-details
-                    variant="outlined"
-                    type="text"
-                    @blur="saveCaseInline(item)"
-                    style="min-width:110px;"
-                    suffix="IQ"
+                    class="notes-textarea flex-grow-1"
+                    @click.stop
                   />
-                </template>
-
-                <template #item.bills="{ item }">
-                  <div class="d-flex flex-wrap ga-1">
-                    <v-chip
-                      v-for="bill in (item.bills || [])"
-                      :key="bill.id"
-                      :color="bill.is_paid ? 'success' : 'warning'"
-                      size="small"
-                      variant="flat"
-                    >
-                      <v-icon start size="12">{{ bill.is_paid ? 'mdi-check-circle' : 'mdi-clock' }}</v-icon>
-                      {{ formatNumberWithCommas(bill.price) }} IQ
-                    </v-chip>
-                    <span v-if="!item.bills || item.bills.length === 0" class="text-grey text-caption">
-                      {{ $t('common.no_data') || 'لا توجد فواتير' }}
-                    </span>
-                  </div>
-                </template>
-
-                <template #item.doctor="{ item }">
-                  <div class="d-flex align-center">
-                    <v-avatar size="24" color="primary" class="mr-2">
-                      <v-icon size="14" color="white">mdi-doctor</v-icon>
-                    </v-avatar>
-                    <span class="text-body-2">{{ item.doctor?.name || $t('common.not_assigned') }}</span>
-                  </div>
-                </template>
-
-                <template #item.notes="{ item }">
-                  <div class="notes-column" style="max-width: 400px;">
-                    <!-- Add Note Field -->
-                    <v-textarea
-                      v-if="canCreateNote"
-                      v-model="newNoteContent[item.id]"
-                      :placeholder="$t('patients.add_note')"
-                      variant="outlined"
-                      density="compact"
-                      rows="1"
-                      auto-grow
-                      hide-details
-                      class="mb-2"
-                    >
-                      <template #append-inner>
-                        <v-btn
-                          size="x-small"
-                          icon
-                          color="primary"
-                          @click="addNoteToCase(item.id)"
-                          :disabled="!newNoteContent[item.id]"
-                          :loading="savingNote"
-                        >
-                          <v-icon size="18">mdi-chevron-left</v-icon>
-                        </v-btn>
-                      </template>
-                    </v-textarea>
-
-                    <!-- Notes List -->
-                    <div v-if="getCaseNotes(item.id).length" class="notes-list">
-                      <v-chip
-                        v-for="note in getCaseNotes(item.id)"
-                        :key="note.id"
-                        size="small"
-                        class="ma-1"
-                        :closable="canDeleteNote"
-                        @click:close="deleteNote(note.id, item.id)"
-                      >
-                        <v-tooltip activator="parent" location="top">
-                          <div>
-                            <div><strong>{{ note.creator?.name }}</strong></div>
-                            <div class="text-caption">{{ formatDate(note.created_at) }}</div>
-                          </div>
-                        </v-tooltip>
-                        {{ note.content }}
-                      </v-chip>
-                    </div>
-                  </div>
-                </template>
-
-                <template #item.status="{ item }">
-                  <div class="d-flex align-center ga-2">
-                    <v-icon :color="getStatusId(item) === 3 ? 'success' : 'warning'" size="20">
-                      {{ getStatusId(item) === 3 ? 'mdi-check-circle' : 'mdi-clock-outline' }}
-                    </v-icon>
-                    <v-switch
-                      :model-value="getStatusId(item)"
-                      :true-value="3"
-                      :false-value="2"
-                      @update:model-value="updateCaseStatus(item, $event)"
-                      hide-details
-                      density="compact"
-                      color="success"
-                    ></v-switch>
-                  </div>
-                </template>
-
-                <template #item.created_at="{ item }">
-                  {{ formatDate(item.created_at) }}
-                </template>
-
-                <template #item.actions="{ item }">
                   <v-btn
-                    v-if="canEditCase"
+                    v-if="canCreateNote"
                     icon
-                    variant="text"
                     size="small"
                     color="primary"
-                    @click="editCase(item)"
+                    variant="tonal"
+                    :loading="savingNoteFor === item.id"
+                    @click.stop="submitInlineNote(item.id)"
                   >
-                    <v-icon>mdi-pencil</v-icon>
+                    <v-icon size="18">mdi-plus</v-icon>
                   </v-btn>
+                </div>
+                <!-- Existing notes below the textarea -->
+                <div
+                  v-for="note in getCaseNotes(item.id)"
+                  :key="note.id"
+                  class="d-flex align-start ga-1 mt-1 pa-1 rounded"
+                  style="background:rgba(0,0,0,0.04)"
+                >
+                  <div class="text-caption flex-grow-1" style="white-space:pre-wrap;line-height:1.4">{{ note.content }}</div>
                   <v-btn
-                    v-if="canDeleteCase"
+                    v-if="canDeleteNote"
                     icon
+                    size="x-small"
                     variant="text"
-                    size="small"
                     color="error"
-                    @click="deleteCase(item)"
+                    @click.stop="deleteNote(note.id, item.id)"
                   >
-                    <v-icon>mdi-delete</v-icon>
+                    <v-icon size="12">mdi-close</v-icon>
                   </v-btn>
-                </template>
-              </v-data-table>
+                </div>
+              </div>
+            </template>
+
+            <!-- Actions -->
+            <template #item.actions="{ item }">
+              <div class="d-inline-flex ga-0">
+                <v-tooltip :text="$t('common.view') || 'View'" location="top">
+                  <template #activator="{ props: tp }">
+                    <v-btn v-bind="tp" icon variant="text" size="x-small" color="info" @click.stop="openCaseDrawer(item)">
+                      <v-icon size="16">mdi-eye-outline</v-icon>
+                    </v-btn>
+                  </template>
+                </v-tooltip>
+                <v-tooltip v-if="canEditCase" :text="$t('common.edit') || 'Edit'" location="top">
+                  <template #activator="{ props: tp }">
+                    <v-btn v-bind="tp" icon variant="text" size="x-small" color="primary" @click.stop="editCase(item)">
+                      <v-icon size="16">mdi-pencil-outline</v-icon>
+                    </v-btn>
+                  </template>
+                </v-tooltip>
+                <v-tooltip :text="$t('common.delete') || 'Delete'" location="top">
+                  <template #activator="{ props: tp }">
+                    <v-btn v-bind="tp" icon variant="text" size="x-small" color="error" @click.stop="deleteCase(item)">
+                      <v-icon size="16">mdi-delete-outline</v-icon>
+                    </v-btn>
+                  </template>
+                </v-tooltip>
+              </div>
+            </template>
+
+            <!-- No data -->
+            <template #no-data>
+              <div class="text-center py-6 text-grey">
+                <v-icon size="48" color="grey-lighten-2">mdi-clipboard-text-outline</v-icon>
+                <p class="text-body-2 mt-2">{{ $t('patients.no_cases') || 'لا توجد حالات' }}</p>
+              </div>
+            </template>
+          </v-data-table>
+
         </v-card-text>
       </v-card>
 
@@ -531,12 +538,15 @@
                   <v-chip color="info" size="x-small" variant="flat">
                     {{ formatCurrency(totalBills) }}
                   </v-chip>
-                  <v-chip color="success" size="x-small" variant="flat">
-                    {{ formatCurrency(totalPaid) }}
-                  </v-chip>
+
                   <v-chip color="warning" size="x-small" variant="flat">
                     {{ formatCurrency(totalUnpaid) }}
                   </v-chip>
+                  
+                  <v-chip color="success" size="x-small" variant="flat">
+                    {{ formatCurrency(totalPaid) }}
+                  </v-chip>
+                  
                 </div>
               </div>
 
@@ -613,7 +623,7 @@
                       :label="$t('cases.price')"
                       type="text"
                       variant="outlined"
-                      density="compact"
+                    
                       prepend-inner-icon="mdi-currency-usd"
                       suffix="IQD"
                       :color="newBill.price > selectedCaseRemainingAmount ? 'error' : 'primary'"
@@ -646,7 +656,7 @@
                 :items-per-page="-1"
                 class="elevation-0 rounded-lg bills-table-compact"
                 density="compact"
-                mobile-breakpoint="md"
+                mobile-breakpoint="sm"
                 :hide-default-footer="true"
               >
                 <template #item.category="{ item }">
@@ -677,27 +687,24 @@
                   <span v-else class="text-grey text-body-2">-</span>
                 </template>
                 <template #item.price="{ item }">
-                  <span class="font-weight-bold text-body-2">{{ formatCurrency(item.price) }}</span>
+                  <span class="font-weight-bold text-body-2">
+                    {{ item.price ? formatNumberWithCommas(item.price) : '—' }}
+                    <span class="text-caption text-grey ms-1">IQD</span>
+                  </span>
                 </template>
-                <template #item.is_paid="{ item }">
-                  <v-chip 
-                    :color="item.is_paid ? 'success' : 'warning'" 
-                    size="small"
-                    class="cursor-pointer"
-                    @click="canMarkBillPaid ? toggleBillPayment(item) : null"
-                  >
-                    <v-icon start size="12">{{ item.is_paid ? 'mdi-check-circle' : 'mdi-clock' }}</v-icon>
-                    {{ item.is_paid ? $t('cases.paid') : $t('cases.unpaid') }}
-                  </v-chip>
-                </template>
-                <template #item.created_at="{ item }">
-                  <span class="text-body-2">{{ formatDate(item.created_at) }}</span>
+
+                <template #item.bill_date="{ item }">
+                  <span class="text-body-2">{{ formatDate(item.bill_date || item.created_at) }}</span>
                 </template>
                 <template #item.actions="{ item }">
                   <div class="d-flex ga-0">
-                    <v-btn v-if="canMarkBillPaid" icon variant="text" size="small" :color="item.is_paid ? 'warning' : 'success'" @click="toggleBillPayment(item)">
-                      <v-icon size="16">{{ item.is_paid ? 'mdi-cash-remove' : 'mdi-cash-plus' }}</v-icon>
-                    </v-btn>
+                    <v-tooltip :text="$t('common.edit') || 'Edit'" location="top">
+                      <template #activator="{ props: tp }">
+                        <v-btn v-bind="tp" icon variant="text" size="small" color="primary" @click="openBillDateDialog(item)">
+                          <v-icon size="16">mdi-pencil-outline</v-icon>
+                        </v-btn>
+                      </template>
+                    </v-tooltip>
                     <v-btn v-if="canDeleteBill" icon variant="text" size="small" color="error" @click="deleteBill(item)">
                       <v-icon size="16">mdi-delete</v-icon>
                     </v-btn>
@@ -731,82 +738,17 @@
       />
     </v-dialog>
 
-    <!-- Case Management Dialog (New) -->
-    <CaseManagementDialog
-      v-model="caseManagementDialog"
-      :patient-id="patient?.id"
-      :patient-data="patient"
+    <!-- Dynamic Add Case Modal -->
+    <component
+      v-if="addCaseModals[authStore.specialty || 'dental']"
+      :is="addCaseModals[authStore.specialty || 'dental']"
+      v-model="showAddCaseModal"
+      :patient-id="patient?.id || route.params.id"
+      :doctors="doctors"
       :categories="categories"
       :editing-case="editingCase"
-      :tooth-num="selectedToothNum"
-      :preselected-category="preselectedCategory"
-      @case-created="onCaseCreated"
-      @bill-created="onBillCreated"
-      @saved="onCaseCreated"
+      @success="onCaseSaved"
     />
-
-    <!-- Legacy Case Dialog (kept for compatibility) -->
-    <v-dialog v-model="caseDialog" max-width="500" scrollable>
-      <v-card>
-        <v-card-title class="d-flex justify-space-between align-center">
-          <span>{{ editingCase ? $t('patients.editCase') : $t('patients.addCase') }}</span>
-          <v-btn icon variant="text" @click="caseDialog = false">
-            <v-icon>mdi-close</v-icon>
-          </v-btn>
-        </v-card-title>
-        <v-card-text>
-          <v-form ref="caseFormRef" v-model="caseFormValid">
-            <v-select
-              v-model="caseForm.category_id"
-              :items="categories"
-              :item-title="getCategoryItemTitle"
-              item-value="id"
-              :label="$t('patients.category')"
-              :rules="[v => !!v || $t('validation.required')]"
-              variant="outlined"
-              density="comfortable"
-              class="mb-3"
-            />
-            <v-text-field
-              v-model="caseForm.tooth_num"
-              :label="$t('patients.toothNumber')"
-              variant="outlined"
-              density="comfortable"
-              class="mb-3"
-            />
-            <v-textarea
-              v-model="caseForm.description"
-              :label="$t('patients.description')"
-              variant="outlined"
-              density="comfortable"
-              rows="3"
-              class="mb-3"
-            />
-            <v-select
-              v-model="caseForm.status"
-              :items="statusOptions"
-              :label="$t('patients.status')"
-              variant="outlined"
-              density="comfortable"
-            />
-          </v-form>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" @click="caseDialog = false">
-            {{ $t('common.cancel') }}
-          </v-btn>
-          <v-btn
-            color="primary"
-            :loading="savingCase"
-            :disabled="!caseFormValid"
-            @click="saveCase"
-          >
-            {{ $t('common.save') }}
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
 
     <!-- Delete Confirmation Dialog -->
     <v-dialog v-model="deleteDialog" max-width="400">
@@ -867,6 +809,55 @@
       </v-card>
     </v-dialog>
 
+    <!-- Edit Bill Dialog -->
+    <v-dialog v-model="billDateDialog" max-width="420">
+      <v-card rounded="lg">
+        <v-card-title class="d-flex align-center ga-2 pa-4">
+          <v-icon color="primary">mdi-receipt-text-edit</v-icon>
+          {{ $t('bills.edit_bill') || 'تعديل الفاتورة' }}
+        </v-card-title>
+        <v-divider />
+        <v-card-text class="pa-4">
+          <v-row dense>
+            <v-col cols="12">
+              <v-text-field
+                v-model="billEditPrice"
+                :label="$t('cases.price') || 'المبلغ'"
+                type="text"
+                inputmode="numeric"
+                variant="outlined"
+                density="compact"
+                suffix="IQD"
+                prepend-inner-icon="mdi-cash"
+                hide-details="auto"
+                @input="(e) => { const d = e.target.value.replace(/[^0-9]/g, ''); e.target.value = d ? d.replace(/\B(?=(\d{3})+(?!\d))/g, ',') : ''; billEditPrice = e.target.value }"
+              />
+            </v-col>
+            <v-col cols="12" class="mt-3">
+              <v-text-field
+                v-model="billDateValue"
+                type="date"
+                :label="$t('bills.created_at') || 'تاريخ الفاتورة'"
+                variant="outlined"
+                density="compact"
+                prepend-inner-icon="mdi-calendar"
+                hide-details
+              />
+            </v-col>
+          </v-row>
+        </v-card-text>
+        <v-divider />
+        <v-card-actions class="pa-4">
+          <v-spacer />
+          <v-btn variant="text" @click="billDateDialog = false">{{ $t('common.cancel') }}</v-btn>
+          <v-btn color="primary" variant="elevated" :loading="savingBillDate" @click="saveBillDate">
+            <v-icon start>mdi-content-save</v-icon>
+            {{ $t('common.save') }}
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <!-- Booking Dialog -->
     <BookingDialog
       v-model="bookingDialog"
@@ -906,6 +897,16 @@
       @close="billDialog = false"
     />
 
+    <!-- Case Detail Drawer -->
+    <CaseDrawer
+      v-model="caseDrawerOpen"
+      :case-data="drawerCase"
+      :notes="drawerCaseNotes"
+      :show-patient="false"
+      :show-view-full="false"
+      @edit="editCase"
+    />
+
     <!-- Snackbar -->
     <v-snackbar v-model="snackbar.show" :color="snackbar.color" :timeout="3000">
       {{ snackbar.message }}
@@ -914,24 +915,25 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
 import api from '@/services/api'
-import TeethChart from '@/components/teeth/TeethChart.vue'
-import TeethChartMobile from '@/components/teeth/TeethChartMobile.vue'
 import PatientEditDialog from '@/components/PatientEditDialog.vue'
 import BookingDialog from '@/components/BookingDialog.vue'
 import RecipeDialog from '@/components/RecipeDialog.vue'
 import RecipePrint from '@/components/RecipePrint.vue'
 import BillPreviewDialog from '@/components/BillPreviewDialog.vue'
+import CaseDrawer from '@/components/CaseDrawer.vue'
+import SmartTable from '@/components/SmartTable.vue'
 import RecipeService from '@/services/recipe.service'
 import billService from '@/services/bill.service'
 import reservationService from '@/services/reservation.service'
 import { useAuthStore } from '@/stores/auth'
 import { usePermissions } from '@/composables/usePermissions'
 import { PERMISSIONS } from '@/constants/permissions'
+import { addCaseModals, specialtyViews, getSmartPatientCaseColumns } from '@/config/specialties'
 
 const route = useRoute()
 const router = useRouter()
@@ -1006,7 +1008,7 @@ const clinicSettings = ref(null)
 
 // Dialogs
 const editDialog = ref(false)
-const caseDialog = ref(false)
+const showAddCaseModal = ref(false)
 const deleteDialog = ref(false)
 const imageViewerDialog = ref(false)
 const billDialog = ref(false)
@@ -1014,21 +1016,59 @@ const billDialog = ref(false)
 // Bill
 const billReservation = ref(null)
 
-// Case Form
-const caseFormRef = ref(null)
-const caseFormValid = ref(false)
+// Case
 const editingCase = ref(null)
-const caseForm = ref({
-  category_id: null,
-  tooth_num: '',
-  description: '',
-  status: 'pending',
-  price: 0,
-  is_paid: false
-})
-const savingCase = ref(false)
 const deletingCase = ref(false)
+const savingCase = ref(false)
 const caseToDelete = ref(null)
+
+// Case Drawer
+const caseDrawerOpen = ref(false)
+const drawerCase = ref(null)
+const drawerCaseNotes = ref([])
+
+// Case Notes inline state
+const noteInputs = ref({})
+const savingNoteFor = ref(null)
+
+const submitInlineNote = async (caseId) => {
+  const text = noteInputs.value[caseId]?.trim()
+  if (!text) return
+  savingNoteFor.value = caseId
+  await addNoteToCase(caseId, text)
+  noteInputs.value[caseId] = ''
+  savingNoteFor.value = null
+}
+
+const openCaseDrawer = (item) => {
+  drawerCase.value = item
+  drawerCaseNotes.value = getCaseNotes(item.id)
+  caseDrawerOpen.value = true
+}
+
+const getStatusLabel = (item) => {
+  const s = item.status
+  if (!s) return '-'
+  if (typeof s === 'object') {
+    const loc = localStorage.getItem('locale') || 'ar'
+    if (loc === 'ar') return s.name_ar || s.name || '-'
+    if (loc === 'ku') return s.name_ku || s.name_en || s.name || '-'
+    return s.name_en || s.name || '-'
+  }
+  return String(s)
+}
+
+const openAddCaseModal = () => {
+  editingCase.value = null
+  showAddCaseModal.value = true
+}
+
+const onCaseSaved = async () => {
+  showSnackbar(t('messages.caseSaved') || 'Case saved successfully', 'success')
+  await fetchPatientCases()
+}
+
+
 
 // Inline additions & bills
 const selectedToothNum = ref(null)
@@ -1039,7 +1079,6 @@ const addingBill = ref(false)
 
 // Notes
 const caseNotes = ref({}) // { caseId: [notes] }
-const newNoteContent = ref({}) // { caseId: content }
 const savingNote = ref(false)
 
 // Image Viewer
@@ -1066,19 +1105,52 @@ const statusOptions = computed(() => [
   { title: t('common.completed'), value: '3' }
 ])
 
-// Case Table Headers
+// Case Table Headers (unified for all specialties)
 const caseHeaders = computed(() => [
-  { title: t('patients.toothNumber'), key: 'tooth_num', sortable: true },
-  { title: t('patients.category'), key: 'category', sortable: true },
-  { title: t('common.doctor'), key: 'doctor', sortable: true },
-  { title: t('cases.price'), key: 'price', sortable: true },
-  { title: t('patients.bills') || 'الفواتير', key: 'bills', sortable: false },
-  { title: t('patients.status'), key: 'status', sortable: true },
-  { title: t('common.date'), key: 'created_at', sortable: true },
- 
-  { title: t('patients.notes'), key: 'notes', sortable: false },
-   { title: t('common.actions'), key: 'actions', sortable: false, align: 'center' },
+  { title: t('patients.toothNumber'), key: 'tooth_num',  sortable: true },
+  { title: t('patients.category'),    key: 'category',   sortable: false },
+  { title: t('common.doctor'),        key: 'doctor',     sortable: false },
+  { title: t('cases.price'),          key: 'price',      sortable: true },
+  { title: t('patients.paidBills') || 'المدفوع', key: 'paid', sortable: false },
+  { title: t('patients.remaining'),   key: 'remaining',  sortable: false },
+  { title: t('patients.status'),      key: 'status',     sortable: false },
+  { title: t('common.date'),          key: 'case_date',  sortable: true },
+  { title: 'الملاحظات',              key: 'notes',      sortable: false, align: 'center' },
+  { title: t('common.actions'),       key: 'actions',    sortable: false, align: 'center' },
 ])
+
+const getCaseStatusId = (item) => {
+  if (item.status && typeof item.status === 'object' && item.status.id) return item.status.id
+  if (typeof item.status === 'number') return item.status
+  if (typeof item.status === 'string' && !isNaN(item.status)) return parseInt(item.status)
+  if (item.status === 'completed') return 3
+  return 2
+}
+
+const getCaseRemainingAmount = (item) => {
+  const totalPaid = (item.bills || []).reduce((sum, b) => sum + (b.price || 0), 0)
+  return Math.max(0, (item.price || 0) - totalPaid)
+}
+
+// Case Table Headers (unified for all specialties)
+const caseColumns = computed(() => getSmartPatientCaseColumns(authStore.specialty, t))
+
+const caseTableActions = computed(() => {
+  const actions = [
+    { key: 'view', icon: 'mdi-eye-outline', color: 'info', tooltip: t('common.view') || 'View' },
+  ]
+  if (canEditCase.value) {
+    actions.push({ key: 'edit', icon: 'mdi-pencil-outline', color: 'primary', tooltip: t('common.edit') || 'Edit' })
+  }
+  actions.push({ key: 'delete', icon: 'mdi-delete-outline', color: 'error', tooltip: t('common.delete') || 'Delete' })
+  return actions
+})
+
+const handleCaseAction = ({ key, item }) => {
+  if (key === 'view') openCaseDrawer(item)
+  else if (key === 'edit') editCase(item)
+  else if (key === 'delete') deleteCase(item)
+}
 
 const billHeaders = computed(() => [
   { title: t('datatable.bill_number') || 'ID', key: 'id' },
@@ -1086,8 +1158,7 @@ const billHeaders = computed(() => [
   { title: t('patients.toothNumber'), key: 'tooth_num' },
   { title: t('common.doctor'), key: 'doctor' },
   { title: t('cases.price'), key: 'price' },
-  { title: t('cases.payment_status'), key: 'is_paid' },
-  { title: t('common.date'), key: 'created_at' },
+  { title: t('common.date'), key: 'bill_date' },
   { title: t('common.actions'), key: 'actions' }
 ])
 
@@ -1106,6 +1177,10 @@ const filteredCases = computed(() => {
       getCategoryName(c.category_id).toLowerCase().includes(search)
     )
   })
+})
+
+const beautyCategories = computed(() => {
+  return categories.value.filter(c => c.category_type === 'beauty')
 })
 
 const canFilterByDoctor = computed(() => {
@@ -1164,14 +1239,17 @@ const fetchPatientCases = async () => {
     const response = await api.get(`/cases`, {
       params: {
         'filter[patient_id]': id,
-        'include': 'category,status,doctor,bills',
+        'include': 'category,status,doctor,bills,ophthalmologyEncounterDetails',
         'sort': '-created_at'
       }
     })
     patientCases.value = response.data.data || response.data || []
-    
-    // Fetch notes for each case
+
+    // Normalize case_date for editable date field
     for (const caseItem of patientCases.value) {
+      if (!caseItem.case_date && caseItem.created_at) {
+        caseItem.case_date = caseItem.created_at
+      }
       if (caseItem.id) {
         await fetchCaseNotes(caseItem.id)
       }
@@ -1279,8 +1357,6 @@ const getCategoryName = (categoryId) => {
   const category = categories.value.find(c => c.id === categoryId)
   if (!category) return '-'
   if (locale.value === 'ar') return category.name_ar || category.name
-const selectedToothNum = ref(null)
-const preselectedCategory = ref(null)
   return category.name_en || category.name
 }
 
@@ -1294,6 +1370,7 @@ const getCategoryColor = (categoryId) => {
   const colors = ['primary', 'success', 'warning', 'info', 'error', 'secondary']
   return colors[categoryId % colors.length]
 }
+
 
 // Patient Actions
 const editPatient = () => {
@@ -1397,13 +1474,22 @@ const handleRecipeError = (error) => {
   showSnackbar(error.response?.data?.message || t('errors.saveFailed'), 'error')
 }
 
-const printRecipe = (recipe) => {
-  recipeToPrint.value = recipe
+const printRecipe = async (recipe) => {
+  try {
+    const response = await RecipeService.getById(recipe.id)
+    const fullRecipe = response.data?.data || response.data || response
+    if (!fullRecipe.recipe_items && fullRecipe.recipeItems) {
+      fullRecipe.recipe_items = fullRecipe.recipeItems
+    }
+    recipeToPrint.value = fullRecipe
+  } catch {
+    recipeToPrint.value = recipe
+  }
   setTimeout(() => {
     if (recipePrintRef.value) {
       recipePrintRef.value.print()
     }
-  }, 100)
+  }, 150)
 }
 
 // Teeth Chart Handlers
@@ -1462,6 +1548,17 @@ const handleCaseAdded = async ({ toothNumber, category }) => {
   }
 }
 
+const handleCaseRemoved = async (caseId) => {
+  try {
+    await api.delete(`/cases/${caseId}`)
+    showSnackbar(t('messages.caseDeleted') || 'Case removed', 'success')
+    await fetchPatientCases()
+  } catch (err) {
+    console.error('Error removing case:', err)
+    showSnackbar(err.response?.data?.message || t('errors.deleteFailed'), 'error')
+  }
+}
+
 const openGeneralExamination = async () => {
   // Create and immediately save a general examination case to backend
   try {
@@ -1482,6 +1579,32 @@ const openGeneralExamination = async () => {
     await fetchPatientCases()
   } catch (err) {
     console.error('Error creating case:', err)
+    showSnackbar(err.response?.data?.message || t('errors.saveFailed'), 'error')
+  } finally {
+    savingCase.value = false
+  }
+}
+
+// Handle beauty category click - create case with default price
+const handleBeautyCategoryClick = async (category) => {
+  try {
+    savingCase.value = true
+    const payload = {
+      patient_id: patient.value?.id,
+      case_categores_id: category.id,
+      tooth_num: null, // Beauty categories don't require tooth number
+      notes: category.name || '',
+      price: category.item_cost || 0,
+      is_paid: 0
+    }
+
+    const response = await api.post('/cases', payload)
+    showSnackbar(t('messages.caseCreated') || 'Case created successfully', 'success')
+    
+    // Refresh cases list to show the new case
+    await fetchPatientCases()
+  } catch (err) {
+    console.error('Error creating beauty case:', err)
     showSnackbar(err.response?.data?.message || t('errors.saveFailed'), 'error')
   } finally {
     savingCase.value = false
@@ -1516,47 +1639,9 @@ const addNewCase = async () => {
 }
 
 const editCase = (caseItem) => {
+  console.log('🔧 Editing case:', caseItem)
   editingCase.value = caseItem
-  caseForm.value = {
-    category_id: caseItem.category_id,
-    tooth_num: caseItem.tooth_num || '',
-    description: caseItem.description || '',
-    status: caseItem.status || 'pending'
-  }
-  caseDialog.value = true
-}
-
-const saveCase = async () => {
-  if (!caseFormRef.value?.validate()) return
-
-  try {
-    savingCase.value = true
-    const payload = {
-      patient_id: patient.value.id,
-      case_categores_id: caseForm.value.category_id, // Backend expects case_categores_id
-      tooth_num: caseForm.value.tooth_num || null,
-      description: caseForm.value.description,
-      status_id: 1, // Assuming status is a status_id
-      notes: caseForm.value.description, // Add notes field
-      price: caseForm.value.price || null // Add price if available
-    }
-
-    if (editingCase.value) {
-      await api.put(`/cases/${editingCase.value.id}`, payload)
-      showSnackbar(t('messages.caseUpdated'), 'success')
-    } else {
-      await api.post('/cases', payload)
-      showSnackbar(t('messages.caseCreated'), 'success')
-    }
-
-    caseDialog.value = false
-    await fetchPatientCases()
-  } catch (err) {
-    console.error('Error saving case:', err)
-    showSnackbar(err.response?.data?.message || t('errors.saveFailed'), 'error')
-  } finally {
-    savingCase.value = false
-  }
+  showAddCaseModal.value = true
 }
 
 const deleteCase = (caseItem) => {
@@ -1602,7 +1687,8 @@ const saveCaseInline = async (item) => {
       notes: item.notes || item.description || '',
       price: item.price || 0,
       is_paid: item.is_paid ? 1 : 0,
-      status_id: statusId
+      status_id: statusId,
+      case_date: item.case_date || item.created_at
     }
 
     await api.put(`/cases/${item.id}`, payload)
@@ -1616,6 +1702,55 @@ const saveCaseInline = async (item) => {
     savingCase.value = false
   }
 }
+
+// Price inline edit state
+const editingPriceId = ref(null)
+const priceInputRef = ref(null)
+const startEditPrice = (item) => {
+  editingPriceId.value = item.id
+  nextTick(() => {
+    if (priceInputRef.value) {
+      priceInputRef.value.value = item.price || ''
+      priceInputRef.value.focus()
+      priceInputRef.value.select()
+    }
+  })
+}
+const commitPrice = (item) => {
+  const raw = priceInputRef.value?.value ?? ''
+  item.price = parseInt(raw.replace(/[^0-9]/g, '')) || 0
+  editingPriceId.value = null
+  saveCaseBackground(item)
+}
+
+// Debounced background save — no loading state, fire-and-forget, UI stays instant
+const _saveTimers = {}
+const saveCaseBackground = (item) => {
+  if (String(item.id).startsWith('tmp-')) return
+  clearTimeout(_saveTimers[item.id])
+  _saveTimers[item.id] = setTimeout(async () => {
+    try {
+      const categoryId = item.category?.id || item.case_categores_id || item.category_id
+      const payload = {
+        patient_id: item.patient?.id || patient.value.id,
+        case_categores_id: categoryId,
+        tooth_num: item.tooth_num || null,
+        notes: item.notes || item.description || '',
+        price: item.price || 0,
+        is_paid: item.is_paid ? 1 : 0,
+        status_id: getStatusId(item),
+        case_date: item.case_date || item.created_at
+      }
+      await api.put(`/cases/${item.id}`, payload)
+    } catch (err) {
+      console.error('Background save failed:', err)
+      showSnackbar(err.response?.data?.message || t('errors.saveFailed'), 'error')
+      await fetchPatientCases()
+    }
+  }, 600)
+}
+
+
 
 // Helper function to get status_id from various status formats
 const getStatusId = (item) => {
@@ -1665,7 +1800,7 @@ const totalBills = computed(() => {
 })
 
 const totalPaid = computed(() => {
-  return patientBills.value.filter(b => b.is_paid).reduce((sum, b) => sum + (b.price || 0), 0)
+  return patientBills.value.reduce((sum, b) => sum + (b.price || 0), 0)
 })
 
 const totalUnpaid = computed(() => {
@@ -1680,7 +1815,6 @@ const getCaseBillingTitle = (item) => {
   // Calculate remaining amount
   const bills = item.bills || []
   const totalPaid = bills
-    .filter(b => b.is_paid)
     .reduce((sum, b) => sum + (b.price || 0), 0)
   const remainingAmount = (item.price || 0) - totalPaid
   
@@ -1702,7 +1836,6 @@ const getBillableCategoryName = (bill) => {
 const getRemainingAmount = (caseItem) => {
   const bills = caseItem.bills || []
   const totalPaid = bills
-    .filter(b => b.is_paid)
     .reduce((sum, b) => sum + (b.price || 0), 0)
   return (caseItem.price || 0) - totalPaid
 }
@@ -1820,16 +1953,84 @@ const playCashRegisterSound = () => {
   }
 }
 
-const toggleBillPayment = async (bill) => {
+
+const billDateDialog = ref(false)
+const billDateBill = ref(null)
+const billDateValue = ref('')
+const billEditPrice = ref('')
+const savingBillDate = ref(false)
+
+// Bill inline edit state
+const editingBillId = ref(null)
+const editingBillField = ref(null)
+const billPriceInputRef = ref(null)
+const billDateInputRef = ref(null)
+
+const startEditBill = (item, field) => {
+  editingBillId.value = item.id
+  editingBillField.value = field
+  nextTick(() => {
+    if (field === 'price' && billPriceInputRef.value) {
+      billPriceInputRef.value.value = item.price ? formatNumberWithCommas(item.price) : ''
+      billPriceInputRef.value.focus()
+      billPriceInputRef.value.select()
+    } else if (field === 'date' && billDateInputRef.value) {
+      const d = item.bill_date || item.created_at || ''
+      billDateInputRef.value.value = d ? new Date(d).toISOString().split('T')[0] : ''
+      billDateInputRef.value.focus()
+    }
+  })
+}
+
+const commitBillField = async (item, field) => {
+  editingBillId.value = null
+  editingBillField.value = null
   try {
-    if (bill.is_paid) {
-      await billService.markAsUnpaid(bill.id)
-    } else {
-      await billService.markAsPaid(bill.id)
+    if (field === 'price') {
+      const raw = billPriceInputRef.value?.value ?? ''
+      const price = parseInt(raw.replace(/[^0-9]/g, '')) || 0
+      item.price = price
+      await billService.update(item.id, { price })
+    } else if (field === 'date') {
+      const date = billDateInputRef.value?.value ?? ''
+      if (date) {
+        item.bill_date = date
+        await billService.update(item.id, { bill_date: date })
+      }
     }
     await fetchPatientBills()
   } catch (err) {
-    console.error('Error toggling bill payment:', err)
+    console.error('Bill update failed:', err)
+    showSnackbar(err.response?.data?.message || t('errors.saveFailed'), 'error')
+    await fetchPatientBills()
+  }
+}
+
+const openBillDateDialog = (bill) => {
+  billDateBill.value = bill
+  const existingDate = bill.bill_date || bill.created_at || bill.payment_date || bill.paid_at || ''
+  billDateValue.value = existingDate ? new Date(existingDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+  billEditPrice.value = bill.price ? formatNumberWithCommas(bill.price) : ''
+  billDateDialog.value = true
+}
+
+const saveBillDate = async () => {
+  if (!billDateBill.value) return
+  try {
+    savingBillDate.value = true
+    const price = parseInt(billEditPrice.value.replace(/[^0-9]/g, '')) || 0
+    await billService.update(billDateBill.value.id, {
+      bill_date: billDateValue.value,
+      price
+    })
+    showSnackbar(t('messages.billUpdated') || 'Bill updated', 'success')
+    await fetchPatientBills()
+    billDateDialog.value = false
+  } catch (err) {
+    console.error('Error updating bill:', err)
+    showSnackbar(err.response?.data?.message || t('errors.saveFailed'), 'error')
+  } finally {
+    savingBillDate.value = false
   }
 }
 
@@ -1863,18 +2064,16 @@ const getCaseNotesCount = (caseId) => {
   return caseNotes.value[caseId]?.length || 0
 }
 
-const addNoteToCase = async (caseId) => {
-  if (!newNoteContent.value[caseId]) return
-  
+const addNoteToCase = async (caseId, content) => {
+  if (!content?.trim()) return
+
   try {
     savingNote.value = true
     await api.post('/notes', {
       noteable_id: caseId,
       noteable_type: 'App\\Models\\CaseModel',
-      content: newNoteContent.value[caseId]
+      content,
     })
-    
-    newNoteContent.value[caseId] = ''
     await fetchCaseNotes(caseId)
     showSnackbar(t('messages.noteAdded') || 'Note added successfully', 'success')
   } catch (err) {
@@ -2099,6 +2298,56 @@ const setDefaultTab = () => {
   margin: 0 auto;
 }
 
+/* Price inline display */
+.case-price-display {
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  display: inline-block;
+}
+.case-price-display:hover {
+  background: rgba(0,0,0,0.06);
+}
+
+/* Price native input — zero Vue overhead */
+.case-price-input {
+  width: 110px;
+  border: none;
+  border-bottom: 1.5px solid rgba(0,0,0,0.3);
+  outline: none;
+  background: transparent;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 2px 4px;
+  color: inherit;
+}
+.case-price-input:focus {
+  border-bottom-color: rgb(var(--v-theme-primary));
+}
+
+/* Inline status switch */
+:deep(.case-status-switch .v-switch__track) { opacity: 1; }
+:deep(.case-status-switch .v-input__control) { min-height: unset !important; }
+:deep(.case-status-switch) { display: inline-flex !important; }
+
+/* Inline price field */
+:deep(.case-price-field input) {
+  font-weight: 600;
+  padding: 2px 4px !important;
+  min-height: unset !important;
+}
+:deep(.case-price-field .v-field__input) {
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  min-height: 28px !important;
+}
+:deep(.case-price-field .v-field__suffix) {
+  font-size: 11px;
+  color: rgba(0,0,0,0.45);
+  padding-inline-start: 2px;
+}
+
 /* Patient Header - Desktop: Original Layout */
 .patient-header {
   display: flex;
@@ -2182,78 +2431,35 @@ const setDefaultTab = () => {
   font-size: 12px !important;
 }
 
-@media (max-width: 600px) {
-  :deep(.v-data-table td) {
-    text-align: left !important;
-  }
-
-  :deep(.v-data-table td > *) {
-    justify-content: flex-start !important;
-  }
-}
-
-:deep(.v-data-table__mobile-row__header) {
-  text-align: right !important;
-  font-weight: 600 !important;
-  color: #424242 !important;
-  min-width: 100px !important;
-  font-size: 12px !important;
-}
-
-:deep(.v-data-table__mobile-row__cell) {
-  text-align: left !important;
-}
-
-:deep(.v-data-table__mobile-row__cell > *) {
-  justify-content: flex-start !important;
-}
-
-/* Mobile Card View */
-:deep(.v-data-table__mobile-table-row) {
-  border: 1px solid #e0e0e0 !important;
+/* Vuetify 3 Mobile Card View (screens ≤ 600px) */
+:deep(.v-data-table__tr--mobile) {
+  border: 1px solid rgba(0,0,0,0.08) !important;
   border-radius: 8px !important;
   margin-bottom: 8px !important;
-  background: #fff !important;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.04) !important;
+  display: block !important;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06) !important;
+  overflow: hidden;
 }
 
-:deep(.v-data-table__mobile-row) {
+:deep(.v-data-table__tr--mobile .v-data-table__td) {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
   padding: 6px 12px !important;
-  border-bottom: 1px solid #f5f5f5 !important;
+  border-bottom: 1px solid rgba(0,0,0,0.05) !important;
+  font-size: 13px;
 }
 
-:deep(.v-data-table__mobile-row:last-child) {
+:deep(.v-data-table__tr--mobile .v-data-table__td:last-child) {
   border-bottom: none !important;
 }
 
-:deep(.v-data-table__mobile-row__wrapper) {
-  display: flex !important;
-  align-items: center !important;
-  gap: 8px !important;
-}
-
-/* Mobile spacing */
-@media (max-width: 960px) {
-  :deep(.v-data-table__wrapper) {
-    padding: 4px !important;
-  }
-  
-  :deep(.v-data-table__mobile-table-row) {
-    padding: 8px !important;
-  }
-  
-  :deep(.v-data-table__mobile-row__header) {
-    font-size: 12px !important;
-  }
-  
-  :deep(.v-data-table__mobile-row__cell) {
-    font-size: 13px !important;
-  }
-  
-  :deep(.notes-column) {
-    max-width: 100% !important;
-    width: 100% !important;
-  }
+:deep(.v-data-table__tr--mobile .v-data-table-column-title) {
+  font-weight: 600;
+  color: #616161;
+  font-size: 12px;
+  min-width: 90px;
 }
 
 /* Mobile Header - Keep Original Behavior */

@@ -6,25 +6,16 @@
  * @version 3.0.0
  */
 
-// Clear old caches on every load to prevent stale versions
-if ('caches' in window) {
-  caches.keys().then(names => {
-    names.forEach(name => {
-      // Clear all workbox precache entries to force fresh content
-      if (name.includes('precache') || name.includes('runtime') || name.includes('api-cache')) {
-        caches.delete(name)
-        console.log('🗑️ Cleared cache:', name)
-      }
-    })
-  })
-}
+// Auto-reload when a new build is deployed and old chunk hashes no longer exist
+window.addEventListener('vite:preloadError', () => {
+  window.location.reload()
+})
 
 // Force unregister old service workers and re-register fresh one
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.getRegistrations().then(registrations => {
     registrations.forEach(registration => {
       registration.update()
-      console.log('🔄 Forced SW update check')
     })
   })
 }

@@ -111,7 +111,7 @@
             <!-- Events for this day -->
             <div class="day-events">
               <div
-                v-for="event in day.events.slice(0, 3)"
+                v-for="event in day.events"
                 :key="event.id"
                 class="event-chip"
                 :style="{ backgroundColor: getEventColor(event) }"
@@ -119,15 +119,6 @@
               >
                 <span class="event-time">{{ formatTime(event.reservation_from_time) }}</span>
                 <span class="event-name">{{ event.patient?.name }}</span>
-              </div>
-              
-              <!-- More events indicator -->
-              <div
-                v-if="day.events.length > 3"
-                class="more-events"
-                @click.stop="showAllEvents(day)"
-              >
-                +{{ day.events.length - 3 }} {{ $t('reservations.more') }}
               </div>
             </div>
           </div>
@@ -515,27 +506,21 @@ const getEventsForDate = (date) => {
   return reservations.value.filter(r => r.reservation_start_date === date)
 }
 
+
+
 const getEventColor = (event) => {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
-  
-  // Parse date string as local date to avoid timezone issues
   const [year, month, day] = event.reservation_start_date.split('-').map(Number)
   const eventDate = new Date(year, month - 1, day)
   eventDate.setHours(0, 0, 0, 0)
-  
-  // Status ID = 2 (Completed/Confirmed)
-  if (event.status_id === 2) {
-    return '#2196F3' // Blue
-  }
-  
-  // Future appointments
-  if (eventDate > today) {
-    return '#FFA500' // Orange
-  }
-  
-  // Past appointments
-  return '#4CAF50' // Green
+
+  // Past reservations always green
+  if (eventDate < today) return '#4CAF50'
+
+  // Today or future: use status color from API if available, otherwise orange
+  if (event.status?.color) return event.status.color
+  return '#FFA500'
 }
 
 const previousMonth = () => {
@@ -874,8 +859,8 @@ onMounted(() => {
 }
 
 .event-chip {
-  font-size: 10px;
-  padding: 2px 6px;
+  font-size: 12px;
+  padding: 3px 7px;
   border-radius: 4px;
   color: white;
   white-space: nowrap;

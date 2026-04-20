@@ -57,11 +57,12 @@
                 :label="$t('patients.birth_date')"
                 prepend-inner-icon="mdi-calendar-blank"
                 variant="outlined"
-                placeholder="YYYY or YYYY-MM-DD"
+                placeholder="YYYY or YYYY-MM-DD (optional)"
                 :hint="$t('patients.birth_date_hint')"
                 persistent-hint
                 :error-messages="formErrors.birth_date"
                 @input="handleBirthDateInput"
+                clearable
               />
             </v-col>
 
@@ -498,45 +499,78 @@ function formatPhoneNumber(event) {
 }
 
 // ─── Birth Date ──────────────────────────────────────────────────────────────
+function isMinaTenant() {
+  return localStorage.getItem('x-tenant-id') === '_mina'
+}
+
 function handleBirthDateInput(event) {
   let value = event.target ? event.target.value : event
-  if (!value) {
+  if (!value || value.trim() === '') {
     patientData.birth_date = ''
     birthDateDisplay.value = ''
     return
   }
 
   let cleanValue = value.replace(/[^\d-]/g, '')
-
-  if (cleanValue.length === 4 && !cleanValue.includes('-')) {
-    cleanValue += '-'
-    birthDateDisplay.value = cleanValue
-    if (event.target) event.target.value = cleanValue
-    return
-  }
-  if (/^\d{4}-\d{2}$/.test(cleanValue) && cleanValue.length === 7) {
-    cleanValue += '-'
-    birthDateDisplay.value = cleanValue
-    if (event.target) event.target.value = cleanValue
-    return
-  }
-
   const trimmed = cleanValue.trim()
+
+ 
+    if (/^\d{4}$/.test(trimmed)) {
+      patientData.birth_date = `${trimmed}-01-01`
+      birthDateDisplay.value = `${trimmed}-01-01`
+      if (event.target) event.target.value = birthDateDisplay.value
+      return
+    }
+
+    if (/^\d{4}-\d{1,2}$/.test(trimmed)) {
+      const [y, mo] = trimmed.split('-')
+      const formatted = `${y}-${mo.padStart(2, '0')}-01`
+      patientData.birth_date = formatted
+      birthDateDisplay.value = formatted
+      if (event.target) event.target.value = birthDateDisplay.value
+      return
+    }
+
+    if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(trimmed)) {
+      const parts = trimmed.split('-')
+      const formatted = `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`
+      patientData.birth_date = formatted
+      birthDateDisplay.value = formatted
+      if (event.target) event.target.value = birthDateDisplay.value
+      return
+    }
+
+    patientData.birth_date = ''
+    birthDateDisplay.value = cleanValue
+    if (event.target) event.target.value = cleanValue
+    return
+ 
+
+  // Non-_mina tenants: keep original behavior (no automatic 01-01 fill)
   if (/^\d{4}$/.test(trimmed)) {
-    patientData.birth_date = `${trimmed}-01-01`
-    birthDateDisplay.value = trimmed
-  } else if (/^\d{4}-\d{1,2}$/.test(trimmed)) {
-    const [y, mo] = trimmed.split('-')
-    patientData.birth_date = `${y}-${mo.padStart(2, '0')}-01`
-    birthDateDisplay.value = trimmed
-  } else if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(trimmed)) {
-    const parts = trimmed.split('-')
-    patientData.birth_date = `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`
-    birthDateDisplay.value = cleanValue
-  } else {
     patientData.birth_date = trimmed
-    birthDateDisplay.value = cleanValue
+    birthDateDisplay.value = trimmed
+    if (event.target) event.target.value = trimmed
+    return
   }
+
+  if (/^\d{4}-\d{1,2}$/.test(trimmed)) {
+    patientData.birth_date = trimmed
+    birthDateDisplay.value = trimmed
+    if (event.target) event.target.value = trimmed
+    return
+  }
+
+  if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(trimmed)) {
+    patientData.birth_date = trimmed
+    birthDateDisplay.value = trimmed
+    if (event.target) event.target.value = trimmed
+    return
+  }
+
+  patientData.birth_date = ''
+  birthDateDisplay.value = cleanValue
+  if (event.target) event.target.value = cleanValue
 }
 
 // ─── Save ────────────────────────────────────────────────────────────────────
@@ -548,6 +582,23 @@ async function savePatient() {
   Object.keys(formErrors).forEach(key => delete formErrors[key])
 
   try {
+    // Normalize birth_date to YYYY-MM-DD (optional field)
+    if (patientData.birth_date && patientData.birth_date.trim()) {
+      const d = patientData.birth_date.trim()
+      if (/^\d{4}$/.test(d)) {
+        patientData.birth_date = `${d}-01-01`
+      } else if (/^\d{4}-\d{1,2}$/.test(d)) {
+        const [y, m] = d.split('-')
+        patientData.birth_date = `${y}-${m.padStart(2, '0')}-01`
+      } else if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(d)) {
+        const [y,m,day] = d.split('-')
+        patientData.birth_date = `${y}-${m.padStart(2,'0')}-${day.padStart(2,'0')}`
+      }
+    } else {
+      // Clear birth date if empty
+      patientData.birth_date = ''
+    }
+
     const payload = { ...patientData }
     let response
 

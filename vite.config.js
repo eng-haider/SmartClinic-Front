@@ -3,22 +3,28 @@ import vue from '@vitejs/plugin-vue'
 import vuetify from 'vite-plugin-vuetify'
 import { VitePWA } from 'vite-plugin-pwa'
 import { fileURLToPath, URL } from 'node:url'
+import { readFileSync } from 'node:fs'
+
+
+
+const pkg = JSON.parse(readFileSync('./package.json', 'utf-8'))
 
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(pkg.version)
+  },
   plugins: [
     vue(),
     vuetify({ autoImport: true }),
     VitePWA({
-      // Use autoUpdate so the service worker checks for new builds and updates automatically.
-      registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'logomain.png', 'robots.txt'],
+      // Use prompt so we can notify the user and let them choose when to update
+      registerType: 'prompt',
+      includeAssets: ['favicon.ico', 'logo.png', 'robots.txt'],
       // Force service worker to update immediately
       workbox: {
         // Only cache JS/CSS/fonts/images - NOT html files
         globPatterns: ['**/*.{js,css,ico,png,svg,woff,woff2}'],
-        // Ensure new service worker takes control immediately so clients receive updates.
-        skipWaiting: true,
-        clientsClaim: true,
+        // Do NOT skipWaiting - let the user confirm before the new SW activates
         // Don't cache index.html to always get fresh version
         navigateFallback: null,
         // Clean up old caches from previous builds
@@ -52,22 +58,22 @@ export default defineConfig({
         start_url: '/?v=' + Date.now(),
         dir: 'rtl',
         lang: 'ar',
-        // Use the provided logomain.png as the primary icon for the PWA.
+        // Use logo.png as the primary icon for the PWA.
         icons: [
           {
-            src: '/logomain.png',
+            src: '/logo.png',
             sizes: '192x192',
             type: 'image/png',
             purpose: 'any'
           },
           {
-            src: '/logomain.png',
+            src: '/logo.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any'
           },
           {
-            src: '/logomain.png',
+            src: '/logo.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'maskable'

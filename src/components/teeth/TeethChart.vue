@@ -112,6 +112,30 @@
       </div>
     </div>
 
+    <!-- No-Tooth Categories Section -->
+    <div v-if="categoriesWithoutTooth.length > 0" class="no-tooth-categories mt-4">
+      <div class="no-tooth-divider">
+        <span class="no-tooth-label">
+          <v-icon size="16" class="me-1">mdi-clipboard-list-outline</v-icon>
+          إجراءات لا تتطلب تحديد سن
+        </span>
+      </div>
+      <div class="no-tooth-chips">
+        <v-chip
+          v-for="category in categoriesWithoutTooth"
+          :key="category.id"
+          class="no-tooth-chip"
+          size="small"
+          variant="tonal"
+          color="teal"
+          @click="selectCategoryWithoutTooth(category)"
+        >
+          <v-icon start size="14">mdi-plus-circle-outline</v-icon>
+          {{ getCategoryName(category) }}
+        </v-chip>
+      </div>
+    </div>
+
     <!-- Context Menu -->
     <Teleport to="body">
       <div
@@ -298,6 +322,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRtl } from 'vuetify'
 import { teethData } from './teethData'
+import { isOldFormat, convertOldToNew } from './oldToothMapping'
 import { useClinicSettings } from '@/composables/useClinicSettings'
 
 // Props
@@ -412,15 +437,19 @@ const lowerTeeth = computed(() => {
 })
 
 // Computed
+const categoriesWithTooth = computed(() =>
+  props.categories.filter(c => !c.without_detect_tooth)
+)
+
+const categoriesWithoutTooth = computed(() =>
+  props.categories.filter(c => c.without_detect_tooth === true)
+)
+
 const filteredCategories = computed(() => {
-  if (!categorySearchTerm.value) {
-    return props.categories
-  }
+  const base = categoriesWithTooth.value
+  if (!categorySearchTerm.value) return base
   const search = categorySearchTerm.value.toLowerCase()
-  return props.categories.filter(cat => {
-    const name = getCategoryName(cat).toLowerCase()
-    return name.includes(search)
-  })
+  return base.filter(cat => getCategoryName(cat).toLowerCase().includes(search))
 })
 
 // Methods
@@ -778,6 +807,17 @@ function filterCategories() {
   // Computed property handles this
 }
 
+function selectCategoryWithoutTooth(category) {
+  emit('case-added', {
+    toothNumber: null,
+    category,
+    categoryName: getCategoryName(category)
+  })
+
+  toastMessage.value = `${t('teeth.categoryAdded')} ${getCategoryName(category)}`
+  showToast.value = true
+}
+
 function loadColoredParts() {
   // Support both tooth_details (new API) and tooth_parts (legacy)
   const toothData = props.patientData?.tooth_details || props.patientData?.tooth_parts
@@ -785,12 +825,29 @@ function loadColoredParts() {
     try {
       const parts = typeof toothData === 'string' ? JSON.parse(toothData) : toothData
       if (Array.isArray(parts)) {
-        coloredParts.value = parts.map(p => ({
-          toothId: p.tooth_id,
-          toothNum: p.tooth_number,
-          partId: p.part_id,
-          color: p.color
-        }))
+        coloredParts.value = parts.map(p => {
+          const oldToothId = p.tooth_id
+          // Detect old format: old system used sequential IDs like "tooth-35" for tooth 18
+          // New system uses FDI-based IDs like "tooth-18"
+          if (oldToothId && isOldFormat(oldToothId, p.tooth_number)) {
+            const mapped = convertOldToNew(oldToothId, p.tooth_number)
+            // Extract correct tooth number from mapped toothId (e.g. "tooth-18" -> 18)
+            const correctToothNum = parseInt(mapped.toothId.replace('tooth-', ''))
+            return {
+              toothId: mapped.toothId,
+              toothNum: correctToothNum,
+              partId: mapped.partId,
+              color: p.color
+            }
+          }
+          // New format data - use as-is
+          return {
+            toothId: `tooth-${p.tooth_number}`,
+            toothNum: p.tooth_number,
+            partId: p.part_id,
+            color: p.color
+          }
+        }).filter(p => p.toothNum) // filter out entries that couldn't be mapped
       }
     } catch (e) {
       console.error('Error loading tooth parts:', e)
@@ -883,6 +940,37 @@ onUnmounted(() => {
   padding: 16px;
   overflow: visible;
 }
+
+/* No-Tooth Categories Section */
+.no-tooth-categories {
+  border-top: 1px dashed rgba(0, 150, 136, 0.4);
+  padding-top: 12px;
+}
+
+.no-tooth-divider {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+  color: #00796b;
+  font-size: 0.78rem;
+  font-weight: 600;
+  gap: 6px;
+}
+
+.no-tooth-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.no-tooth-chip {
+  cursor: pointer;
+}
+
+.no-tooth-chip:hover {
+  opacity: 0.85;
+}
+
 
 .teeth-chart.rtl {
   direction: rtl;
@@ -1201,7 +1289,24 @@ onUnmounted(() => {
 .search-section {
   padding: 12px;
   border-bottom: 1px solid #e0e0e0;
-  background: #fafafa;
+  background: #ffffff;
+}
+
+.category-search {
+  background: #f5f5f5 !important;
+}
+
+.category-search :deep(.v-field__input) {
+  color: #1a1a1a !important;
+  font-size: 13px !important;
+}
+
+.category-search :deep(.v-field__input::placeholder) {
+  color: #999 !important;
+}
+
+.category-search :deep(.v-field) {
+  background: #f5f5f5 !important;
 }
 
 .quick-categories {
@@ -1209,14 +1314,15 @@ onUnmounted(() => {
   border-bottom: 1px solid #e0e0e0;
   max-height: 200px;
   overflow-y: auto;
+  background: #ffffff;
 }
 
 .section-title {
   display: flex;
   align-items: center;
   font-size: 13px;
-  font-weight: 600;
-  color: #666;
+  font-weight: 700;
+  color: #1a1a1a;
   margin-bottom: 10px;
 }
 
@@ -1228,12 +1334,20 @@ onUnmounted(() => {
 
 .category-chip {
   cursor: pointer !important;
-  transition: all 0.2s ease;
+  transition: all 0.2s ease !important;
+  background: #e3f2fd !important;
+  color: #1565c0 !important;
+}
+
+.category-chip :deep(.v-chip__content) {
+  color: #1565c0 !important;
+  font-weight: 500 !important;
 }
 
 .category-chip:hover {
-  background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%) !important;
+  background: #bbdefb !important;
   transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(21, 101, 192, 0.2) !important;
 }
 
 .remove-section {

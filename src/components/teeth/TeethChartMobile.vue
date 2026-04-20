@@ -467,6 +467,28 @@
 
       </div>
     </div>
+
+    <!-- No-Tooth Categories Section -->
+    <div v-if="categoriesWithoutTooth.length > 0" class="no-tooth-mobile mt-3 mx-2">
+      <div class="no-tooth-mobile-header">
+        <v-icon size="16" color="teal">mdi-clipboard-list-outline</v-icon>
+        <span>إجراءات لا تتطلب تحديد سن</span>
+      </div>
+      <div class="no-tooth-mobile-chips">
+        <v-btn
+          v-for="cat in categoriesWithoutTooth"
+          :key="cat.id"
+          @click="selectCategoryWithoutTooth(cat)"
+          variant="tonal"
+          color="teal"
+          size="small"
+          class="no-tooth-mobile-btn"
+        >
+          <v-icon start size="16">mdi-plus-circle-outline</v-icon>
+          {{ cat.name || cat.name_ar }}
+        </v-btn>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -572,6 +594,34 @@ fill: #000;
   color: #1e293b !important;
 }
 
+/* No-Tooth Mobile Section */
+.no-tooth-mobile {
+  border-top: 1px dashed rgba(0, 150, 136, 0.5);
+  padding-top: 10px;
+}
+
+.no-tooth-mobile-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #00796b;
+  font-size: 0.78rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+  padding: 0 4px;
+}
+
+.no-tooth-mobile-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 4px 8px;
+}
+
+.no-tooth-mobile-btn {
+  text-transform: none;
+}
+
 .categories-simple-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
@@ -637,23 +687,38 @@ fill: #000;
 .search-section {
   padding: 16px;
   border-bottom: 1px solid #f1f5f9;
-  background: #fafbfc;
+  background: #ffffff;
 }
 
 .category-search {
   font-family: 'Cairo', sans-serif;
+  background: #f5f5f5 !important;
+}
+
+.category-search :deep(.v-field__input) {
+  color: #1a1a1a !important;
+  font-size: 13px !important;
+}
+
+.category-search :deep(.v-field__input::placeholder) {
+  color: #999 !important;
+}
+
+.category-search :deep(.v-field) {
+  background: #f5f5f5 !important;
 }
 
 .quick-categories, .all-categories {
   padding: 16px;
+  background: #ffffff;
 }
 
 .section-title {
   display: flex;
   align-items: center;
-  font-weight: 600;
+  font-weight: 700;
   font-size: 13px;
-  color: #1e293b !important;
+  color: #1a1a1a !important;
   margin-bottom: 12px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -672,12 +737,14 @@ fill: #000;
   border-radius: 16px !important;
   transition: all 0.2s ease;
   cursor: pointer;
-  color: #1e293b !important;
+  color: #1565c0 !important;
+  background: #e3f2fd !important;
 }
 
 .category-chip:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(25, 118, 210, 0.3);
+  transform: translateY(-2px);
+  background: #bbdefb !important;
+  box-shadow: 0 4px 12px rgba(21, 101, 192, 0.2);
 }
 
 .categories-list {
@@ -832,17 +899,24 @@ fill: #000;
                 return this.localCategories.length > 0 ? this.localCategories : this.categories;
             },
             
-            // Categories to display in bottom sheet (filtered by search)
+            // Categories to display in bottom sheet (filtered by search, tooth-only)
             displayedCategories() {
-                const cats = this.localCategories.length > 0 ? this.localCategories : this.categories;
+                const cats = (this.localCategories.length > 0 ? this.localCategories : this.categories)
+                    .filter(c => !c.without_detect_tooth);
                 if (!cats || !Array.isArray(cats)) return [];
                 if (!this.categorySearch || !this.categorySearch.trim()) return cats;
-                
+
                 const search = this.categorySearch.toLowerCase().trim();
                 return cats.filter(cat => {
                     const name = (cat.name || cat.name_ar || '').toLowerCase();
                     return name.includes(search);
                 });
+            },
+
+            categoriesWithoutTooth() {
+                const cats = this.localCategories.length > 0 ? this.localCategories : this.categories;
+                if (!cats || !Array.isArray(cats)) return [];
+                return cats.filter(c => c.without_detect_tooth === true);
             }
         },
         methods: {
@@ -1080,6 +1154,27 @@ fill: #000;
                 this.showContextMenu = false;
                 this.contextTooth = null;
                 this.categorySearch = '';
+            },
+
+            selectCategoryWithoutTooth(category) {
+                this.$emit('case-added', {
+                    toothNumber: null,
+                    toothId: null,
+                    category: category,
+                    categoryName: category.name || category.name_ar || '',
+                    timestamp: Date.now()
+                });
+
+                // Show success feedback
+                if (this.$swal) {
+                    this.$swal.fire({
+                        icon: 'success',
+                        title: 'تمت الإضافة',
+                        text: `تم إضافة ${category.name || category.name_ar}`,
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                }
             },
 
             selectCategory(category) {

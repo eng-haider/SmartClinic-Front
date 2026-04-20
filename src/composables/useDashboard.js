@@ -29,7 +29,6 @@ export function useDashboard() {
     profitLossTrend: false,
     casesByStatus: false,
     reservationsByStatus: false,
-    billsByPayment: false,
     expensesByCategory: false,
     doctorPerformance: false
   })
@@ -43,7 +42,6 @@ export function useDashboard() {
   const profitLossTrend = ref([])
   const casesByStatus = ref([])
   const reservationsByStatus = ref([])
-  const billsByPayment = ref([])
   const expensesByCategory = ref([])
   const doctorPerformance = ref([])
 
@@ -189,21 +187,6 @@ export function useDashboard() {
     }
   }
 
-  async function fetchBillsByPayment() {
-    loading.billsByPayment = true
-    try {
-      const response = await reportsService.financial.getBillsByPaymentStatus({
-        date_from: dateRange.from,
-        date_to: dateRange.to
-      })
-      billsByPayment.value = response.data || []
-    } catch (e) {
-      console.error('Failed to fetch bills by payment:', e)
-    } finally {
-      loading.billsByPayment = false
-    }
-  }
-
   async function fetchExpensesByCategory() {
     loading.expensesByCategory = true
     try {
@@ -245,7 +228,6 @@ export function useDashboard() {
       fetchProfitLossTrend(),
       fetchCasesByStatus(),
       fetchReservationsByStatus(),
-      fetchBillsByPayment(),
       fetchExpensesByCategory(),
       fetchDoctorPerformance()
     ])
@@ -299,7 +281,6 @@ export function useDashboard() {
     profitLossTrend,
     casesByStatus,
     reservationsByStatus,
-    billsByPayment,
     expensesByCategory,
     doctorPerformance,
     

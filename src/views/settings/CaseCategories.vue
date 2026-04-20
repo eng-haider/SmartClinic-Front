@@ -67,10 +67,38 @@
           density="compact"
           mobile-breakpoint="md"
         >
+          <!-- Category Type Column -->
+          <template v-slot:item.category_type="{ item }">
+            <v-chip 
+              :color="item.category_type === 'dental' ? 'blue' : 'purple'" 
+              size="small"
+              variant="tonal"
+            >
+              <v-icon start size="14">
+                {{ item.category_type === 'dental' ? 'mdi-tooth' : 'mdi-face-woman-shimmer' }}
+              </v-icon>
+              {{ item.category_type === 'dental' ? ($t('caseCategories.dental') || 'Dental') : ($t('caseCategories.beauty') || 'Beauty') }}
+            </v-chip>
+          </template>
+
           <!-- Item Cost Column -->
           <template v-slot:item.item_cost="{ item }">
             <v-chip color="success" size="small">
               {{ formatCurrency(item.item_cost) }}
+            </v-chip>
+          </template>
+
+          <!-- Without Detect Tooth Column -->
+          <template v-slot:item.without_detect_tooth="{ item }">
+            <v-chip 
+              :color="item.without_detect_tooth ? 'orange' : 'teal'" 
+              size="small"
+              variant="tonal"
+            >
+              <v-icon start size="14">
+                {{ item.without_detect_tooth ? 'mdi-close-circle' : 'mdi-check-circle' }}
+              </v-icon>
+              {{ item.without_detect_tooth ? ($t('common.no') || 'No') : ($t('common.yes') || 'Yes') }}
             </v-chip>
           </template>
 
@@ -146,7 +174,7 @@
               v-model.number="formData.order"
               :label="$t('caseCategories.displayOrder')"
               type="number"
-              :rules="[rules.required, rules.minValue(0)]"
+              :rules="[rules.minValue(0)]"
               variant="outlined"
               prepend-inner-icon="mdi-order-numeric-ascending"
               class="mb-3"
@@ -162,6 +190,37 @@
               suffix="IQD"
               class="mb-3"
             ></v-text-field>
+
+            <v-select
+              v-model="formData.category_type"
+              :label="$t('caseCategories.categoryType') || 'Category Type'"
+              :items="[
+                { title: $t('caseCategories.dental') || 'Dental', value: 'dental' },
+                { title: $t('caseCategories.beauty') || 'Beauty', value: 'beauty' }
+              ]"
+              :rules="[rules.required]"
+              variant="outlined"
+              prepend-inner-icon="mdi-tag-outline"
+              class="mb-3"
+            ></v-select>
+
+            <v-switch
+              v-if="formData.category_type === 'dental'"
+              v-model="formData.without_detect_tooth"
+              :label="$t('caseCategories.withoutDetectTooth') || 'Does not require tooth detection'"
+              color="primary"
+              hide-details
+              class="mb-3"
+            >
+              <template v-slot:label>
+                <div class="d-flex flex-column">
+                  <span>{{ $t('caseCategories.withoutDetectTooth') || 'Does not require tooth detection' }}</span>
+                  <span class="text-caption text-medium-emphasis">
+                    {{ $t('caseCategories.withoutDetectToothHint') || 'Enable this for procedures that don\'t need a specific tooth number (e.g., consultation, general examination)' }}
+                  </span>
+                </div>
+              </template>
+            </v-switch>
           </v-form>
         </v-card-text>
 
@@ -235,7 +294,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/authNew'
 import { PERMISSIONS } from '@/constants/permissions'
@@ -273,7 +332,9 @@ const formData = ref({
   name: '',
   order: 0,
   clinic_id: null,
-  item_cost: 0
+  item_cost: 0,
+  category_type: 'dental',
+  without_detect_tooth: false
 })
 
 // Snackbar
@@ -298,8 +359,10 @@ const sortOptions = computed(() => [
 // Table headers
 const headers = computed(() => [
   { title: t('caseCategories.categoryName'), key: 'name', align: 'start' },
+  { title: t('caseCategories.categoryType') || 'Type', key: 'category_type', align: 'center' },
   { title: t('caseCategories.displayOrder'), key: 'order', align: 'center' },
   { title: t('caseCategories.defaultCost'), key: 'item_cost', align: 'center' },
+  { title: t('caseCategories.requiresTooth') || 'Requires Tooth', key: 'without_detect_tooth', align: 'center' },
   { title: t('common.actions'), key: 'actions', align: 'center', sortable: false }
 ])
 
@@ -352,7 +415,9 @@ const openCreateDialog = () => {
     name: '',
     order: categories.value.length + 1,
     clinic_id: authStore.user?.clinic_id || null,
-    item_cost: 0
+    item_cost: 0,
+    category_type: 'dental',
+    without_detect_tooth: false
   }
   dialog.value = true
 }
@@ -369,7 +434,9 @@ const closeDialog = () => {
     name: '',
     order: 0,
     clinic_id: null,
-    item_cost: 0
+    item_cost: 0,
+    category_type: 'dental',
+    without_detect_tooth: false
   }
 }
 
@@ -437,6 +504,14 @@ const showSnackbar = (text, color = 'success') => {
   snackbarColor.value = color
   snackbar.value = true
 }
+
+// Watch category_type to auto-set without_detect_tooth for beauty categories
+watch(() => formData.value.category_type, (newType) => {
+  if (newType === 'beauty') {
+    // Beauty categories never require tooth detection
+    formData.value.without_detect_tooth = true
+  }
+})
 
 // Lifecycle
 onMounted(() => {

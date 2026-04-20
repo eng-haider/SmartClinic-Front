@@ -650,14 +650,26 @@ const deleteRecipe = async () => {
   }
 }
 
-const printRecipe = (recipe) => {
-  recipeToPrint.value = recipe
+const printRecipe = async (recipe) => {
+  try {
+    // Fetch full recipe with items to ensure medications are loaded
+    const response = await RecipeService.getById(recipe.id)
+    const fullRecipe = response.data?.data || response.data || response
+    // Normalize: ensure recipe_items exists
+    if (!fullRecipe.recipe_items && fullRecipe.recipeItems) {
+      fullRecipe.recipe_items = fullRecipe.recipeItems
+    }
+    recipeToPrint.value = fullRecipe
+  } catch {
+    // Fallback to the recipe from list
+    recipeToPrint.value = recipe
+  }
   // Wait for component to update, then print
   setTimeout(() => {
     if (recipePrintRef.value) {
       recipePrintRef.value.print()
     }
-  }, 100)
+  }, 150)
 }
 
 const handleRecipeSaved = (recipe) => {

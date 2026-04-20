@@ -74,7 +74,7 @@
           :headers="headers"
           :items="filteredReservations"
           :loading="loading"
-          :items-per-page="15"
+          :items-per-page="150"
           :items-per-page-options="[10, 15, 25, 50]"
           hover
           class="waiting-list-table"
@@ -99,6 +99,11 @@
                 </div>
               </div>
             </div>
+          </template>
+          
+          <!-- Patient Age Column -->
+          <template #item.age="{ item }">
+            <span>{{ item.patient?.age ? item.patient.age + ' ' + $t('patients.years') : $t('common.noData') }}</span>
           </template>
           
           <!-- Doctor Column -->
@@ -129,27 +134,28 @@
               {{ item.reservation_type.name }}
             </v-chip>
             <span v-else class="text-medium-emphasis text-caption">-</span>
-            <!-- reservation_type_note if exists -->
-            <div v-if="item.reservation_type_note" class="text-caption text-medium-emphasis mt-1">
-              {{ item.reservation_type_note }}
-            </div>
           </template>
           
           <!-- Notes Column -->
           <template #item.notes="{ item }">
-            <div v-if="item.notes" class="text-body-2" style="max-width: 300px;">
-              <v-tooltip location="top">
-                <template #activator="{ props }">
-                  <span v-bind="props" class="text-truncate d-inline-block" style="max-width: 200px;">
-                    {{ item.notes }}
-                  </span>
-                </template>
-                <span>{{ item.notes }}</span>
-              </v-tooltip>
+            <div class="d-flex flex-column gap-1">
+              <div v-if="item.notes" class="text-body-2" style="max-width: 300px;">
+                <v-tooltip location="top">
+                  <template #activator="{ props }">
+                    <span v-bind="props" class="text-truncate d-inline-block" style="max-width: 200px;">
+                      {{ item.notes }}
+                    </span>
+                  </template>
+                  <span>{{ item.notes }}</span>
+                </v-tooltip>
+              </div>
+              <div v-if="item.reservation_type_note" class="text-caption text-medium-emphasis">
+                {{ item.reservation_type_note }}
+              </div>
+              <span v-if="!item.notes && !item.reservation_type_note" class="text-medium-emphasis text-caption">
+                {{ $t('common.noData') || '-' }}
+              </span>
             </div>
-            <span v-else class="text-medium-emphasis text-caption">
-              {{ $t('common.noData') || '-' }}
-            </span>
           </template>
           
           <!-- Status Column -->
@@ -161,6 +167,19 @@
             >
               {{ getStatusText(item.status) }}
             </v-chip>
+          </template>
+
+          <!-- Mark as Done Column -->
+          <template #item.done="{ item }">
+            <v-switch
+              :model-value="item.status?.id === 3"
+              :loading="updatingStatus.has(item.id)"
+              :disabled="updatingStatus.has(item.id)"
+              color="success"
+              hide-details
+              density="compact"
+              @update:model-value="val => toggleDone(item, val)"
+            />
           </template>
           
           <!-- Actions Column -->
@@ -191,6 +210,11 @@
         </v-data-table>
       </v-card-text>
     </v-card>
+
+    <!-- Snackbar for status update feedback -->
+    <v-snackbar v-model="snackbar.show" :color="snackbar.color" :timeout="3000" location="top">
+      {{ snackbar.text }}
+    </v-snackbar>
   </div>
 </template>
 
@@ -212,6 +236,8 @@ const reservations = ref([])
 const doctors = ref([])
 const selectedDoctor = ref(null)
 const patientSearch = ref('')
+const updatingStatus = ref(new Set())
+const snackbar = ref({ show: false, text: '', color: 'success' })
 
 // Get today's date in YYYY-MM-DD format
 function getTodayDate() {
@@ -233,11 +259,13 @@ const formattedToday = computed(() => {
 // Table headers (without date and time columns)
 const headers = computed(() => [
   { title: t('waitingList.patient') || 'المراجع', key: 'patient', sortable: true },
+  { title: t('patients.age') || 'العمر', key: 'age', sortable: false },
   { title: t('waitingList.doctor') || 'الطبيب', key: 'doctor', sortable: true },
   { title: t('waitingList.reservationTime') || 'وقت الحجز', key: 'reservation_from_time', sortable: true },
   { title: t('reservations.reservation_type') || 'نوع الحجز', key: 'reservation_type', sortable: false },
   { title: t('waitingList.notes') || 'ملاحظات', key: 'notes', sortable: false },
   { title: t('waitingList.status') || 'الحالة', key: 'status', sortable: true },
+  { title: t('waitingList.markDone') || 'مكتمل', key: 'done', sortable: false, align: 'center' },
   { title: t('common.actions') || 'الإجراءات', key: 'actions', sortable: false, align: 'center' }
 ])
 
@@ -350,27 +378,49 @@ function formatTime(timeString) {
 
 function getStatusColor(status) {
   if (!status) return 'grey'
-  const name = status.name?.toLowerCase() || ''
+  // Use the color from the API directly if available
+  if (status.color) return status.color
   const id = status.id
-  
-  if (name === 'waiting' || id === 1) return 'orange'
-  if (name === 'completed' || name === 'finished' || id === 2) return 'success'
-  if (name === 'cancelled' || id === 3) return 'error'
-  if (name === 'out_of_clinic' || id === 4) return 'info'
+  if (id === 1) return 'orange'
+  if (id === 2) return 'success'
+  if (id === 3) return 'error'
+  if (id === 4) return 'info'
   return 'grey'
 }
 
 function getStatusText(status) {
   if (!status) return t('waitingList.pending') || 'قيد الانتظار'
-  
-  const name = status.name?.toLowerCase() || ''
-  
-  if (name === 'waiting') return t('waitingList.waiting') || 'في الانتظار'
-  if (name === 'completed' || name === 'finished') return t('waitingList.finished') || 'مكتمل'
-  if (name === 'cancelled') return t('waitingList.cancelled') || 'ملغي'
-  if (name === 'out_of_clinic') return t('waitingList.out_of_clinic') || 'خارج العيادة'
-  
-  return status.name || t('waitingList.pending')
+  // Prefer localised name from API
+  return status.name_ar || status.name_en || status.name || t('waitingList.pending')
+}
+
+async function toggleDone(item, isDone) {
+  const statusId = isDone ? 3 : 1
+  updatingStatus.value = new Set([...updatingStatus.value, item.id])
+
+  try {
+    const response = await reservationService.updateStatus(item.id, statusId)
+    const updated = response.data?.data || response.data
+    // Update the row in-place
+    const idx = reservations.value.findIndex(r => r.id === item.id)
+    if (idx !== -1 && updated?.status) {
+      reservations.value[idx] = { ...reservations.value[idx], status: updated.status }
+    } else if (idx !== -1) {
+      // Fallback: update status directly
+      reservations.value[idx] = { ...reservations.value[idx], status: { id: statusId } }
+    }
+  } catch (error) {
+    console.error('Error updating reservation status:', error)
+    snackbar.value = {
+      show: true,
+      text: error.response?.data?.message || t('errors.saveFailed') || 'فشل تحديث الحالة',
+      color: 'error'
+    }
+  } finally {
+    const next = new Set(updatingStatus.value)
+    next.delete(item.id)
+    updatingStatus.value = next
+  }
 }
 
 // Lifecycle

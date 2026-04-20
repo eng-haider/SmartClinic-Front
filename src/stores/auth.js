@@ -18,7 +18,8 @@ export const useAuthStore = defineStore('auth', {
     clinicInfo: null,
     doctorInfo: null,
     lang: localStorage.getItem('lang') || 'ar',
-    drawer: true
+    drawer: true,
+    specialty: 'dental'
   }),
 
   getters: {
@@ -96,8 +97,9 @@ export const useAuthStore = defineStore('auth', {
         doctor_id: data.doctor_id
       }
       this.permissions = data.Permissions || []
-      this.clinicInfo = data.clinic_info || null
+      this.clinicInfo = data.clinic_info || data.clinic || null
       this.doctorInfo = data.doctor_info || null
+      this.specialty = data.specialty || data.clinic?.specialty || data.clinic_info?.specialty || 'dental'
 
       // Save to localStorage
       localStorage.setItem('tokinn', data.token)
@@ -116,6 +118,7 @@ export const useAuthStore = defineStore('auth', {
       this.permissions = []
       this.clinicInfo = null
       this.doctorInfo = null
+      this.specialty = 'dental'
 
       localStorage.removeItem('tokinn')
       localStorage.removeItem('tctate_token')
@@ -148,8 +151,9 @@ export const useAuthStore = defineStore('auth', {
                 doctor_id: parsed.AdminInfo.doctor_id
               }
               this.permissions = parsed.AdminInfo.Permissions || []
-              this.clinicInfo = parsed.AdminInfo.clinics_info
-              this.doctorInfo = parsed.AdminInfo.doctor_info
+              this.clinicInfo = parsed.AdminInfo.clinics_info || null
+              this.doctorInfo = parsed.AdminInfo.doctor_info || null
+              this.specialty = parsed.AdminInfo.specialty || parsed.AdminInfo.clinics_info?.specialty || 'dental'
             }
           }
         } catch (e) {
@@ -178,6 +182,6 @@ export const useAuthStore = defineStore('auth', {
 
   persist: {
     key: 'auth',
-    paths: ['user', 'token', 'tctateToken', 'permissions', 'clinicInfo', 'lang']
+    paths: ['user', 'token', 'tctateToken', 'permissions', 'clinicInfo', 'lang', 'specialty']
   }
 })

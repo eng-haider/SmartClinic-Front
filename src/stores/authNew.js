@@ -17,6 +17,7 @@ export const useAuthStore = defineStore('auth', () => {
   const user = ref(null)
   const clinic = ref(null)
   const token = ref(null)
+  const specialty = ref('dental')
   const loading = ref(false)
   const error = ref(null)
   const permissionRefreshInterval = ref(null)
@@ -98,6 +99,9 @@ export const useAuthStore = defineStore('auth', () => {
         if (storedClinic) {
           clinic.value = storedClinic
         }
+        
+        // Load specialty
+        specialty.value = localStorage.getItem('clinic_specialty') || 'dental'
       } else {
         error.value = result.message
       }
@@ -247,10 +251,12 @@ export const useAuthStore = defineStore('auth', () => {
     const storedUser = authService.getUser()
     const storedClinic = authService.getClinic()
     const storedToken = authService.getToken()
+    const storedSpecialty = localStorage.getItem('clinic_specialty')
 
     if (storedUser) user.value = storedUser
     if (storedClinic) clinic.value = storedClinic
     if (storedToken) token.value = storedToken
+    if (storedSpecialty) specialty.value = storedSpecialty
 
     // Auto-refresh token if needed
     authService.autoRefreshToken()
@@ -299,6 +305,7 @@ export const useAuthStore = defineStore('auth', () => {
     user,
     clinic,
     token,
+    specialty,
     loading,
     error,
     

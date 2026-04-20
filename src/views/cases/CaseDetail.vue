@@ -64,16 +64,12 @@
                   </div>
                 </v-col>
 
-                <!-- Tooth Number -->
-                <v-col cols="12" md="6">
-                  <div class="info-item">
-                    <v-icon color="info" size="24">mdi-tooth</v-icon>
-                    <div>
-                      <div class="text-caption text-grey">{{ $t('cases.tooth_num') }}</div>
-                      <div class="font-weight-medium text-h6">{{ caseData.tooth_num || '-' }}</div>
-                    </div>
-                  </div>
-                </v-col>
+                <!-- Specialty Info specific fields -->
+                <component 
+                  v-if="specialtyInfos[authStore.specialty]"
+                  :is="specialtyInfos[authStore.specialty]" 
+                  :caseData="caseData" 
+                />
 
                 <!-- Price -->
                 <v-col cols="12" md="6">
@@ -113,22 +109,82 @@
             </v-card-text>
           </v-card>
 
-          <!-- Bills Section - only show if user can view bills -->
-          <v-card v-if="canViewBills && caseData.bills && caseData.bills.length > 0" elevation="2" rounded="xl">
-            <v-card-title class="pa-4">
-              <v-icon start>mdi-receipt</v-icon>
-              {{ $t('cases.bills') }}
+          <!-- Bills Section -->
+          <v-card v-if="canViewBills" elevation="2" rounded="xl">
+            <v-card-title class="pa-4 d-flex align-center justify-space-between">
+              <div class="d-flex align-center ga-2">
+                <v-icon color="success">mdi-receipt</v-icon>
+                <span>{{ $t('cases.bills') }}</span>
+                <v-chip size="x-small" color="primary" variant="tonal">
+                  {{ (caseData.bills || []).length }}
+                </v-chip>
+              </div>
             </v-card-title>
             <v-divider />
-            <v-list>
-              <v-list-item v-for="bill in caseData.bills" :key="bill.id">
-                <template v-slot:prepend>
-                  <v-icon color="success">mdi-cash</v-icon>
-                </template>
-                <v-list-item-title>{{ formatCurrency(bill.amount) }}</v-list-item-title>
-                <v-list-item-subtitle>{{ formatDate(bill.created_at) }}</v-list-item-subtitle>
-              </v-list-item>
-            </v-list>
+
+            <!-- Bills Summary Row -->
+            <v-card-text class="pa-4 pb-2">
+              <v-row dense>
+                <v-col cols="4">
+                  <div class="text-center pa-3 rounded-lg bg-blue-lighten-5">
+                    <div class="text-caption text-grey">{{ $t('cases.price') }}</div>
+                    <div class="font-weight-bold text-body-1 text-primary">{{ formatCurrency(caseData.price) }}</div>
+                  </div>
+                </v-col>
+                <v-col cols="4">
+                  <div class="text-center pa-3 rounded-lg bg-green-lighten-5">
+                    <div class="text-caption text-grey">{{ $t('patients.paidBills') }}</div>
+                    <div class="font-weight-bold text-body-1 text-success">{{ formatCurrency(totalPaid) }}</div>
+                  </div>
+                </v-col>
+                <v-col cols="4">
+                  <div class="text-center pa-3 rounded-lg" :class="remaining > 0 ? 'bg-orange-lighten-5' : 'bg-green-lighten-5'">
+                    <div class="text-caption text-grey">{{ $t('patients.remaining') }}</div>
+                    <div class="font-weight-bold text-body-1" :class="remaining > 0 ? 'text-warning' : 'text-success'">
+                      {{ remaining > 0 ? formatCurrency(remaining) : $t('patients.fullyPaid') }}
+                    </div>
+                  </div>
+                </v-col>
+              </v-row>
+            </v-card-text>
+
+            <v-divider />
+
+            <!-- Bills List -->
+            <div v-if="caseData.bills && caseData.bills.length > 0">
+              <v-list density="compact">
+                <v-list-item
+                  v-for="bill in caseData.bills"
+                  :key="bill.id"
+                  class="px-4 py-2"
+                >
+                  <template v-slot:prepend>
+                    <v-icon :color="bill.is_paid ? 'success' : 'warning'" size="20">
+                      {{ bill.is_paid ? 'mdi-check-circle' : 'mdi-clock-outline' }}
+                    </v-icon>
+                  </template>
+                  <v-list-item-title class="font-weight-medium">
+                    {{ formatCurrency(bill.price) }}
+                  </v-list-item-title>
+                  <v-list-item-subtitle class="text-caption">
+                    {{ formatDate(bill.created_at) }}
+                  </v-list-item-subtitle>
+                  <template v-slot:append>
+                    <v-chip
+                      :color="bill.is_paid ? 'success' : 'warning'"
+                      size="small"
+                      variant="flat"
+                    >
+                      {{ bill.is_paid ? $t('cases.paid') : $t('cases.unpaid') }}
+                    </v-chip>
+                  </template>
+                </v-list-item>
+              </v-list>
+            </div>
+            <div v-else class="text-center py-6 text-grey">
+              <v-icon size="36" color="grey-lighten-2">mdi-receipt-text-outline</v-icon>
+              <p class="text-caption mt-1">{{ $t('patients.no_bills') }}</p>
+            </div>
           </v-card>
         </v-col>
 
@@ -216,10 +272,13 @@ import { useI18n } from 'vue-i18n'
 import api from '@/services/api'
 import { usePermissions } from '@/composables/usePermissions'
 import { PERMISSIONS } from '@/constants/permissions'
+import { useAuthStore } from '@/stores/auth'
+import { specialtyInfos } from '@/config/specialties'
 
 const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
+const authStore = useAuthStore()
 
 // Permissions
 const { hasPermissionFor, hasPermission } = usePermissions()
@@ -233,6 +292,16 @@ const loading = ref(true)
 const error = ref('')
 const caseData = ref(null)
 
+// Bills computed
+const totalPaid = computed(() => {
+  const bills = caseData.value?.bills || []
+  return bills.filter(b => b.is_paid).reduce((sum, b) => sum + (b.price || 0), 0)
+})
+
+const remaining = computed(() => {
+  return (caseData.value?.price || 0) - totalPaid.value
+})
+
 // Load Case
 async function loadCase() {
   loading.value = true
@@ -241,7 +310,7 @@ async function loadCase() {
   try {
     const response = await api.get(`/cases/${route.params.id}`, {
       params: {
-        include: 'patient,doctor,category,status,bills'
+        include: 'patient,doctor,category,status,bills,ophthalmologyEncounterDetails'
       }
     })
     

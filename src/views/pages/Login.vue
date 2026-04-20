@@ -15,8 +15,8 @@
         <v-col cols="12" sm="8" md="6" lg="4">
           <v-card class="login-card pa-8" rounded="xl" elevation="20">
             <div class="text-center mb-6">
-              <v-avatar size="80" color="primary" class="mb-4">
-                <v-icon size="50" color="white">mdi-hospital-building</v-icon>
+              <v-avatar size="80" color="transparent" class="mb-4">
+                <v-img src="/logo.png" alt="SmartClinic Logo" />
               </v-avatar>
               <h1 class="text-h5 font-weight-bold">{{ $t('app_name') }}</h1>
               <p class="text-grey">{{ $t('login.subtitle') }}</p>

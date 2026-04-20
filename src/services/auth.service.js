@@ -21,23 +21,27 @@ class AuthService {
    */
   async register(userData) {
     try {
-      const response = await apiClient.post('/auth/demo-register', {
+      const response = await apiClient.post('/auth/register', {
         id: userData.tenantId || null,
-        name: userData.clinicName,
+        clinic_name: userData.clinicName,
+        clinic_address: userData.clinicAddress || null,
+        
+        specialty: userData.specialty || null,
         rx_img: userData.rxImg || null,
         whatsapp_template_sid: userData.whatsappTemplateSid || null,
         whatsapp_phone: userData.whatsappPhone || null,
         logo: userData.logo || null,
-        user_name: userData.name,
-        user_phone: userData.phone,
-        user_email: userData.email || null,
-        user_password: userData.password
+        name: userData.name,
+        phone: userData.phone,
+        email: userData.email || null,
+        password: userData.password,
+        password_confirmation: userData.passwordConfirmation || null
       })
 
       // API returns: { success, data: { token, user, tenant_id, clinic_name } }
       const data = response?.data || response || {}
       const token = data.token
-      const user  = data.user
+      const user = data.user
       const tenantId = data.tenant_id  // string like "tenant_test"
 
       if (token) {
@@ -69,12 +73,12 @@ class AuthService {
   async login(phone, password) {
     try {
       console.log('auth.service.login called with phone:', phone)
-      
+
       const response = await apiClient.post('/auth/smart-login', {
         phone,
         password
       })
-      
+
       console.log('API response:', response)
 
       if (response.success && response.data) {
@@ -82,7 +86,9 @@ class AuthService {
         const authData = {
           token: response.data.token || response.token,
           user: response.data.user || response.user,
-          tenant_id: response.data.tenant_id || response.tenant_id
+          tenant_id: response.data.tenant_id || response.tenant_id,
+          clinic: response.data.clinic || response.clinic,
+          tenant: response.data.tenant || response.tenant
         }
         this.saveAuthData(authData)
       }
@@ -106,7 +112,7 @@ class AuthService {
   async getCurrentUser() {
     try {
       const response = await apiClient.get('/auth/me')
-      
+
       if (response.success && response.data) {
         localStorage.setItem(USER_KEY, JSON.stringify(response.data))
       }
@@ -133,7 +139,7 @@ class AuthService {
         const expiresIn = response.data.expires_in || 3600
 
         localStorage.setItem(AUTH_TOKEN_KEY, token)
-        
+
         const expiresAt = Date.now() + (expiresIn * 1000)
         localStorage.setItem(TOKEN_EXPIRES_KEY, expiresAt.toString())
       }
@@ -204,7 +210,10 @@ class AuthService {
     if (data.clinic) {
       localStorage.setItem(CLINIC_KEY, JSON.stringify(data.clinic))
     }
-    
+
+    const specialty = data.specialty || data.clinic?.specialty || 'dental'
+    localStorage.setItem('clinic_specialty', specialty)
+
     if (data.tenant) {
       localStorage.setItem(CLINIC_KEY, JSON.stringify(data.tenant))
     }
@@ -228,7 +237,7 @@ class AuthService {
     localStorage.removeItem(CLINIC_KEY)
     localStorage.removeItem(TOKEN_EXPIRES_KEY)
     localStorage.removeItem('tenant_id')
-    
+
     // Clear old token keys for backward compatibility
     localStorage.removeItem('tokinn')
     localStorage.removeItem('tctate_token')
@@ -267,14 +276,14 @@ class AuthService {
   isAuthenticated() {
     const token = this.getToken()
     const expiresAt = localStorage.getItem(TOKEN_EXPIRES_KEY)
-    
+
     if (!token) return false
-    
+
     if (expiresAt) {
       const now = Date.now()
       return parseInt(expiresAt) > now
     }
-    
+
     return true
   }
 
@@ -284,12 +293,12 @@ class AuthService {
    */
   shouldRefreshToken() {
     const expiresAt = localStorage.getItem(TOKEN_EXPIRES_KEY)
-    
+
     if (!expiresAt) return false
-    
+
     const now = Date.now()
     const fiveMinutes = 5 * 60 * 1000
-    
+
     return (parseInt(expiresAt) - now) < fiveMinutes
   }
 
@@ -310,7 +319,7 @@ class AuthService {
    */
   handleError(error) {
     const response = error.response?.data || {}
-    
+
     return {
       success: false,
       message: response.message || error.message || 'An error occurred',
@@ -326,7 +335,7 @@ class AuthService {
   hasRole(role) {
     const user = this.getUser()
     if (!user || !user.roles) return false
-    
+
     return user.roles.includes(role)
   }
 
@@ -338,7 +347,7 @@ class AuthService {
   hasPermission(permission) {
     const user = this.getUser()
     if (!user || !user.permissions) return false
-    
+
     return user.permissions.includes(permission)
   }
 

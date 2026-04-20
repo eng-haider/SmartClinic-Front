@@ -92,6 +92,15 @@ const routes = [
         }
       },
       {
+        path: 'patients/ophthalmology/:id',
+        name: 'OphthalmologyPatientDetail',
+        component: () => import('@/views/patients/OphthalmologyPatientPage.vue'),
+        meta: {
+          title: 'Ophthalmology Patient Details',
+          permissionKeywords: ['patient']
+        }
+      },
+      {
         path: 'doctors',
         name: 'Doctors',
         component: () => import('@/views/pages/Doctors.vue'),
@@ -152,11 +161,21 @@ const routes = [
       {
         path: 'recipes',
         name: 'Recipes',
-        component: () => import('@/views/pages/Recipes.vue'),
+        component: () => import('@/views/pages/PrescriptionPage.vue'),
         meta: { 
           title: 'Prescriptions Management',
           requiresAuth: true,
           permissionKeywords: ['recipe', 'prescription']
+        }
+      },
+      {
+        path: 'medications',
+        name: 'MedicationLibrary',
+        component: () => import('@/views/pages/MedicationLibrary.vue'),
+        meta: {
+          title: 'Medication Library',
+          requiresAuth: true,
+          permissionKeywords: ['recipe', 'medication']
         }
       },
       {
@@ -191,6 +210,7 @@ const routes = [
           roles: ['super_admin', 'clinic_super_doctor']
         }
       },
+      // AI Assistant route removed – replaced by floating AiChatWidget in DashboardLayout
       // Access Denied page
       {
         path: 'access-denied',
@@ -337,6 +357,15 @@ router.beforeEach(async (to, from, next) => {
     }
   }
   
+  // Redirect ophthalmology patients to the dedicated page
+  if (to.name === 'PatientDetail') {
+    const specialty = authStore.specialty || localStorage.getItem('clinic_specialty')
+    if (specialty === 'ophthalmology') {
+      next({ name: 'OphthalmologyPatientDetail', params: to.params, query: to.query, replace: true })
+      return
+    }
+  }
+
   console.log('✅ Navigation allowed')
   next()
 })

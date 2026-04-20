@@ -22,6 +22,10 @@
               <v-icon start>mdi-hospital-building</v-icon>
               {{ $t('settings.clinic') }}
             </v-tab>
+            <v-tab value="ai">
+              <v-icon start>mdi-robot</v-icon>
+              AI
+            </v-tab>
           </v-tabs>
 
           <v-window v-model="activeTab">
@@ -702,6 +706,75 @@
                 </v-form>
               </v-card-text>
             </v-window-item>
+
+            <!-- AI Settings Tab -->
+            <v-window-item value="ai">
+              <v-card-text class="pa-6">
+                <v-card variant="outlined" class="mb-6" rounded="xl">
+                  <v-card-title class="bg-grey-lighten-4">
+                    <v-icon start color="primary">mdi-brain</v-icon>
+                    مزامنة قاعدة البيانات مع الذكاء الاصطناعي
+                  </v-card-title>
+                  <v-card-text class="pa-5">
+                    <v-alert type="info" variant="tonal" class="mb-5" rounded="lg">
+                      <p class="mb-0">هذا سيقوم بتحويل جميع بيانات العيادة (المرضى، المواعيد، الحالات، الفواتير) إلى بيانات يمكن للمساعد الذكي البحث فيها. قم بالمزامنة بعد إضافة أو تعديل بيانات كبيرة.</p>
+                    </v-alert>
+
+                    <v-btn
+                      color="primary"
+                      size="large"
+                      :loading="aiSyncing"
+                      :disabled="aiSyncing"
+                      @click="syncAiDatabase"
+                      prepend-icon="mdi-sync"
+                      rounded="lg"
+                      elevation="2"
+                      id="ai-sync-btn"
+                    >
+                      مزامنة قاعدة البيانات مع AI
+                    </v-btn>
+
+                    <!-- Sync Results -->
+                    <v-expand-transition>
+                      <v-card v-if="aiSyncStats" variant="tonal" color="success" class="mt-5" rounded="lg">
+                        <v-card-text>
+                          <div class="d-flex align-center mb-3">
+                            <v-icon start color="success">mdi-check-circle</v-icon>
+                            <span class="text-subtitle-1 font-weight-bold">تمت المزامنة بنجاح!</span>
+                          </div>
+                          <v-row>
+                            <v-col cols="6" sm="3">
+                              <div class="text-center">
+                                <div class="text-h5 font-weight-bold">{{ aiSyncStats.patients }}</div>
+                                <div class="text-caption">مرضى</div>
+                              </div>
+                            </v-col>
+                            <v-col cols="6" sm="3">
+                              <div class="text-center">
+                                <div class="text-h5 font-weight-bold">{{ aiSyncStats.reservations }}</div>
+                                <div class="text-caption">مواعيد</div>
+                              </div>
+                            </v-col>
+                            <v-col cols="6" sm="3">
+                              <div class="text-center">
+                                <div class="text-h5 font-weight-bold">{{ aiSyncStats.cases }}</div>
+                                <div class="text-caption">حالات</div>
+                              </div>
+                            </v-col>
+                            <v-col cols="6" sm="3">
+                              <div class="text-center">
+                                <div class="text-h5 font-weight-bold">{{ aiSyncStats.bills }}</div>
+                                <div class="text-caption">فواتير</div>
+                              </div>
+                            </v-col>
+                          </v-row>
+                        </v-card-text>
+                      </v-card>
+                    </v-expand-transition>
+                  </v-card-text>
+                </v-card>
+              </v-card-text>
+            </v-window-item>
           </v-window>
         </v-card>
       </v-col>
@@ -727,6 +800,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import CaseCategories from '@/views/settings/CaseCategories.vue'
+import aiService from '@/services/ai.service'
 import { useAuthStore } from '@/stores/authNew'
 import { PERMISSIONS } from '@/constants/permissions'
 import {
@@ -753,6 +827,33 @@ const savingSettings = ref(false)
 const uploadingLogo = ref(false)
 const settingsError = ref(null)
 const formValid = ref(true)
+
+// AI Sync state
+const aiSyncing = ref(false)
+const aiSyncStats = ref(null)
+
+const syncAiDatabase = async () => {
+  aiSyncing.value = true
+  aiSyncStats.value = null
+  try {
+    const response = await aiService.syncEmbeddings()
+    if (response.success) {
+      aiSyncStats.value = response.stats
+      snackbarColor.value = 'success'
+      snackbarText.value = response.message || 'تمت المزامنة بنجاح'
+    } else {
+      snackbarColor.value = 'error'
+      snackbarText.value = response.message || 'فشلت المزامنة'
+    }
+  } catch (error) {
+    console.error('AI Sync Error:', error)
+    snackbarColor.value = 'error'
+    snackbarText.value = 'حدث خطأ في مزامنة قاعدة البيانات'
+  } finally {
+    aiSyncing.value = false
+    snackbar.value = true
+  }
+}
 
 // Logo handling
 const logoFile = ref(null)

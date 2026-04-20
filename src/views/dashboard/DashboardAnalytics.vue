@@ -248,17 +248,7 @@
           :loading="loading.reservationsByStatus"
         />
       </v-col>
-      <v-col cols="12" sm="6" md="3">
-        <DonutChart
-          :title="$t('dashboard.charts.billsByPayment')"
-          :data="formattedBillsByPayment"
-          label-key="label"
-          value-key="count"
-          color-key="color"
-          :center-label="$t('dashboard.total')"
-          :loading="loading.billsByPayment"
-        />
-      </v-col>
+
       <v-col cols="12" sm="6" md="3">
         <BarChart
           :title="$t('dashboard.charts.expensesByCategory')"
@@ -357,14 +347,7 @@ const profitLoss = computed(() => {
 
 const isProfitable = computed(() => profitLoss.value !== null && profitLoss.value >= 0)
 
-const formattedBillsByPayment = computed(() => {
-  if (!billsByPayment.value) return []
-  return billsByPayment.value.map(item => ({
-    ...item,
-    label: item.status === 'paid' ? t('dashboard.paid') : t('dashboard.unpaid'),
-    color: item.status === 'paid' ? '#48BB78' : '#FC8181'
-  }))
-})
+
 
 const performanceHeaders = computed(() => [
   { title: t('dashboard.table.doctor'), key: 'doctor_name', sortable: true },

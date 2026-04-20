@@ -1,5 +1,5 @@
 <template>
-  <v-app>
+  <v-app :class="{ 'flutter-app': isFlutterApp }">
     <!-- Permission Change Notification -->
     <v-snackbar
       v-model="showPermissionNotification"
@@ -27,16 +27,22 @@
       </template>
     </v-snackbar>
 
-    <!-- App Bar (hidden on mobile, shown on md+) -->
-    <v-app-bar color="primary" elevation="2" class="d-none d-md-flex">
+    <!-- App Bar (shown on all screens, hidden in Flutter WebView) -->
+    <v-app-bar v-if="!isFlutterApp" color="primary" elevation="2">
       <v-app-bar-nav-icon @click="drawer = !drawer" class="d-md-none"></v-app-bar-nav-icon>
       
-      <v-toolbar-title class="text-white font-weight-bold">
-        منصة العياده الذكيه
+      <v-toolbar-title>
+        <v-img src="/logo.png" alt="SmartClinic" height="36" width="36" class="ms-1" />
       </v-toolbar-title>
       
       <v-spacer></v-spacer>
       
+      <!-- Refresh Button -->
+      <v-btn icon variant="text" color="white" class="me-1" @click="reloadPage">
+        <v-icon>mdi-refresh</v-icon>
+        <v-tooltip activator="parent" location="bottom">تحديث الصفحة</v-tooltip>
+      </v-btn>
+
       <!-- Language Switcher -->
       <LanguageSwitcher class="me-2" />
       
@@ -77,10 +83,12 @@
       @click="rail = false"
     >
       <v-list-item
-        prepend-icon="mdi-hospital-building"
         title="لوحة التحكم"
         nav
       >
+        <template v-slot:prepend>
+          <v-img src="/logo.png" alt="SmartClinic" width="28" height="28" class="me-3" />
+        </template>
         <template v-slot:append>
           <v-btn
             variant="text"
@@ -117,8 +125,11 @@
       <router-view></router-view>
     </v-main>
 
-    <!-- Bottom Tab Bar (mobile only) -->
-    <div v-if="isMobile" class="bottom-tab-bar">
+    <!-- AI Chatbot Widget -->
+    <AiChatWidget ref="aiChatRef" />
+
+    <!-- Bottom Tab Bar (mobile only, hidden in Flutter WebView) -->
+    <div v-if="isMobile && !isFlutterApp" class="bottom-tab-bar">
       <!-- Hamburger menu button -->
       <button
         class="tab-item"
@@ -137,6 +148,14 @@
         <v-icon size="22">{{ item.icon }}</v-icon>
         <span class="tab-label">{{ item.title }}</span>
       </button>
+      <!-- AI Chatbot Tab -->
+      <button
+        class="tab-item"
+        @click="aiChatRef?.openChat()"
+      >
+        <v-icon size="22">mdi-robot</v-icon>
+        <span class="tab-label">المساعد</span>
+      </button>
     </div>
   </v-app>
 </template>
@@ -148,6 +167,7 @@ import { useAuthStore } from '@/stores/authNew'
 import { usePermissions } from '@/composables/usePermissions'
 import { setupPermissionWatcher } from '@/utils/permissionWatcher'
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
+import AiChatWidget from '@/components/AiChatWidget.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -164,6 +184,17 @@ const {
 const drawer = ref(true)
 const rail = ref(false)
 const isMobile = ref(false)
+const aiChatRef = ref(null)
+
+// Detect Flutter WebView: persists for the session
+const isFlutterApp = ref(false)
+const initFlutterDetection = () => {
+  const params = new URLSearchParams(window.location.search)
+  if (params.get('source') === 'app') {
+    sessionStorage.setItem('source', 'app')
+  }
+  isFlutterApp.value = sessionStorage.getItem('source') === 'app'
+}
 const currentLang = ref(localStorage.getItem('lang') || 'ar')
 const showPermissionNotification = ref(false)
 const permissionNotificationMessage = ref('')
@@ -238,6 +269,10 @@ const handleLogout = async () => {
   router.push('/login')
 }
 
+const reloadPage = () => {
+  window.location.reload()
+}
+
 const checkMobile = () => {
   isMobile.value = window.innerWidth < 960
   if (isMobile.value) {
@@ -245,12 +280,9 @@ const checkMobile = () => {
   }
 }
 
-const reloadPage = () => {
-  window.location.reload()
-}
-
 // Load user data on mount
 onMounted(async () => {
+  initFlutterDetection()
   checkMobile()
   window.addEventListener('resize', checkMobile)
   
@@ -299,8 +331,14 @@ onUnmounted(() => {
 
 @media (max-width: 959px) {
   :deep(.v-main) {
-    padding-top: 0px !important;
+    padding-top: calc(56px + env(safe-area-inset-top, 0px)) !important;
   }
+}
+
+/* Remove app bar & bottom bar padding when in Flutter WebView */
+.flutter-app :deep(.v-main) {
+  padding-top: 0px !important;
+  padding-bottom: 0px !important;
 }
 
 :deep(.v-main__wrap) {

@@ -1,34 +1,54 @@
 <template>
-  <!-- No prompt needed - auto update silently -->
+  <v-snackbar
+    v-model="needRefresh"
+    location="bottom"
+    color="primary"
+    :timeout="-1"
+    multi-line
+    elevation="4"
+    rounded="lg"
+    style="z-index: 9999;"
+  >
+    <div class="d-flex align-center gap-2">
+      <v-icon>mdi-update</v-icon>
+      <span>يوجد إصدار جديد (v{{ appVersion }}) متاح</span>
+    </div>
+
+    <template #actions>
+      <v-btn
+        variant="text"
+        color="white"
+        @click="needRefresh = false"
+      >
+        لاحقاً
+      </v-btn>
+      <v-btn
+        variant="elevated"
+        color="white"
+        class="text-primary font-weight-bold"
+        @click="update"
+      >
+        تحديث الآن
+      </v-btn>
+    </template>
+  </v-snackbar>
 </template>
 
 <script setup>
 import { useRegisterSW } from 'virtual:pwa-register/vue'
 
-const { updateServiceWorker } = useRegisterSW({
+const appVersion = __APP_VERSION__
+
+const { needRefresh, updateServiceWorker } = useRegisterSW({
   onRegistered(registration) {
-    console.log('✅ Service Worker registered successfully')
-    
-    // Check for updates every 30 seconds
     if (registration) {
-      setInterval(async () => {
-        console.log('🔄 Checking for updates...')
-        await registration.update()
-      }, 30 * 1000)
+      setInterval(() => registration.update(), 60 * 1000)
     }
-  },
-  onRegisterError(error) {
-    console.error('❌ Service Worker registration error:', error)
-  },
-  onNeedRefresh() {
-    console.log('🆕 New version available! Auto-updating...')
-    // Automatically update and reload - no user interaction needed
-    updateServiceWorker(true).then(() => {
-      window.location.reload()
-    })
-  },
-  onOfflineReady() {
-    console.log('✅ App ready to work offline')
   }
 })
+
+function update() {
+  updateServiceWorker(true)
+}
 </script>
+

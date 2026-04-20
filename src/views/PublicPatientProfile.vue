@@ -459,6 +459,9 @@ onMounted(async () => {
 <style scoped>
 .public-patient-profile {
   min-height: 100vh;
+  height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
   background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
 }
 

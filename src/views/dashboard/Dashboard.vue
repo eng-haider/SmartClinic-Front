@@ -176,27 +176,7 @@
           </div>
           <div class="kpi-body">
             <div class="kpi-main-value">{{ formatCurrency(overview?.bills?.total_revenue) }}</div>
-            <div class="kpi-breakdown">
-              <div class="kpi-breakdown-item">
-                <span class="dot paid"></span>
-                <span>{{ $t('dashboard.paid') }}: {{ formatNumber(overview?.bills?.paid_bills) }}</span>
-              </div>
-              <div class="kpi-breakdown-item">
-                <span class="dot unpaid"></span>
-                <span>{{ $t('dashboard.unpaid') }}: {{ formatNumber(overview?.bills?.unpaid_bills) }}</span>
-              </div>
-            </div>
-            <v-progress-linear
-              :model-value="overview?.bills?.collection_rate || 0"
-              color="success"
-              bg-color="error"
-              height="6"
-              rounded
-              class="mt-2"
-            />
-            <div class="kpi-progress-label">
-              {{ $t('dashboard.collection_rate') }}: {{ formatPercent(overview?.bills?.collection_rate) }}
-            </div>
+
           </div>
         </v-card>
       </v-col>

@@ -98,13 +98,21 @@ export const NAV_CONFIG = [
     order: 9
   },
   { 
+    key: 'medications',
+    title: { ar: 'مكتبة الأدوية', en: 'Medication Library', ku: 'كتێبخانەی دەرمان' },
+    icon: 'mdi-pill-multiple',
+    to: '/medications',
+    permissionKeywords: ['recipe', 'medication'],
+    order: 10
+  },
+  { 
     key: 'expenses',
     title: { ar: 'المصروفات', en: 'Expenses', ku: 'خەرجییەکان' },
     icon: 'mdi-cash-multiple', 
     to: '/expenses',
     permissionKeywords: ['expense', 'bill'],
     roleRequired: ['super_admin', 'clinic_super_doctor'],
-    order: 10
+    order: 11
   },
   { 
     key: 'settings',
@@ -112,7 +120,7 @@ export const NAV_CONFIG = [
     icon: 'mdi-cog', 
     to: '/settings',
     alwaysShow: true, // Settings always visible
-    order: 10
+    order: 12
   }
 ]
 
