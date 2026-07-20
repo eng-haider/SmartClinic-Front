@@ -67,7 +67,7 @@ if (!self.define) {
     });
   };
 }
-define(['./workbox-57ff3c98'], (function (workbox) { 'use strict';
+define(['./workbox-07ba41de'], (function (workbox) { 'use strict';
 
   self.addEventListener('message', event => {
     if (event.data && event.data.type === 'SKIP_WAITING') {
@@ -85,6 +85,7 @@ define(['./workbox-57ff3c98'], (function (workbox) { 'use strict';
     "revision": "3ca0b8505b4bec776b69afdba2768812"
   }], {});
   workbox.cleanupOutdatedCaches();
+  workbox.registerRoute(/^https:\/\/api\.smartclinic\.software\/.*\/reports\//i, new workbox.NetworkOnly(), 'GET');
   workbox.registerRoute(/^https:\/\/api\.smartclinic\.software\/.*/i, new workbox.NetworkFirst({
     "cacheName": "api-cache",
     plugins: [new workbox.ExpirationPlugin({

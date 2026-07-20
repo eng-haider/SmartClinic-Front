@@ -13,19 +13,27 @@ class AIService {
   }
 
   /**
-   * Analyze an X-ray image using the AI vision API.
-   * POST /tenant/ai/analyze-xray (JSON)
-   * @param {string} imageBase64 - The base64 string of the image
-   * @param {number|null} patientId - Optional patient ID
+   * Analyze an image using the AI vision API.
+   * POST /tenant/ai/analyze-xray (JSON) — sends the image as `image_base64`.
+   * @param {Object} opts
+   * @param {string} opts.imageBase64      - Base64 (data URL) of the image
+   * @param {number|null} [opts.patientId] - Optional patient ID
+   * @param {string|null} [opts.context]   - Optional case/patient text context to consider with the image
    * @returns {Promise<{success: boolean, data: {analysis: Object, raw_response: string}}>}
    */
-  async analyzeXray(imageBase64, patientId = null) {
+  async analyzeXray(opts = {}) {
+    // Back-compat: allow analyzeXray(base64, patientId, context) positional calls
+    if (typeof opts === 'string') {
+      opts = { imageBase64: opts, patientId: arguments[1] || null, context: arguments[2] || null }
+    }
+
+    const { imageBase64 = null, patientId = null, context = null } = opts
     const payload = {
       image_base64: imageBase64
     }
-    if (patientId) {
-      payload.patient_id = patientId
-    }
+    if (patientId) payload.patient_id = patientId
+    // Extra clinical context so the model considers the case/patient data with the image
+    if (context) payload.context = context
 
     const response = await api.post('/ai/analyze-xray', payload, {
       timeout: 60000

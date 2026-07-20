@@ -23,11 +23,15 @@ const routes = [
     path: '/public/patient/:token',
     name: 'PublicPatientProfile',
     component: () => import('@/views/PublicPatientProfile.vue'),
-    meta: { 
+    meta: {
       public: true,
-      layout: 'blank' 
+      layout: 'blank'
     }
   },
+
+  // NOTE: The public booking form is a standalone static page served at
+  // /booking.html (public/booking.html) so it loads instantly without the
+  // SPA bundle. It is intentionally NOT a Vue route.
 
   // Login Page
   {
@@ -142,10 +146,20 @@ const routes = [
         path: 'waiting-list',
         name: 'WaitingList',
         component: () => import('@/views/pages/WaitingList.vue'),
-        meta: { 
+        meta: {
           title: 'Waiting List',
           requiresAuth: true,
           permissionKeywords: ['reservation', 'waiting']
+        }
+      },
+      {
+        path: 'booking-requests',
+        name: 'BookingRequests',
+        component: () => import('@/views/pages/BookingRequests.vue'),
+        meta: {
+          title: 'Booking Requests',
+          requiresAuth: true,
+          permissionKeywords: ['reservation', 'booking']
         }
       },
       {
@@ -189,6 +203,56 @@ const routes = [
         }
       },
       {
+        path: 'messaging/settings',
+        name: 'MessagingSettings',
+        component: () => import('@/pages/messaging/SettingsPage.vue'),
+        meta: {
+          title: 'Messaging Settings',
+          requiresAuth: true,
+          permissionKeywords: ['message', 'whatsapp', 'automation']
+        }
+      },
+      {
+        path: 'messaging/templates',
+        name: 'MessagingTemplates',
+        component: () => import('@/pages/messaging/TemplatesPage.vue'),
+        meta: {
+          title: 'Messaging Templates',
+          requiresAuth: true,
+          permissionKeywords: ['message', 'template', 'automation']
+        }
+      },
+      {
+        path: 'messaging/rules',
+        name: 'MessagingAutomationRules',
+        component: () => import('@/pages/messaging/AutomationRulesPage.vue'),
+        meta: {
+          title: 'Messaging Automation Rules',
+          requiresAuth: true,
+          permissionKeywords: ['message', 'automation', 'rule']
+        }
+      },
+      {
+        path: 'messaging/targets',
+        name: 'MessagingTargets',
+        component: () => import('@/pages/messaging/TargetsPage.vue'),
+        meta: {
+          title: 'Messaging Targets',
+          requiresAuth: true,
+          permissionKeywords: ['message', 'automation', 'target']
+        }
+      },
+      {
+        path: 'messaging/conversations',
+        name: 'MessagingConversations',
+        component: () => import('@/pages/messaging/ConversationsPage.vue'),
+        meta: {
+          title: 'Messaging Conversations',
+          requiresAuth: true,
+          permissionKeywords: ['message', 'conversation', 'whatsapp']
+        }
+      },
+      {
         path: 'expenses',
         name: 'Expenses',
         component: () => import('@/views/pages/Expenses.vue'),
@@ -196,6 +260,17 @@ const routes = [
           title: 'Expenses Management',
           requiresAuth: true,
           permissionKeywords: ['expense', 'bill'],
+          roles: ['super_admin', 'clinic_super_doctor']
+        }
+      },
+      {
+        path: 'warehouse',
+        name: 'Warehouse',
+        component: () => import('@/views/pages/Warehouse.vue'),
+        meta: {
+          title: 'Warehouse Management',
+          requiresAuth: true,
+          permissionKeywords: ['warehouse'],
           roles: ['super_admin', 'clinic_super_doctor']
         }
       },
@@ -247,13 +322,12 @@ const router = createRouter({
 
 // Additional scroll handling for Vuetify v-main component
 router.afterEach(() => {
-  // Scroll window to top
   window.scrollTo(0, 0)
-  
-  // Also scroll Vuetify main content area if it exists
-  const vmain = document.querySelector('.v-main__wrap')
-  if (vmain) {
-    vmain.scrollTo(0, 0)
+
+  const selectors = ['.v-main', '.v-main__wrap']
+  for (const sel of selectors) {
+    const el = document.querySelector(sel)
+    if (el) el.scrollTop = 0
   }
 })
 
@@ -368,6 +442,11 @@ router.beforeEach(async (to, from, next) => {
 
   console.log('✅ Navigation allowed')
   next()
+})
+
+// Scroll to top on route change
+router.afterEach(() => {
+  window.scrollTo({ top: 0, behavior: 'smooth' })
 })
 
 export default router

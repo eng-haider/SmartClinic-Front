@@ -78,10 +78,24 @@
 
             <!-- Action Buttons -->
             <div class="patient-actions">
+              <!-- General Report (prominent) -->
+              <v-btn
+                class="report-btn"
+                variant="flat"
+                rounded="lg"
+                prepend-icon="mdi-file-document-multiple-outline"
+                @click="openReport"
+              >
+                <v-tooltip activator="parent" location="bottom">
+                  {{ $t('report.title') }}
+                </v-tooltip>
+                {{ $t('report.button') }}
+              </v-btn>
               <v-btn
                 v-if="canEditPatient"
                 color="primary"
                 variant="tonal"
+                rounded="lg"
                 @click="editPatient"
                 prepend-icon="mdi-pencil"
               >
@@ -91,6 +105,7 @@
                 v-if="canCreateReservation"
                 color="success"
                 variant="tonal"
+                rounded="lg"
                 @click="openBooking"
                 prepend-icon="mdi-calendar-plus"
               >
@@ -100,8 +115,9 @@
                 v-if="canViewBills"
                 color="amber-darken-2"
                 variant="tonal"
+                rounded="lg"
                 @click="openBillDialog"
-                prepend-icon="mdi-receipt-text"
+                prepend-icon="mdi-receipt-text-outline"
               >
                 <v-tooltip activator="parent" location="bottom">
                   {{ $t('bill.view_print_bill') }}
@@ -112,9 +128,13 @@
                 v-if="canViewRecipes"
                 color="warning"
                 variant="tonal"
+                rounded="lg"
                 @click="openRecipes"
-                prepend-icon="mdi-pill"
+                prepend-icon="mdi-prescription"
               >
+                <v-tooltip activator="parent" location="bottom">
+                  {{ $t('rx.title') }}
+                </v-tooltip>
                 {{ $t('patients.recipes') }}
               </v-btn>
             </div>
@@ -128,7 +148,7 @@
         <v-col v-if="canViewCases" cols="6" sm="4" md="2">
           <v-card elevation="1" rounded="lg" class="stat-card-mini fill-height">
             <v-card-text class="pa-3 text-center">
-              <v-icon size="24" color="primary">mdi-tooth</v-icon>
+              <v-icon size="24" color="primary">{{ casesIcon }}</v-icon>
               <div class="text-h5 font-weight-bold mt-1">{{ patientCases.length }}</div>
               <div class="text-caption text-grey" style="line-height: 1.2;">{{ $t('patients.totalCases') }}</div>
             </v-card-text>
@@ -237,15 +257,46 @@
               {{ $t('patients.cases') }}
               <v-chip size="x-small" color="primary" variant="tonal" class="ml-1">{{ patientCases.length }}</v-chip>
             </h3>
-            <v-btn color="primary" prepend-icon="mdi-plus" @click="openAddCaseModal">
-              {{ $t('cases.add_case') || 'إضافة حالة' }}
-            </v-btn>
+            <div class="d-flex ga-2">
+              <!-- Mobile: Icon only -->
+              <v-tooltip :text="$t('ai.analyzePatient')" location="top">
+                <template #activator="{ props }">
+                  <v-btn
+                    v-bind="props"
+                    color="indigo"
+                    variant="tonal"
+                    icon
+                    size="small"
+                    :disabled="!patientCases.length"
+                    class="d-sm-none"
+                    @click="analyzePatientWithAi"
+                  >
+                    <v-icon>mdi-robot-happy-outline</v-icon>
+                  </v-btn>
+                </template>
+              </v-tooltip>
+              <!-- Desktop: Full button with text -->
+              <v-btn
+                color="indigo"
+                variant="tonal"
+                prepend-icon="mdi-robot-happy-outline"
+                :disabled="!patientCases.length"
+                @click="analyzePatientWithAi"
+                class="d-none d-sm-inline-flex"
+              >
+                {{ $t('ai.analyzePatient') }}
+              </v-btn>
+              <v-btn color="primary" prepend-icon="mdi-plus" @click="openAddCaseModal">
+                {{ $t('cases.add_case') || 'إضافة حالة' }}
+              </v-btn>
+            </div>
           </div>
 
           <!-- Cases v-data-table (all specialties) -->
           <v-data-table
             :headers="caseHeaders"
             :items="filteredCases"
+            :items-per-page="-1"
             density="compact"
             mobile-breakpoint="sm"
             :hide-default-footer="true"
@@ -295,16 +346,94 @@
 
             <!-- Paid -->
             <template #item.paid="{ item }">
-              <v-chip v-if="(item.bills || []).length" size="small" color="success" variant="flat">
-                <v-icon start size="12">mdi-cash-check</v-icon>
-                {{ formatNumberWithCommas((item.bills || []).reduce((s, b) => s + (b.price || 0), 0)) }}
-              </v-chip>
-             <span v-else class="text-grey text-caption">لاتوجد</span>
+              <div class="d-flex flex-wrap align-center ga-1">
+                <v-chip
+                  v-for="bill in (item.bills || [])"
+                  :key="bill.id"
+                  size="small"
+                  color="success"
+                  variant="flat"
+                >
+                  <v-icon start size="12">mdi-cash-check</v-icon>
+                  {{ formatNumberWithCommas(bill.price || 0) }}
+                </v-chip>
+                <span v-if="!(item.bills || []).length" class="text-grey text-caption">لاتوجد</span>
+
+                <!-- Quick add-bill: inline popover with a price field -->
+                <v-menu
+                  v-if="canCreateBill && hasPrice(item) && getCaseRemainingAmount(item) > 0"
+                  :model-value="quickBill.open && quickBill.caseId === item.id"
+                  @update:model-value="val => val ? openQuickBill(item) : (quickBill.open = false)"
+                  :close-on-content-click="false"
+                  location="bottom"
+                >
+                  <template #activator="{ props: mp }">
+                    <v-tooltip :text="$t('patients.addBill') || 'Add bill'" location="top">
+                      <template #activator="{ props: tp }">
+                        <v-btn v-bind="{ ...mp, ...tp }" icon variant="text" size="x-small" color="success" @click.stop>
+                          <v-icon size="16">mdi-cash-plus</v-icon>
+                        </v-btn>
+                      </template>
+                    </v-tooltip>
+                  </template>
+                  <v-card width="300" rounded="lg" class="quick-bill-card">
+                    <!-- Header -->
+                    <div class="quick-bill-header">
+                      <v-icon color="success" size="22">mdi-cash-plus</v-icon>
+                      <span class="quick-bill-title">{{ $t('patients.addPayment') || 'إضافة دفعة' }}</span>
+                    </div>
+
+                    <div class="pa-4 pt-3">
+                      <!-- Remaining summary -->
+                      <div class="quick-bill-remaining">
+                        <span class="text-caption text-grey">{{ $t('patients.remainingToPay') || $t('patients.remaining') }}</span>
+                        <span class="quick-bill-remaining-value">{{ formatNumberWithCommas(quickBillRemaining) }} IQD</span>
+                      </div>
+
+                      <v-text-field
+                        :model-value="quickBill.price ? formatNumberWithCommas(quickBill.price) : ''"
+                        @update:model-value="quickBill.price = parseFormattedNumber($event)"
+                        @keyup.enter="submitQuickBill"
+                        :label="$t('patients.paymentAmount') || 'المبلغ المدفوع'"
+                        :placeholder="$t('patients.enterAmount') || 'أدخل المبلغ'"
+                        type="text"
+                        inputmode="numeric"
+                        variant="outlined"
+                        density="comfortable"
+                        prepend-inner-icon="mdi-cash"
+                        suffix="IQD"
+                        :error="quickBill.price > quickBillRemaining"
+                        :error-messages="quickBill.price > quickBillRemaining ? ($t('patients.exceedsRemaining') || 'المبلغ أكبر من المتبقي') : []"
+                        autofocus
+                        class="mt-1 mb-2"
+                      />
+
+                      <div class="d-flex ga-2">
+                        <v-btn variant="text" size="small" class="flex-grow-1" @click="quickBill.open = false">
+                          {{ $t('common.cancel') }}
+                        </v-btn>
+                        <v-btn
+                          color="primary"
+                          size="small"
+                          class="flex-grow-1"
+                          :loading="quickBillLoading"
+                          :disabled="!quickBill.price || quickBill.price > quickBillRemaining"
+                          @click="submitQuickBill"
+                        >
+                          <v-icon start size="16">mdi-check</v-icon>
+                          {{ $t('patients.confirmPayment') || 'تأكيد' }}
+                        </v-btn>
+                      </div>
+                    </div>
+                  </v-card>
+                </v-menu>
+              </div>
             </template>
 
             <!-- Remaining -->
             <template #item.remaining="{ item }">
-              <v-chip v-if="getCaseRemainingAmount(item) > 0" size="small" color="warning" variant="flat">
+              <span v-if="!hasPrice(item)" class="text-grey text-caption">-</span>
+              <v-chip v-else-if="getCaseRemainingAmount(item) > 0" size="small" color="warning" variant="flat">
                 <v-icon start size="12">mdi-cash-clock</v-icon>
                 {{ formatNumberWithCommas(getCaseRemainingAmount(item)) }}
               </v-chip>
@@ -393,6 +522,13 @@
             <!-- Actions -->
             <template #item.actions="{ item }">
               <div class="d-inline-flex ga-0">
+                <v-tooltip :text="$t('ai.analyzeCase')" location="top">
+                  <template #activator="{ props: tp }">
+                    <v-btn v-bind="tp" icon variant="text" size="x-small" class="ai-case-btn" @click.stop="analyzeCaseWithAi(item)">
+                      <v-icon size="17">mdi-robot-happy-outline</v-icon>
+                    </v-btn>
+                  </template>
+                </v-tooltip>
                 <v-tooltip :text="$t('common.view') || 'View'" location="top">
                   <template #activator="{ props: tp }">
                     <v-btn v-bind="tp" icon variant="text" size="x-small" color="info" @click.stop="openCaseDrawer(item)">
@@ -598,15 +734,15 @@
                             </div>
                             <div class="d-flex align-center ga-2">
                               <span class="text-caption text-grey-darken-1">{{ formatNumberWithCommas(item.raw.price) }} IQD</span>
-                              <v-chip 
-                                v-if="getRemainingAmount(item.raw) > 0" 
-                                size="x-small" 
-                                color="warning" 
+                              <v-chip
+                                v-if="getRemainingAmount(item.raw) > 0"
+                                size="x-small"
+                                color="warning"
                                 variant="flat"
                               >
                                 {{ $t('patients.remaining') }}: {{ formatNumberWithCommas(getRemainingAmount(item.raw)) }}
                               </v-chip>
-                              <v-chip v-else size="x-small" color="success" variant="outlined">
+                              <v-chip v-else-if="hasPrice(item.raw)" size="x-small" color="success" variant="outlined">
                                 <v-icon start size="10">mdi-check-circle</v-icon>
                                 {{ $t('patients.fullyPaid') || 'Paid' }}
                               </v-chip>
@@ -740,14 +876,15 @@
 
     <!-- Dynamic Add Case Modal -->
     <component
-      v-if="addCaseModals[authStore.specialty || 'dental']"
-      :is="addCaseModals[authStore.specialty || 'dental']"
+      v-if="addCaseModalComponent"
+      :is="addCaseModalComponent"
       v-model="showAddCaseModal"
       :patient-id="patient?.id || route.params.id"
       :doctors="doctors"
       :categories="categories"
       :editing-case="editingCase"
       @success="onCaseSaved"
+      @category-created="onCategoryCreated"
     />
 
     <!-- Delete Confirmation Dialog -->
@@ -897,6 +1034,17 @@
       @close="billDialog = false"
     />
 
+    <!-- General Patient Report Dialog -->
+    <PatientReportDialog
+      v-model="reportDialog"
+      :patient="patient"
+      :cases="patientCases"
+      :bills="patientBills"
+      :categories="categories"
+      :images="aiPatientImages"
+      :clinic-settings="clinicSettings"
+    />
+
     <!-- Case Detail Drawer -->
     <CaseDrawer
       v-model="caseDrawerOpen"
@@ -905,6 +1053,22 @@
       :show-patient="false"
       :show-view-full="false"
       @edit="editCase"
+    />
+
+    <!-- AI Insight Drawer (per-case & whole-patient analysis) -->
+    <AiInsightDrawer
+      v-model="aiDrawer.open"
+      :title="aiDrawer.title"
+      :loading="aiDrawer.loading"
+      :response="aiDrawer.response"
+      :error="aiDrawer.error"
+      :sources="aiDrawer.sources"
+      :context-text="aiDrawer.contextText"
+      :analyzed-image="aiDrawer.analyzedImage"
+      :patient-images="aiPatientImages"
+      @retry="retryAiAnalysis"
+      @analyze-image="analyzeImageWithAi"
+      @error="onAiDrawerError"
     />
 
     <!-- Snackbar -->
@@ -925,8 +1089,12 @@ import BookingDialog from '@/components/BookingDialog.vue'
 import RecipeDialog from '@/components/RecipeDialog.vue'
 import RecipePrint from '@/components/RecipePrint.vue'
 import BillPreviewDialog from '@/components/BillPreviewDialog.vue'
+import PatientReportDialog from '@/components/PatientReportDialog.vue'
 import CaseDrawer from '@/components/CaseDrawer.vue'
 import SmartTable from '@/components/SmartTable.vue'
+import AiInsightDrawer from '@/components/ai/AiInsightDrawer.vue'
+import aiService from '@/services/ai.service'
+import { formatXrayAnalysis } from '@/utils/aiFormat'
 import RecipeService from '@/services/recipe.service'
 import billService from '@/services/bill.service'
 import reservationService from '@/services/reservation.service'
@@ -1009,9 +1177,25 @@ const clinicSettings = ref(null)
 // Dialogs
 const editDialog = ref(false)
 const showAddCaseModal = ref(false)
+// Resolve the add-case modal for the current specialty, falling back to the
+// generic (dental) modal for any specialty that has no dedicated modal
+// (e.g. 'general', 'dermatology'). Using `|| 'dental'` alone only handles an
+// empty specialty; an unmapped-but-truthy specialty would leave this undefined
+// and the "Add case" dialog would silently never render.
+const addCaseModalComponent = computed(
+  () => addCaseModals[authStore.specialty] || addCaseModals.dental
+)
+// Icon for the "total cases" stat card, per specialty. The tooth icon only
+// makes sense for dental clinics; ophthalmology and general clinics get a
+// neutral/relevant icon instead.
+const casesIcon = computed(() => {
+  const icons = { dental: 'mdi-tooth', ophthalmology: 'mdi-eye' }
+  return icons[authStore.specialty] || 'mdi-medical-bag'
+})
 const deleteDialog = ref(false)
 const imageViewerDialog = ref(false)
 const billDialog = ref(false)
+const reportDialog = ref(false)
 
 // Bill
 const billReservation = ref(null)
@@ -1030,6 +1214,286 @@ const drawerCaseNotes = ref([])
 // Case Notes inline state
 const noteInputs = ref({})
 const savingNoteFor = ref(null)
+
+// ===== AI Insight Drawer =====
+const aiDrawer = ref({
+  open: false,
+  loading: false,
+  title: '',
+  response: '',
+  error: '',
+  sources: [],
+  contextText: '',
+  analyzedImage: ''
+})
+// Remembers the last run as a callable so "retry / regenerate" can re-run any flow
+const lastAiRun = ref(null)
+
+// Existing patient images (from /images/by-imageable) offered for one-click AI analysis
+const aiPatientImages = computed(() =>
+  (casePhotos.value || [])
+    .map(p => ({ id: p.id, url: getCasePhotoUrl(p) }))
+    .filter(p => p.url)
+)
+
+const sexLabel = (sex) => (sex === 1 || sex === '1' ? t('patients.male') : t('patients.female'))
+
+// Map UI locale -> instruction telling the AI which language to answer in
+const aiLanguageName = () => {
+  const map = { ar: 'العربية', en: 'English', ku: 'الكردية', pl: 'polskim' }
+  return map[locale.value] || 'العربية'
+}
+
+// Build a readable, self-contained summary for ONE case
+const buildCaseContext = (item) => {
+  const lines = []
+  lines.push(`${t('patients.name')}: ${patient.value?.name || '-'}`)
+  lines.push(`${t('patients.sex') || 'Gender'}: ${sexLabel(patient.value?.sex)}`)
+  if (patient.value?.birth_date) {
+    lines.push(`${t('patients.age') || 'Age'}: ${calculateAge(patient.value.birth_date)}`)
+  }
+  lines.push('---')
+  lines.push(`${t('patients.category')}: ${item.category?.name || getCategoryName(item.category?.id || item.case_categores_id) || '-'}`)
+  if (item.tooth_num) lines.push(`${t('patients.toothNumber') || 'Tooth'}: ${item.tooth_num}`)
+  lines.push(`${t('common.doctor')}: ${item.doctor?.name || '-'}`)
+  lines.push(`${t('status') || 'Status'}: ${getCaseStatusId(item) === 3 ? t('common.completed') : t('common.pending')}`)
+  lines.push(`${t('common.date')}: ${formatDate(item.case_date || item.created_at) || '-'}`)
+  if (item.price) lines.push(`${t('cases.price')}: ${item.price}`)
+  if (item.description) lines.push(`${t('common.message') || 'Description'}: ${item.description}`)
+  const notes = getCaseNotes(item.id).map(n => n.content).filter(Boolean)
+  if (notes.length) lines.push(`${t('patients.notes') || 'Notes'}:\n- ${notes.join('\n- ')}`)
+  return lines.join('\n')
+}
+
+// Build a readable, self-contained summary for the WHOLE patient
+const buildPatientContext = () => {
+  const lines = []
+  lines.push(`${t('patients.name')}: ${patient.value?.name || '-'}`)
+  lines.push(`${t('patients.sex') || 'Gender'}: ${sexLabel(patient.value?.sex)}`)
+  if (patient.value?.birth_date) lines.push(`${t('patients.age') || 'Age'}: ${calculateAge(patient.value.birth_date)}`)
+  if (patient.value?.phone) lines.push(`${t('patients.phone') || 'Phone'}: ${patient.value.phone}`)
+  if (patientNote.value) lines.push(`${t('patients.general_note')}: ${patientNote.value}`)
+  lines.push('---')
+  lines.push(`${t('patients.cases')} (${patientCases.value.length}):`)
+  patientCases.value.forEach((c, i) => {
+    const cat = c.category?.name || getCategoryName(c.category?.id || c.case_categores_id) || '-'
+    const st = getCaseStatusId(c) === 3 ? t('common.completed') : t('common.pending')
+    const tooth = c.tooth_num ? ` | ${t('patients.toothNumber') || 'Tooth'} ${c.tooth_num}` : ''
+    const price = c.price ? ` | ${t('cases.price')} ${c.price}` : ''
+    lines.push(`${i + 1}. ${cat}${tooth} | ${st}${price} | ${formatDate(c.case_date || c.created_at) || '-'}`)
+  })
+  return lines.join('\n')
+}
+
+const runAiAnalysis = async (prompt) => {
+  lastAiRun.value = () => runAiAnalysis(prompt)
+  aiDrawer.value.loading = true
+  aiDrawer.value.response = ''
+  aiDrawer.value.error = ''
+  aiDrawer.value.sources = []
+  aiDrawer.value.analyzedImage = ''
+  try {
+    const response = await aiService.chat(prompt)
+    const payload = response.data || response
+    if (response.success !== false) {
+      aiDrawer.value.response = payload.answer || payload.raw_response || '—'
+      aiDrawer.value.sources = payload.sources || []
+    } else {
+      aiDrawer.value.error = response.message || t('ai.errorGeneric')
+    }
+  } catch (err) {
+    console.error('AI analysis error:', err)
+    if (err.response?.status === 403) {
+      aiDrawer.value.error = err.response?.data?.message || t('ai.notEnabled')
+    } else if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
+      aiDrawer.value.error = t('ai.errorTimeout')
+    } else {
+      aiDrawer.value.error = t('ai.errorGeneric')
+    }
+  } finally {
+    aiDrawer.value.loading = false
+  }
+}
+
+// Per-case AI analysis (icon in each case row)
+const analyzeCaseWithAi = (item) => {
+  const context = buildCaseContext(item)
+  aiDrawer.value.title = t('ai.caseContextTitle')
+  aiDrawer.value.contextText = context
+  aiDrawer.value.open = true
+  const prompt = [
+    `أنت مساعد طبي مساعد للطبيب. أجب باللغة ${aiLanguageName()}.`,
+    'بناءً على بيانات هذه الحالة، قدّم بإيجاز ووضوح:',
+    '1) ملخص الحالة. 2) ملاحظات أو تنبيهات سريرية محتملة. 3) خطوات العلاج/المتابعة المقترحة. 4) شرح مبسط يمكن قوله للمريض.',
+    '',
+    context
+  ].join('\n')
+  runAiAnalysis(prompt)
+}
+
+// Map an AI error to a user-facing message
+const aiErrorMessage = (err) => {
+  if (err?.response?.status === 403) return err.response?.data?.message || t('ai.notEnabled')
+  if (err?.code === 'ECONNABORTED' || err?.message?.includes('timeout')) return t('ai.errorTimeout')
+  return t('ai.errorGeneric')
+}
+
+// Whole-patient AI summary (button next to cases header).
+// Calls BOTH the text chat API (all patient data) and the vision API (patient image),
+// then shows both responses together as one result.
+const analyzePatientWithAi = async () => {
+  const context = buildPatientContext()
+  aiDrawer.value.title = t('ai.patientContextTitle')
+  aiDrawer.value.contextText = context
+  aiDrawer.value.open = true
+  aiDrawer.value.loading = true
+  aiDrawer.value.response = ''
+  aiDrawer.value.error = ''
+  aiDrawer.value.sources = []
+  aiDrawer.value.analyzedImage = ''
+  lastAiRun.value = analyzePatientWithAi
+
+  const prompt = [
+    `أنت مساعد طبي مساعد للطبيب. أجب باللغة ${aiLanguageName()}.`,
+    'بناءً على بيانات هذا المريض وكل حالاته، قدّم بإيجاز ووضوح:',
+    '1) ملخص عام لحالة المريض. 2) الأنماط أو الملاحظات المهمة عبر الحالات. 3) التوصيات والمتابعة المقترحة. 4) أي تنبيهات تستحق انتباه الطبيب.',
+    '',
+    context
+  ].join('\n')
+
+  // Resolve the patient's first image to base64 (if any) for the vision call
+  let imageBase64 = null
+  const firstImage = aiPatientImages.value[0]
+  if (firstImage) {
+    imageBase64 = await urlToBase64(firstImage.url)
+    if (imageBase64) aiDrawer.value.analyzedImage = imageBase64
+  }
+
+  // Fire both APIs together
+  const tasks = [aiService.chat(prompt)]
+  if (imageBase64) {
+    tasks.push(aiService.analyzeXray({ imageBase64, patientId: patient.value?.id || null, context }))
+  }
+  const results = await Promise.allSettled(tasks)
+
+  const parts = []
+  let lastErr = null
+
+  // 1) Text summary
+  const textRes = results[0]
+  if (textRes.status === 'fulfilled' && textRes.value?.success !== false) {
+    const payload = textRes.value.data || textRes.value
+    const answer = payload.answer || payload.raw_response || ''
+    if (answer) parts.push(`## ${t('ai.summarySection')}\n\n${answer}`)
+    aiDrawer.value.sources = payload.sources || []
+  } else if (textRes.status === 'rejected') {
+    lastErr = textRes.reason
+    console.error('AI text summary error:', textRes.reason)
+  }
+
+  // 2) Image analysis
+  if (imageBase64 && results[1]) {
+    const imgRes = results[1]
+    if (imgRes.status === 'fulfilled' && imgRes.value?.success !== false) {
+      const payload = imgRes.value.data || imgRes.value
+      const analysis = payload.analysis || payload.data?.analysis
+      const raw = payload.raw_response || payload.data?.raw_response
+      const imgText = analysis ? formatXrayAnalysis(analysis) : (raw || payload.answer || '')
+      if (imgText) parts.push(imgText)
+    } else if (imgRes.status === 'rejected') {
+      lastErr = lastErr || imgRes.reason
+      console.error('AI image analysis error:', imgRes.reason)
+    }
+  }
+
+  if (parts.length) {
+    aiDrawer.value.response = parts.join('\n\n---\n\n')
+  } else {
+    aiDrawer.value.error = lastErr ? aiErrorMessage(lastErr) : t('ai.errorGeneric')
+  }
+  aiDrawer.value.loading = false
+}
+
+const retryAiAnalysis = () => {
+  if (lastAiRun.value) lastAiRun.value()
+}
+
+// Fetch a remote image URL and convert it to a base64 data URL.
+// Returns null if it can't be loaded (e.g. CORS / network).
+const urlToBase64 = async (url) => {
+  try {
+    const res = await fetch(url, { mode: 'cors' })
+    if (!res.ok) return null
+    const blob = await res.blob()
+    return await new Promise((resolve) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result)
+      reader.onerror = () => resolve(null)
+      reader.readAsDataURL(blob)
+    })
+  } catch {
+    return null
+  }
+}
+
+// Image analysis: send an uploaded image OR an existing patient image to the AI vision API.
+// The endpoint only accepts image_base64, so existing images (URLs) are converted first.
+const analyzeImageWithAi = async ({ imageBase64 = null, imageUrl = null }) => {
+  if (!imageBase64 && !imageUrl) return
+  const origArgs = { imageBase64, imageUrl }
+  lastAiRun.value = () => analyzeImageWithAi(origArgs)   // remember for retry / regenerate
+  aiDrawer.value.loading = true
+  aiDrawer.value.response = ''
+  aiDrawer.value.error = ''
+  aiDrawer.value.sources = []
+  aiDrawer.value.analyzedImage = imageBase64 || imageUrl
+
+  // Existing images come back as URLs — convert to base64 before sending.
+  if (!imageBase64 && imageUrl) {
+    imageBase64 = await urlToBase64(imageUrl)
+    if (!imageBase64) {
+      aiDrawer.value.error = t('ai.imageLoadError')
+      aiDrawer.value.loading = false
+      return
+    }
+    aiDrawer.value.analyzedImage = imageBase64
+  }
+
+  try {
+    // Send the image (base64) together with the current case/patient context ("old" data)
+    const response = await aiService.analyzeXray({
+      imageBase64,
+      patientId: patient.value?.id || null,
+      context: aiDrawer.value.contextText || null
+    })
+    const payload = response.data || response
+    if (response.success !== false) {
+      const analysis = payload.analysis || payload.data?.analysis
+      const rawResponse = payload.raw_response || payload.data?.raw_response
+      aiDrawer.value.response = analysis
+        ? formatXrayAnalysis(analysis)
+        : (rawResponse || payload.answer || '—')
+    } else {
+      aiDrawer.value.error = response.message || t('ai.errorGeneric')
+    }
+  } catch (err) {
+    console.error('AI image analysis error:', err)
+    if (err.response?.status === 403) {
+      aiDrawer.value.error = err.response?.data?.message || t('ai.notEnabled')
+    } else if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
+      aiDrawer.value.error = t('ai.errorTimeout')
+    } else {
+      aiDrawer.value.error = t('ai.errorGeneric')
+    }
+  } finally {
+    aiDrawer.value.loading = false
+  }
+}
+
+// Surface validation errors from the drawer (bad file type/size)
+const onAiDrawerError = (msg) => {
+  showSnackbar(msg, 'error')
+}
 
 const submitInlineNote = async (caseId) => {
   const text = noteInputs.value[caseId]?.trim()
@@ -1131,6 +1595,9 @@ const getCaseRemainingAmount = (item) => {
   const totalPaid = (item.bills || []).reduce((sum, b) => sum + (b.price || 0), 0)
   return Math.max(0, (item.price || 0) - totalPaid)
 }
+
+// A case with no (or zero) price has nothing to pay — don't show a payment chip.
+const hasPrice = (item) => Number(item?.price) > 0
 
 // Case Table Headers (unified for all specialties)
 const caseColumns = computed(() => getSmartPatientCaseColumns(authStore.specialty, t))
@@ -1239,8 +1706,9 @@ const fetchPatientCases = async () => {
     const response = await api.get(`/cases`, {
       params: {
         'filter[patient_id]': id,
-        'include': 'category,status,doctor,bills,ophthalmologyEncounterDetails',
-        'sort': '-created_at'
+        'include': 'category,status,doctor,bills,warehouseItems,ophthalmologyEncounterDetails',
+        'sort': '-created_at',
+        'per_page': 1000
       }
     })
     patientCases.value = response.data.data || response.data || []
@@ -1300,6 +1768,12 @@ const fetchCategories = async () => {
   } catch (err) {
     console.error('Error fetching categories:', err)
   }
+}
+
+// A category was created inline from the add-case modal — reload the list so
+// the new category (already preselected in the modal) shows its full data.
+const onCategoryCreated = () => {
+  fetchCategories()
 }
 
 const formatDate = (dateStr) => {
@@ -1418,6 +1892,70 @@ const openRecipes = () => {
 }
 
 // Bill Methods
+// Inline quick-bill popover state (opened from a case row in the Paid column).
+const quickBill = ref({ open: false, caseId: null, price: 0 })
+
+// Open the inline payment popover for a case. The amount starts empty so the
+// user types what was actually paid (they can tap "pay full" for the balance).
+const openQuickBill = (item) => {
+  quickBill.value = {
+    open: true,
+    caseId: item.id,
+    price: 0,
+  }
+}
+
+const quickBillCase = computed(() =>
+  patientCases.value.find(c => c.id === quickBill.value.caseId) || null
+)
+
+const quickBillRemaining = computed(() =>
+  quickBillCase.value ? getCaseRemainingAmount(quickBillCase.value) : 0
+)
+
+const quickBillLoading = ref(false)
+
+// Submit the inline bill. Kept self-contained (not reusing createBill) so the
+// popover's spinner stops and the menu closes as soon as the bill is saved,
+// instead of waiting on the heavier full-list refresh that runs afterwards.
+const submitQuickBill = async () => {
+  if (!quickBill.value.caseId || !quickBill.value.price) return
+  if (quickBill.value.price > quickBillRemaining.value) {
+    showSnackbar(t('validation.billPriceExceedsRemaining'), 'error')
+    return
+  }
+
+  quickBillLoading.value = true
+  try {
+    await billService.createForCase({
+      patient_id: patient.value.id,
+      case_id: quickBill.value.caseId,
+      price: quickBill.value.price,
+      is_paid: true,
+    })
+    try {
+      await api.put(`/cases/${quickBill.value.caseId}`, { is_paid: 1 })
+    } catch (updateErr) {
+      console.error('Error updating case paid status:', updateErr)
+    }
+    playCashRegisterSound()
+    showSnackbar(t('caseManagement.billCreated'), 'success')
+
+    // Close the popover right away; refresh the lists in the background.
+    quickBill.value = { open: false, caseId: null, price: 0 }
+    Promise.all([fetchPatientBills(), fetchPatientCases()])
+  } catch (err) {
+    console.error('Error creating bill:', err)
+    showSnackbar(t('errors.saveFailed'), 'error')
+  } finally {
+    quickBillLoading.value = false
+  }
+}
+
+const openReport = () => {
+  reportDialog.value = true
+}
+
 const openBillDialog = () => {
   // Create a pseudo reservation object from patient data with bills
   billReservation.value = {
@@ -1843,7 +2381,11 @@ const getRemainingAmount = (caseItem) => {
 // Computed property for selected case remaining amount
 const selectedCaseRemainingAmount = computed(() => {
   if (!newBill.value.case_id) return 0
-  const selectedCase = unpaidCases.value.find(c => c.id === newBill.value.case_id)
+  // Look in all cases (not just unpaidCases) so a quick-bill on a case the
+  // is_paid flag misclassifies still validates against its real balance.
+  const selectedCase =
+    unpaidCases.value.find(c => c.id === newBill.value.case_id) ||
+    patientCases.value.find(c => c.id === newBill.value.case_id)
   if (!selectedCase) return 0
   return getRemainingAmount(selectedCase)
 })
@@ -2298,6 +2840,38 @@ const setDefaultTab = () => {
   margin: 0 auto;
 }
 
+/* Quick add-payment popover */
+.quick-bill-card {
+  overflow: hidden;
+}
+.quick-bill-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, rgba(76, 175, 80, 0.12), rgba(76, 175, 80, 0.04));
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+.quick-bill-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1e293b;
+}
+.quick-bill-remaining {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  background: #f8fafc;
+  border-radius: 8px;
+}
+.quick-bill-remaining-value {
+  font-size: 14px;
+  font-weight: 700;
+  color: rgb(var(--v-theme-warning));
+}
+
 /* Price inline display */
 .case-price-display {
   cursor: pointer;
@@ -2324,6 +2898,14 @@ const setDefaultTab = () => {
 }
 .case-price-input:focus {
   border-bottom-color: rgb(var(--v-theme-primary));
+}
+
+/* AI "analyze case" button — gradient accent */
+.ai-case-btn {
+  color: #6366f1 !important;
+}
+.ai-case-btn:hover {
+  background: rgba(99, 102, 241, 0.1) !important;
 }
 
 /* Inline status switch */
@@ -2384,6 +2966,19 @@ const setDefaultTab = () => {
   gap: 8px;
   flex-wrap: wrap;
   margin-inline-start: auto;
+}
+
+/* Prominent "General Report" button */
+.report-btn {
+  color: #fff !important;
+  background: linear-gradient(135deg, #5e35b1, #7e57c2) !important;
+  box-shadow: 0 4px 12px rgba(94, 53, 177, 0.35) !important;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.report-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(94, 53, 177, 0.45) !important;
 }
 
 /* Stat Cards */

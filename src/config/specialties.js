@@ -22,6 +22,25 @@ export const specialtyInfos = {
   ophthalmology: defineAsyncComponent(() => import('@/components/specialties/ophthalmology/OphthalmologyCaseInfo.vue')),
 }
 
+// ==================== Case Category Types ====================
+
+// Which case-category types a clinic can create, keyed by specialty.
+// Dental (and ophthalmology, left unchanged) keep the dental/beauty types;
+// every other clinic ("general") uses a single generic 'general' type.
+export const getCategoryTypeOptions = (specialty, t) => {
+  if (specialty === 'dental' || specialty === 'ophthalmology') {
+    return [
+      { title: t('caseCategories.dental') || 'Dental', value: 'dental' },
+      { title: t('caseCategories.beauty') || 'Beauty', value: 'beauty' },
+    ]
+  }
+  return [{ title: t('caseCategories.general') || 'General', value: 'general' }]
+}
+
+// The category_type a newly created category should default to for this clinic.
+export const getDefaultCategoryType = (specialty) =>
+  specialty === 'dental' || specialty === 'ophthalmology' ? 'dental' : 'general'
+
 // ==================== SmartTable Column Configs ====================
 
 // Specialty-specific columns injected between shared columns

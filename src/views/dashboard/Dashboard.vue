@@ -209,7 +209,7 @@
 
       <!-- Expenses KPI -->
       <v-col cols="12" sm="6" lg="3">
-        <v-card class="kpi-card" :loading="loading.overview">
+        <v-card class="kpi-card" :loading="loading.expensesSummary">
           <div class="kpi-header">
             <div class="kpi-icon bg-error-light">
               <v-icon color="error">mdi-wallet-outline</v-icon>
@@ -217,15 +217,15 @@
             <div class="kpi-title">{{ $t('dashboard.expenses') }}</div>
           </div>
           <div class="kpi-body">
-            <div class="kpi-main-value">{{ formatCurrency(overview?.expenses?.total_amount) }}</div>
+            <div class="kpi-main-value">{{ formatCurrency(expensesSummary?.total) }}</div>
             <div class="kpi-breakdown">
               <div class="kpi-breakdown-item">
                 <span class="dot paid"></span>
-                <span>{{ $t('dashboard.paid') }}: {{ formatCurrency(overview?.expenses?.paid_amount) }}</span>
+                <span>{{ $t('dashboard.paid') }}: {{ formatCurrency(expensesSummary?.paid) }}</span>
               </div>
               <div class="kpi-breakdown-item">
                 <span class="dot unpaid"></span>
-                <span>{{ $t('dashboard.unpaid') }}: {{ formatCurrency(overview?.expenses?.unpaid_amount) }}</span>
+                <span>{{ $t('dashboard.unpaid') }}: {{ formatCurrency(expensesSummary?.unpaid) }}</span>
               </div>
             </div>
           </div>
@@ -245,11 +245,11 @@
             </div>
             <div class="profit-details">
               <div class="profit-label">{{ $t('dashboard.profit_loss') }}</div>
-              <div class="profit-value" :class="{ 'text-success': profitLoss?.is_profit, 'text-error': !profitLoss?.is_profit }">
-                {{ profitLoss?.is_profit ? '+' : '-' }}{{ formatCurrency(Math.abs(profitLoss?.profit_loss || 0)) }}
+              <div class="profit-value" :class="{ 'text-success': profitValue >= 0, 'text-error': profitValue < 0 }">
+                {{ profitValueFormatted }}
               </div>
               <div class="profit-margin">
-                {{ $t('dashboard.profit_margin') }}: {{ formatPercent(profitLoss?.profit_margin) }}
+                {{ $t('dashboard.profit_margin') }}: {{ formatPercent(profitMargin) }}
               </div>
             </div>
           </div>
@@ -260,7 +260,9 @@
             </div>
             <div class="profit-breakdown-item">
               <span>{{ $t('dashboard.total_expenses') }}</span>
-              <span class="text-error">{{ formatCurrency(profitLoss?.total_expenses) }}</span>
+              <span class="text-error">
+                {{ formatCurrency(expensesSummary?.total ?? profitLoss?.total_expenses) }}
+              </span>
             </div>
           </div>
         </v-card>
@@ -330,7 +332,7 @@
         <v-card class="chart-card">
           <div class="chart-header">
             <div class="chart-title">{{ $t('dashboard.revenue_trend') }}</div>
-            <v-btn-toggle v-model="revenuePeriod" mandatory density="compact" variant="outlined">
+            <v-btn-toggle :model-value="revenuePeriod" @update:model-value="onRevenuePeriodChange" mandatory density="compact" variant="outlined">
               <v-btn value="day" size="small">{{ $t('dashboard.daily') }}</v-btn>
               <v-btn value="week" size="small">{{ $t('dashboard.weekly') }}</v-btn>
               <v-btn value="month" size="small">{{ $t('dashboard.monthly') }}</v-btn>
@@ -342,6 +344,7 @@
               :data="revenueTrend"
               label-key="period"
               value-key="total"
+              :period="revenuePeriod"
               type="area"
               color="#4CAF50"
               :height="280"
@@ -573,11 +576,12 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import reportsService from '@/services/reports.service'
+import expensesSummaryService from '@/services/expensesSummary.service'
 import TrendChart from '@/components/dashboard/TrendChart.vue'
 import DonutChart from '@/components/dashboard/DonutChart.vue'
 
@@ -606,7 +610,8 @@ const loading = reactive({
   casesByStatus: false,
   reservationsByStatus: false,
   expensesByCategory: false,
-  doctorPerformance: false
+  doctorPerformance: false,
+  expensesSummary: false
 })
 
 const isRefreshing = ref(false)
@@ -629,9 +634,11 @@ const casesByStatus = ref([])
 const reservationsByStatus = ref([])
 const expensesByCategory = ref([])
 const doctorPerformance = ref([])
+const expensesSummary = ref(null)
 
-// Period selector for revenue
-const revenuePeriod = ref('month')
+// Period selector for revenue — default to 'day' so a month-to-date range
+// renders a daily line (monthly grouping collapses it to a single point).
+const revenuePeriod = ref('day')
 
 // Doctor Table Headers
 const doctorHeaders = computed(() => [
@@ -648,9 +655,37 @@ const maxRevenue = computed(() => {
   return Math.max(...profitLossTrend.value.map(d => Math.max(d.revenue || 0, d.expenses || 0)))
 })
 
+const profitValue = computed(() => {
+  const revenue = profitLoss?.total_revenue ?? null
+  const expenses = expensesSummary?.total ?? profitLoss?.total_expenses ?? null
+  if (revenue !== null && expenses !== null) {
+    return revenue - expenses
+  }
+  return profitLoss?.profit_loss ?? 0
+})
+
+const profitValueFormatted = computed(() => {
+  const value = profitValue.value
+  const sign = value >= 0 ? '+' : '-'
+  return `${sign}${formatCurrency(Math.abs(value))}`
+})
+
+const profitMargin = computed(() => {
+  const revenue = profitLoss?.total_revenue ?? null
+  if (revenue !== null && revenue !== 0) {
+    return (profitValue.value / revenue) * 100
+  }
+  return profitLoss?.profit_margin ?? 0
+})
+
 // Helper Functions
 function formatDate(date) {
-  return date.toISOString().split('T')[0]
+  // Use local date parts (NOT toISOString, which converts to UTC and shifts
+  // the day backwards for UTC+ timezones like Asia/Baghdad).
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
 }
 
 function formatNumber(value) {
@@ -692,6 +727,22 @@ function getInitials(name) {
   return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
 }
 
+// Pick a sensible revenue-trend grouping for the selected range so the chart
+// always has enough points to draw a line (instead of a single dot).
+function pickPeriod(from, to) {
+  const days = Math.round((new Date(to) - new Date(from)) / 86400000) + 1
+  if (days <= 31) return 'day'
+  if (days <= 92) return 'week'
+  return 'month'
+}
+
+// Manual override from the day/week/month tabs.
+function onRevenuePeriodChange(val) {
+  if (!val || val === revenuePeriod.value) return
+  revenuePeriod.value = val
+  fetchRevenueTrend()
+}
+
 function setQuickRange(range) {
   const now = new Date()
   switch (range) {
@@ -714,10 +765,15 @@ function setQuickRange(range) {
       dateRange.to = formatDate(now)
       break
   }
+  // Apply immediately so the preset triggers a fetch (and closes the menu).
+  applyDateRange()
 }
 
 function applyDateRange() {
   dateMenu.value = false
+  // Auto-pick the revenue grouping for the new range (no watcher fires, so
+  // fetchAll below issues a single request with the right period).
+  revenuePeriod.value = pickPeriod(dateRange.from, dateRange.to)
   fetchAll()
 }
 
@@ -759,7 +815,7 @@ async function fetchPatientsTrend() {
     const response = await reportsService.patients.getTrend({
       date_from: dateRange.from,
       date_to: dateRange.to,
-      period: 'month'
+      period: 'day'
     })
     patientsTrend.value = response.data || []
   } catch (e) {
@@ -775,7 +831,7 @@ async function fetchCasesTrend() {
     const response = await reportsService.cases.getTrend({
       date_from: dateRange.from,
       date_to: dateRange.to,
-      period: 'month'
+      period: 'day'
     })
     casesTrend.value = response.data || []
   } catch (e) {
@@ -892,6 +948,21 @@ async function fetchDoctorPerformance() {
   }
 }
 
+async function fetchExpensesSummary() {
+  loading.expensesSummary = true
+  try {
+    const response = await expensesSummaryService.getSummary({
+      from: dateRange.from,
+      to: dateRange.to
+    })
+    expensesSummary.value = response.data || response
+  } catch (e) {
+    console.error('Failed to fetch expenses summary:', e)
+  } finally {
+    loading.expensesSummary = false
+  }
+}
+
 async function fetchAll() {
   isRefreshing.value = true
   await Promise.all([
@@ -905,7 +976,8 @@ async function fetchAll() {
     fetchCasesByStatus(),
     fetchReservationsByStatus(),
     fetchExpensesByCategory(),
-    fetchDoctorPerformance()
+    fetchDoctorPerformance(),
+    fetchExpensesSummary()
   ])
   isRefreshing.value = false
 }
@@ -914,17 +986,14 @@ async function refreshAll() {
   await fetchAll()
 }
 
-// Watch revenue period change
-watch(revenuePeriod, () => {
-  fetchRevenueTrend()
-})
-
 // Lifecycle
 onMounted(() => {
   if (!authStore.isAuthenticated) {
     router.push('/login')
     return
   }
+  // Match the initial grouping to the default range.
+  revenuePeriod.value = pickPeriod(dateRange.from, dateRange.to)
   fetchAll()
 })
 </script>

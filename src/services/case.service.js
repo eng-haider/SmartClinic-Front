@@ -5,7 +5,7 @@ export const caseService = {
     return api.get('/cases', {
       params: {
         'filter[patient_id]': patientId,
-        include: 'category,status,doctor,bills,ophthalmologyEncounterDetails',
+        include: 'category,status,doctor,bills,warehouseItems,ophthalmologyEncounterDetails',
         sort: '-created_at',
         ...params,
       },

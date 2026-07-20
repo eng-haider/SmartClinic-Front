@@ -13,13 +13,15 @@
  */
 
 import { computed, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '../stores/authNew'
 import permissionHelper from '../services/permission.helper'
 import { NAV_CONFIG, BOTTOM_NAV_CONFIG, FEATURE_CONFIG } from '../config/navigation'
 
 export function usePermissions() {
   const authStore = useAuthStore()
-  const currentLang = ref(localStorage.getItem('lang') || 'ar')
+  const { locale } = useI18n()
+  const currentLang = computed(() => locale.value || 'ar')
 
   // ==================== Direct Permission Checks ====================
 
@@ -135,7 +137,7 @@ export function usePermissions() {
    * Update language and refresh nav items
    */
   const setLanguage = (lang) => {
-    currentLang.value = lang
+    locale.value = lang
   }
 
   // ==================== Feature Access ====================

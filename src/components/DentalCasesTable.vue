@@ -69,7 +69,8 @@
 
     <!-- Remaining -->
     <template #item.remaining="{ item }">
-      <v-chip v-if="getRemainingAmount(item) > 0" size="small" color="warning" variant="flat">
+      <span v-if="!hasPrice(item)" class="text-grey text-caption">-</span>
+      <v-chip v-else-if="getRemainingAmount(item) > 0" size="small" color="warning" variant="flat">
         <v-icon start size="12">mdi-cash-clock</v-icon>
         {{ formatNumberWithCommas(getRemainingAmount(item)) }}
       </v-chip>
@@ -263,6 +264,9 @@ const onPriceBlur = (item, event) => {
   event.target.value = formatNumberWithCommas(item.price)
   emit('save-case', item)
 }
+
+// A case with no (or zero) price has nothing to pay — don't show a payment chip.
+const hasPrice = (item) => Number(item.price) > 0
 
 const getRemainingAmount = (item) => {
   const totalPaid = (item.bills || []).reduce((sum, b) => sum + (b.price || 0), 0)

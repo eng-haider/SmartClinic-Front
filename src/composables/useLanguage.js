@@ -9,7 +9,8 @@ export function useLanguage() {
   const languages = [
     { code: 'ar', name: 'العربية', icon: 'mdi-abjad-arabic', dir: 'rtl' },
     { code: 'en', name: 'English', icon: 'mdi-alpha-e-circle', dir: 'ltr' },
-    { code: 'ku', name: 'کوردی', icon: 'mdi-alpha-k-circle', dir: 'rtl' }
+    { code: 'ku', name: 'کوردی', icon: 'mdi-alpha-k-circle', dir: 'rtl' },
+    { code: 'pl', name: 'Polski', icon: 'mdi-alpha-p-circle', dir: 'ltr' }
   ]
 
   const currentLanguage = computed(() => {
@@ -22,18 +23,8 @@ export function useLanguage() {
     const lang = languages.find(l => l.code === code)
     if (!lang) return
 
-    // Update locale
-    locale.value = code
-    
-    // Update HTML attributes
-    document.documentElement.setAttribute('dir', lang.dir)
-    document.documentElement.setAttribute('lang', code)
-    
-    // Update Vuetify RTL
-    vuetifyRtl.value = lang.dir === 'rtl'
-    
-    // Save to localStorage
     localStorage.setItem('locale', code)
+    window.location.reload()
   }
 
   return {

@@ -31,6 +31,12 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         runtimeCaching: [
           {
+            // Reports/dashboard data must always be live — never serve stale
+            // numbers from cache. This rule is first, so it wins for /reports/.
+            urlPattern: /^https:\/\/api\.smartclinic\.software\/.*\/reports\//i,
+            handler: 'NetworkOnly'
+          },
+          {
             urlPattern: /^https:\/\/api\.smartclinic\.software\/.*/i,
             handler: 'NetworkFirst',
             options: {

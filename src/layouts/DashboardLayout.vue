@@ -32,7 +32,7 @@
       <v-app-bar-nav-icon @click="drawer = !drawer" class="d-md-none"></v-app-bar-nav-icon>
       
       <v-toolbar-title>
-        <v-img src="/logo.png" alt="SmartClinic" height="36" width="36" class="ms-1" />
+        <v-img src="/logo-white.png" alt="SmartClinic" height="76" width="76" class="ms-1" />
       </v-toolbar-title>
       
       <v-spacer></v-spacer>
@@ -42,6 +42,9 @@
         <v-icon>mdi-refresh</v-icon>
         <v-tooltip activator="parent" location="bottom">تحديث الصفحة</v-tooltip>
       </v-btn>
+
+      <!-- Notifications -->
+      <NotificationBell class="me-1" />
 
       <!-- Language Switcher -->
       <LanguageSwitcher class="me-2" />
@@ -69,7 +72,7 @@
           </v-list-item>
           <v-divider></v-divider>
           <v-list-item @click="handleLogout" prepend-icon="mdi-logout">
-            <v-list-item-title>تسجيل الخروج</v-list-item-title>
+            <v-list-item-title>{{ t('layout.logout') }}</v-list-item-title>
           </v-list-item>
         </v-list>
       </v-menu>
@@ -83,7 +86,7 @@
       @click="rail = false"
     >
       <v-list-item
-        title="لوحة التحكم"
+        :title="t('layout.dashboard')"
         nav
       >
         <template v-slot:prepend>
@@ -101,21 +104,46 @@
       <v-divider></v-divider>
 
       <v-list density="compact" nav>
-        <v-list-item
-          v-for="item in filteredNavItems"
-          :key="item.to"
-          :to="item.to"
-          :prepend-icon="item.icon"
-          :title="item.title"
-          color="primary"
-        ></v-list-item>
+        <template v-for="item in filteredNavItems" :key="item.key">
+          <!-- Group item with children -->
+          <v-list-group v-if="item.children && item.children.length" :value="item.key">
+            <template v-slot:activator="{ props }">
+              <v-list-item
+                v-bind="props"
+                :prepend-icon="item.icon"
+                :title="item.title"
+                color="primary"
+              ></v-list-item>
+            </template>
+            <v-list-item
+              v-for="child in item.children"
+              :key="child.to"
+              :to="child.to"
+              :prepend-icon="child.icon"
+              :title="child.title"
+              color="primary"
+            ></v-list-item>
+          </v-list-group>
+          <!-- Regular item -->
+          <v-list-item
+            v-else
+            :to="item.to"
+            :prepend-icon="item.icon"
+            :title="item.title"
+            color="primary"
+          >
+            <template v-if="item.key === 'booking-requests' && bookingPendingCount > 0" #append>
+              <v-badge :content="bookingPendingCount" color="error" inline max="99" />
+            </template>
+          </v-list-item>
+        </template>
       </v-list>
 
       <!-- Logout button (mobile only) -->
       <v-divider  class="my-2"></v-divider>
       <v-list  density="compact">
         <v-list-item @click="handleLogout" prepend-icon="mdi-logout">
-          <v-list-item-title>تسجيل الخروج</v-list-item-title>
+          <v-list-item-title>{{ t('layout.logout') }}</v-list-item-title>
         </v-list-item>
       </v-list>
     </v-navigation-drawer>
@@ -162,13 +190,17 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/authNew'
 import { usePermissions } from '@/composables/usePermissions'
+import { useBookingRequests } from '@/composables/useBookingRequests'
 import { setupPermissionWatcher } from '@/utils/permissionWatcher'
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
+import NotificationBell from '@/components/NotificationBell.vue'
 import AiChatWidget from '@/components/AiChatWidget.vue'
 
+const { t } = useI18n()
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
@@ -185,6 +217,11 @@ const drawer = ref(true)
 const rail = ref(false)
 const isMobile = ref(false)
 const aiChatRef = ref(null)
+
+// Pending booking requests badge (shared count + polling)
+const { pendingCount: bookingPendingCount, refreshPendingCount } = useBookingRequests()
+let bookingPollTimer = null
+const BOOKING_POLL_INTERVAL = 60000 // refresh pending count every 60s
 
 // Detect Flutter WebView: persists for the session
 const isFlutterApp = ref(false)
@@ -290,7 +327,11 @@ onMounted(async () => {
   if (authStore.isAuthenticated && !authStore.user) {
     await authStore.loadUser()
   }
-  
+
+  // Load + poll pending booking requests count for the nav badge
+  refreshPendingCount()
+  bookingPollTimer = setInterval(refreshPendingCount, BOOKING_POLL_INTERVAL)
+
   // Debug permissions in development
   if (import.meta.env.DEV) {
     debugPermissions()
@@ -299,6 +340,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   window.removeEventListener('resize', checkMobile)
+  if (bookingPollTimer) clearInterval(bookingPollTimer)
 })
 </script>
 

@@ -202,12 +202,25 @@ class PermissionHelper {
     return navItems
       .filter(item => this.canAccessNavItem(item))
       .sort((a, b) => (a.order || 0) - (b.order || 0))
-      .map(item => ({
-        key: item.key,
-        title: item.title[lang] || item.title.ar || item.title,
-        icon: item.icon,
-        to: item.to
-      }))
+      .map(item => {
+        const mapped = {
+          key: item.key,
+          title: item.title[lang] || item.title.ar || item.title,
+          icon: item.icon,
+          to: item.to
+        }
+        if (item.children && item.children.length > 0) {
+          mapped.children = item.children
+            .filter(child => this.canAccessNavItem(child))
+            .map(child => ({
+              key: child.key,
+              title: child.title[lang] || child.title.ar || child.title,
+              icon: child.icon,
+              to: child.to
+            }))
+        }
+        return mapped
+      })
   }
 
   /**

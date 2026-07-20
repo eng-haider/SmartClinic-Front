@@ -76,6 +76,7 @@
           :loading="loading"
           :items-per-page="150"
           :items-per-page-options="[10, 15, 25, 50]"
+          :row-props="getReservationRowProps"
           hover
           class="waiting-list-table"
         >
@@ -394,6 +395,14 @@ function getStatusText(status) {
   return status.name_ar || status.name_en || status.name || t('waitingList.pending')
 }
 
+function getReservationRowProps(rowProps) {
+  // Vuetify passes an object like { item, index, internalItem }
+  const item = rowProps?.item || rowProps
+  const statusName = item?.status?.name?.toString().toLowerCase() || ''
+  const isCompleted = item?.status?.id === 3 || statusName === 'completed' || statusName === 'complete'
+  return isCompleted ? { class: 'waiting-list-complete-row' } : {}
+}
+
 async function toggleDone(item, isDone) {
   const statusId = isDone ? 3 : 1
   updatingStatus.value = new Set([...updatingStatus.value, item.id])
@@ -468,5 +477,13 @@ onMounted(() => {
 
 .waiting-list-table :deep(.v-data-table-header th) {
   font-weight: 600 !important;
+}
+
+.waiting-list-table :deep(.waiting-list-complete-row) {
+  background-color: rgba(46, 125, 50, 0.14) !important;
+}
+
+.waiting-list-table :deep(.waiting-list-complete-row) td {
+  color: rgba(0, 0, 0, 0.85) !important;
 }
 </style>

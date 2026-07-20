@@ -66,6 +66,8 @@
           
           <OphthalmologyCaseForm v-model="form" />
 
+          <WarehouseItemsPicker v-model="form.warehouse_items" class="mt-3" />
+
         </v-form>
       </v-card-text>
       <v-card-actions class="pa-4 pt-0">
@@ -78,10 +80,12 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '@/services/api'
+import warehouseService from '@/services/warehouse.service'
 import OphthalmologyCaseForm from './OphthalmologyCaseForm.vue'
+import WarehouseItemsPicker from '@/components/WarehouseItemsPicker.vue'
 
 const { t, locale } = useI18n()
 
@@ -109,6 +113,24 @@ const isOpen = computed({
 const formRef = ref(null)
 const isValid = ref(true)
 const loading = ref(false)
+// While true, changing the category must not overwrite the materials the user
+// is already editing (e.g. the existing items prefilled when opening an edit).
+const suppressKitLoad = ref(false)
+
+// Fetch the category's default kit and load it into the picker so the user sees
+// the items linked to that case category and can tweak the quantities.
+const loadCategoryKit = async (categoryId) => {
+  if (!categoryId) return
+  try {
+    const kit = await warehouseService.getCategoryKit(categoryId)
+    form.value.warehouse_items = (kit || []).map(row => ({
+      warehouse_item_id: row.item?.id ?? row.warehouse_item_id,
+      quantity: Number(row.quantity) || 1,
+    }))
+  } catch (e) {
+    form.value.warehouse_items = []
+  }
+}
 
 const snackbar = ref({ show: false, message: '', color: 'error' })
 function showError(msg) {
@@ -122,6 +144,7 @@ const form = ref({
   status: 'pending',
   case_date: '',
   notes: '',
+  warehouse_items: [],
   eye_side: '',
   visual_acuity_left: '',
   visual_acuity_right: '',
@@ -145,16 +168,29 @@ const statusOptions = computed(() => [
 ])
 
 watch(() => form.value.category_id, (newCategoryId) => {
-  if (!newCategoryId || props.editingCase) return
-  const category = props.categories.find(c => c.id === newCategoryId)
-  if (category?.item_cost) {
-    form.value.amount = category.item_cost
+  if (!newCategoryId) return
+
+  // Default price only applies to brand-new cases.
+  if (!props.editingCase) {
+    const category = props.categories.find(c => c.id === newCategoryId)
+    if (category?.item_cost) {
+      form.value.amount = category.item_cost
+    }
+  }
+
+  // Pull in the category's linked materials, but not while prefilling an edit
+  // (the case's own consumed items take precedence there).
+  if (!suppressKitLoad.value) {
+    loadCategoryKit(newCategoryId)
   }
 })
 
 watch(isOpen, (newVal) => {
   if (newVal) {
     if (props.editingCase) {
+      // Keep the existing consumed items; don't let setting category_id below
+      // overwrite them with the category's default kit.
+      suppressKitLoad.value = true
       const ophDetails = props.editingCase.ophthalmology_encounter_details || {}
       const statusId = props.editingCase.status?.id || props.editingCase.status_id || props.editingCase.status
       form.value = {
@@ -164,6 +200,10 @@ watch(isOpen, (newVal) => {
         status: (statusId === 3 || statusId === '3') ? 'completed' : 'pending',
         case_date: props.editingCase.case_date ? new Date(props.editingCase.case_date).toISOString().split('T')[0] : (props.editingCase.created_at ? new Date(props.editingCase.created_at).toISOString().split('T')[0] : ''),
         notes: props.editingCase.notes || props.editingCase.description || '',
+        warehouse_items: (props.editingCase.warehouse_items || []).map(i => ({
+          warehouse_item_id: i.id ?? i.warehouse_item_id,
+          quantity: Number(i.quantity) || 1,
+        })),
         eye_side: ophDetails.eye_side || props.editingCase.eye_side || '',
         visual_acuity_left: ophDetails.visual_acuity_left || props.editingCase.visual_acuity_left || '',
         visual_acuity_right: ophDetails.visual_acuity_right || props.editingCase.visual_acuity_right || '',
@@ -175,6 +215,9 @@ watch(isOpen, (newVal) => {
         posterior_segment: ophDetails.posterior_segment || props.editingCase.posterior_segment || '',
         diagnosis: ophDetails.diagnosis || props.editingCase.diagnosis || ''
       }
+      // Re-enable kit loading after the category-watcher has run for the prefill,
+      // so a later manual category change still pulls in that category's kit.
+      nextTick(() => { suppressKitLoad.value = false })
     } else {
       form.value = {
         doctor_id: props.doctors?.length ? props.doctors[0].id : null,
@@ -183,6 +226,7 @@ watch(isOpen, (newVal) => {
         status: 'pending',
         case_date: '',
         notes: '',
+        warehouse_items: [],
         eye_side: '',
         visual_acuity_left: '',
         visual_acuity_right: '',
@@ -249,6 +293,7 @@ const saveCase = async () => {
       status_id: form.value.status === 'completed' ? 3 : 2,
       case_date: form.value.case_date || new Date().toISOString().split('T')[0],
       notes: form.value.notes,
+      warehouse_items: form.value.warehouse_items || [],
       eye_side: form.value.eye_side,
       visual_acuity_left: form.value.visual_acuity_left,
       visual_acuity_right: form.value.visual_acuity_right,

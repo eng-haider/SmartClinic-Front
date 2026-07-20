@@ -69,15 +69,13 @@
         >
           <!-- Category Type Column -->
           <template v-slot:item.category_type="{ item }">
-            <v-chip 
-              :color="item.category_type === 'dental' ? 'blue' : 'purple'" 
+            <v-chip
+              :color="categoryTypeColor(item.category_type)"
               size="small"
               variant="tonal"
             >
-              <v-icon start size="14">
-                {{ item.category_type === 'dental' ? 'mdi-tooth' : 'mdi-face-woman-shimmer' }}
-              </v-icon>
-              {{ item.category_type === 'dental' ? ($t('caseCategories.dental') || 'Dental') : ($t('caseCategories.beauty') || 'Beauty') }}
+              <v-icon start size="14">{{ categoryTypeIcon(item.category_type) }}</v-icon>
+              {{ categoryTypeLabel(item.category_type) }}
             </v-chip>
           </template>
 
@@ -194,10 +192,7 @@
             <v-select
               v-model="formData.category_type"
               :label="$t('caseCategories.categoryType') || 'Category Type'"
-              :items="[
-                { title: $t('caseCategories.dental') || 'Dental', value: 'dental' },
-                { title: $t('caseCategories.beauty') || 'Beauty', value: 'beauty' }
-              ]"
+              :items="categoryTypeOptions"
               :rules="[rules.required]"
               variant="outlined"
               prepend-inner-icon="mdi-tag-outline"
@@ -298,6 +293,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/authNew'
 import { PERMISSIONS } from '@/constants/permissions'
+import { getCategoryTypeOptions, getDefaultCategoryType } from '@/config/specialties'
 import {
   getCaseCategories,
   createCaseCategory,
@@ -307,6 +303,21 @@ import {
 
 const { t } = useI18n()
 const authStore = useAuthStore()
+
+// Category types available for this clinic's specialty, and the default type
+// used for newly created categories (e.g. 'general' for non-dental clinics).
+const categoryTypeOptions = computed(() => getCategoryTypeOptions(authStore.specialty, t))
+const defaultCategoryType = computed(() => getDefaultCategoryType(authStore.specialty))
+
+const categoryTypeLabel = (type) => {
+  if (type === 'dental') return t('caseCategories.dental') || 'Dental'
+  if (type === 'beauty') return t('caseCategories.beauty') || 'Beauty'
+  return t('caseCategories.general') || 'General'
+}
+const categoryTypeColor = (type) =>
+  type === 'dental' ? 'blue' : type === 'beauty' ? 'purple' : 'teal'
+const categoryTypeIcon = (type) =>
+  type === 'dental' ? 'mdi-tooth' : type === 'beauty' ? 'mdi-face-woman-shimmer' : 'mdi-medical-bag'
 
 // State
 const loading = ref(false)
@@ -333,7 +344,7 @@ const formData = ref({
   order: 0,
   clinic_id: null,
   item_cost: 0,
-  category_type: 'dental',
+  category_type: getDefaultCategoryType(authStore.specialty),
   without_detect_tooth: false
 })
 
@@ -416,7 +427,7 @@ const openCreateDialog = () => {
     order: categories.value.length + 1,
     clinic_id: authStore.user?.clinic_id || null,
     item_cost: 0,
-    category_type: 'dental',
+    category_type: defaultCategoryType.value,
     without_detect_tooth: false
   }
   dialog.value = true
@@ -435,7 +446,7 @@ const closeDialog = () => {
     order: 0,
     clinic_id: null,
     item_cost: 0,
-    category_type: 'dental',
+    category_type: defaultCategoryType.value,
     without_detect_tooth: false
   }
 }

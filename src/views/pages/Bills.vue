@@ -617,7 +617,8 @@ const loadBills = async () => {
       page: currentPage.value,
       per_page: perPage.value,
       include: 'patient,doctor,billable,billable.category',
-      sort: '-created_at'
+      sort: '-created_at',
+      'filter[billable_type]': 'App\\Models\\Case'
     }
 
     if (search.value) {

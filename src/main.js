@@ -6,9 +6,41 @@
  * @version 3.0.0
  */
 
-// Auto-reload when a new build is deployed and old chunk hashes no longer exist
-window.addEventListener('vite:preloadError', () => {
-  window.location.reload()
+// Auto-reload when a new build is deployed and old chunk hashes no longer exist.
+//
+// Guard against infinite reload loops: a plain reload can NEVER fix a genuinely
+// missing chunk (stale CDN index.html, stale service-worker precache, or a file
+// that was truly removed on the server), so an unconditional reload here turns a
+// one-off stale-chunk error into a page that refreshes forever. We therefore
+// reload at most once within a short window, and clear stale service-worker
+// caches first so the single reload actually fetches fresh assets.
+window.addEventListener('vite:preloadError', (event) => {
+  const RELOAD_KEY = 'vite:preload-reload-at'
+  const last = Number(sessionStorage.getItem(RELOAD_KEY) || 0)
+  const now = Date.now()
+
+  // Already reloaded in the last 20s and the chunk is STILL failing — stop, so
+  // we don't loop. Let Vite surface the original error instead.
+  if (now - last < 20000) {
+    console.error(
+      '[vite:preloadError] Chunk still failing after reload; aborting auto-reload to avoid an infinite refresh loop.',
+      event && event.payload
+    )
+    return
+  }
+
+  sessionStorage.setItem(RELOAD_KEY, String(now))
+
+  // Clear any stale service-worker caches (old JS/CSS chunks may be precached)
+  // so the reload picks up the freshly deployed assets, then reload.
+  if ('caches' in window) {
+    caches.keys()
+      .then((names) => Promise.all(names.map((name) => caches.delete(name))))
+      .catch(() => {})
+      .finally(() => window.location.reload())
+  } else {
+    window.location.reload()
+  }
 })
 
 // Force unregister old service workers and re-register fresh one
@@ -62,6 +94,7 @@ import { createI18n } from 'vue-i18n'
 import ar from './locales/ar.json'
 import en from './locales/en.json'
 import ku from './locales/ku.json'
+import pl from './locales/pl.json'
 
 // Styles
 import './styles/main.css'
@@ -126,7 +159,7 @@ const vuetify = createVuetify({
   },
   locale: {
     locale: localStorage.getItem('locale') || 'ar',
-    rtl: { ar: true, en: false, ku: true }
+    rtl: { ar: true, en: false, ku: true, pl: false }
   }
 })
 
@@ -135,7 +168,7 @@ const i18n = createI18n({
   legacy: false,
   locale: localStorage.getItem('locale') || 'ar',
   fallbackLocale: 'en',
-  messages: { ar, en, ku }
+  messages: { ar, en, ku, pl }
 })
 
 // ==================== Pinia Setup ====================

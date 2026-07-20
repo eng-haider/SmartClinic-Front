@@ -75,20 +75,18 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response.data,
   (error) => {
-    // Handle 401 Unauthorized - Token expired or invalid
-    if (error.response?.status === 401) {
-      localStorage.removeItem('auth_token')
-      localStorage.removeItem('user')
-      localStorage.removeItem('clinic')
-      localStorage.removeItem('token_expires_at')
-      localStorage.removeItem('tenant_id')
-      
-      // Redirect to login if not already there
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login'
-      }
+    const status = error.response?.status
+
+    // DEBUG MODE: do not auto-logout/redirect on auth errors.
+    // Log exactly what the API returned so we can inspect it instead of
+    // being thrown back to the login page.
+    if (status === 401 || status === 403) {
+      console.warn(`🔒 API ${status} on ${error.config?.method?.toUpperCase()} ${error.config?.url}`)
+      console.warn('Response data:', error.response?.data)
+      console.warn('Response headers:', error.response?.headers)
+      return Promise.reject(error)
     }
-    
+
     return Promise.reject(error)
   }
 )

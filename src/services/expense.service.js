@@ -13,10 +13,16 @@ const expenseService = {
 
   /**
    * Get only active expense categories (for dropdowns)
+   * Uses the paginated list endpoint (the dedicated `-active` endpoint
+   * is not available on the tenant API), filtering to active categories.
    */
   async getActiveCategories() {
-    const response = await api.get('/clinic-expense-categories-active')
-    return response.data
+    const response = await api.get('/clinic-expense-categories', {
+      params: { per_page: 100 }
+    })
+    const list = response?.data || []
+    // Keep only active categories when the API exposes an active/status flag
+    return list.filter(c => c?.is_active ?? c?.active ?? true)
   },
 
   /**

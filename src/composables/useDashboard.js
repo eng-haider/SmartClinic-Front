@@ -61,7 +61,12 @@ export function useDashboard() {
 
   // Helper function
   function formatDate(date) {
-    return date.toISOString().split('T')[0]
+    // Use local date parts (NOT toISOString, which converts to UTC and shifts
+    // the day backwards for UTC+ timezones like Asia/Baghdad).
+    const y = date.getFullYear()
+    const m = String(date.getMonth() + 1).padStart(2, '0')
+    const d = String(date.getDate()).padStart(2, '0')
+    return `${y}-${m}-${d}`
   }
 
   // Fetch Methods

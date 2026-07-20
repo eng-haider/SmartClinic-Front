@@ -88,6 +88,19 @@
             </div>
           </div>
 
+          <!-- Materials consumed -->
+          <div v-if="materials.length" class="info-section mt-3">
+            <v-divider class="mb-3" />
+            <div class="section-title text-caption text-uppercase font-weight-bold text-grey mb-2">{{ $t('warehouse.materials') || 'Materials used' }}</div>
+            <div class="materials-list">
+              <div v-for="mat in materials" :key="mat.id" class="material-row">
+                <v-icon size="14" color="primary">mdi-package-variant-closed</v-icon>
+                <span class="font-weight-medium">{{ mat.name }}</span>
+                <span class="text-caption text-grey">×{{ mat.quantity }}<template v-if="mat.unit"> {{ mat.unit }}</template></span>
+              </div>
+            </div>
+          </div>
+
           <div v-if="notes && notes.length" class="info-section mt-3">
             <v-divider class="mb-3" />
             <div class="section-title text-caption text-uppercase font-weight-bold text-grey mb-2">{{ $t('patients.notes') || 'Notes' }} ({{ notes.length }})</div>
@@ -246,6 +259,21 @@
         </div>
       </div>
 
+      <!-- Materials consumed -->
+      <div v-if="materials.length" class="info-section mt-3">
+        <v-divider class="mb-3" />
+        <div class="section-title text-caption text-uppercase font-weight-bold text-grey mb-2">
+          {{ $t('warehouse.materials') || 'Materials used' }}
+        </div>
+        <div class="materials-list">
+          <div v-for="mat in materials" :key="mat.id" class="material-row">
+            <v-icon size="14" color="primary">mdi-package-variant-closed</v-icon>
+            <span class="font-weight-medium">{{ mat.name }}</span>
+            <span class="text-caption text-grey">×{{ mat.quantity }}<template v-if="mat.unit"> {{ mat.unit }}</template></span>
+          </div>
+        </div>
+      </div>
+
       <!-- Notes -->
       <div v-if="notes && notes.length" class="info-section mt-3">
         <v-divider class="mb-3" />
@@ -350,6 +378,9 @@ const remainingAmount = computed(() => {
   return (props.caseData.price || 0) - totalPaid
 })
 
+// Materials consumed in this case (deducted from warehouse stock).
+const materials = computed(() => props.caseData?.warehouse_items || [])
+
 function formatCurrency(amount) {
   if (amount === null || amount === undefined) return '-'
   return new Intl.NumberFormat('en-US', { minimumFractionDigits: 0 }).format(amount) + ' IQD'
@@ -432,6 +463,21 @@ function formatDate(dateString) {
   gap: 8px;
   padding: 6px 10px;
   background: #f8fdf8;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.materials-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.material-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: #f5f8ff;
   border-radius: 6px;
   font-size: 13px;
 }

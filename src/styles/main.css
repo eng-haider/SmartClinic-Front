@@ -95,20 +95,63 @@ p, span, div, a, button, input, textarea, select, label {
   background: #555;
 }
 
-/* Global Data Table Styles for Arabic */
+/* Global Data Table Styles */
 .v-data-table__td-value {
-  direction: ltr !important;
+  float: none !important;
   display: flex !important;
-  justify-content: flex-start !important;
   align-items: center !important;
 }
 
-.v-data-table__mobile-row__cell {
+[dir="ltr"] .v-data-table__td-value {
   direction: ltr !important;
+  justify-content: flex-start !important;
+  text-align: left !important;
+}
+
+[dir="rtl"] .v-data-table__td-value {
+  direction: rtl !important;
+  justify-content: flex-start !important;
+  text-align: right !important;
+}
+
+[dir="ltr"] .v-data-table__mobile-row__cell {
+  direction: ltr !important;
+}
+
+[dir="rtl"] .v-data-table__mobile-row__cell {
+  direction: rtl !important;
 }
 
 .v-data-table__mobile-row__cell > * {
   justify-content: flex-start !important;
+}
+
+/* In mobile layout each cell is a row: title (label) on one side, value on the
+   other. Put them at opposite ends so the value is pinned to the LEFT edge of
+   the card while the title (in RTL) stays on the right. */
+.v-data-table__tr--mobile .v-data-table__td {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+}
+
+.v-data-table__tr--mobile .v-data-table__td-title {
+  flex: 0 0 auto !important;
+}
+
+/* The value box shrinks to its content and sits at the left edge. Its inner
+   content (text, chips, .d-flex wrappers, the actions group) aligns left too,
+   regardless of the column's align-start / align-center / align-end class. */
+.v-data-table__tr--mobile .v-data-table__td-value {
+  flex: 0 1 auto !important;
+  min-width: 0 !important;
+  justify-content: flex-end !important;
+  text-align: left !important;
+}
+
+.v-data-table__tr--mobile .v-data-table__td-value > * {
+  text-align: left !important;
 }
 
 /* Mobile Data Table Row Padding */

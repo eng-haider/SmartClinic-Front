@@ -64,6 +64,7 @@
               :key="col.key"
               class="smart-td"
               :style="getCellStyle(col)"
+              :data-label="col.label"
             >
               <!-- Slot override per column -->
               <slot :name="`item.${col.key}`" :item="row" :value="getCellValue(row, col)">
@@ -74,7 +75,7 @@
                 />
               </slot>
             </td>
-            <td v-if="actions && actions.length" class="smart-td actions-td">
+            <td v-if="actions && actions.length" class="smart-td actions-td" :data-label="actionsLabel">
               <div class="actions-row">
                 <template v-for="action in actions" :key="action.key">
                   <v-tooltip :text="action.label" location="top">
@@ -536,5 +537,108 @@ function getCellProps(row, col) {
 :root[dir="rtl"] .smart-th,
 :root[dir="rtl"] .smart-td {
   text-align: right;
+}
+
+/* ===== Mobile card layout (phone only) ===== */
+@media (max-width: 960px) {
+  /* Let cards size to content; drop the horizontal-scroll constraints */
+  .smart-table-container,
+  .smart-table-sticky {
+    overflow-x: visible;
+    max-height: none;
+  }
+
+  /* Hide the table header on mobile (labels move into each card row) */
+  .smart-table thead {
+    display: none;
+  }
+
+  .smart-table,
+  .smart-table tbody,
+  .smart-table tr,
+  .smart-table td {
+    display: block;
+    width: 100%;
+  }
+
+  /* Each row becomes a card */
+  .smart-tr {
+    border: 1px solid #eef0f3;
+    border-radius: 12px;
+    padding: 4px 14px;
+    margin-bottom: 12px;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(16, 24, 40, 0.04);
+  }
+  .smart-tr:last-child {
+    margin-bottom: 0;
+  }
+
+  /* Each cell becomes a label-on-one-side / value-on-the-other row */
+  .smart-td {
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid #f3f4f6;
+    text-align: start;
+    min-height: 44px;
+  }
+  .smart-tr > .smart-td:last-child {
+    border-bottom: none;
+  }
+
+  /* The label, taken from the column header via data-label */
+  .smart-td::before {
+    content: attr(data-label);
+    flex: 0 0 auto;
+    font-weight: 600;
+    font-size: 12px;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+  }
+
+  /* The value side fills the remaining space and aligns its own content to the
+     LEFT edge — works for every cell type (text, chip, avatar .d-flex, icon-text,
+     truncate) regardless of the inner element's natural width or alignment. */
+  .smart-td > * {
+    flex: 1 1 auto;
+    min-width: 0;
+    text-align: left;
+    justify-content: flex-start !important;
+    margin-inline: 0;
+  }
+
+  /* Inline value spans (text / currency / date) must become block-level so the
+     flex sizing + left text-align actually take effect. */
+  .smart-td > .cell-text,
+  .smart-td > .cell-currency,
+  .smart-td > .cell-date,
+  .smart-td > span:not([class*="v-"]) {
+    display: block;
+  }
+
+  /* The slot wrapper / component inside the value can also be a flex row */
+  .smart-td > .d-flex,
+  .smart-td > * > .d-flex {
+    justify-content: flex-start !important;
+  }
+
+  /* Actions row stays grouped, pinned to the left edge */
+  .actions-td {
+    text-align: start;
+  }
+  .actions-row {
+    flex: 1 1 auto;
+    justify-content: flex-start !important;
+  }
+
+  /* Hide label for cells that have no header text (e.g. actions when unlabeled) */
+  .smart-td[data-label=""]::before {
+    display: none;
+  }
 }
 </style>

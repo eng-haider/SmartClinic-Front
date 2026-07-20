@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('/Users/haideraltemimy/Documents/GitHub/SmartClinic-Front/src/locales/pl.json','utf8'\\)\\); console.log\\('Valid JSON'\\)\")",
+      "Bash(cd /Users/haideraltemimy/Documents/GitHub/SmartClinic-API-Laravel 2>/dev/null *)",
+      "Read(//Users/haideraltemimy/Documents/GitHub/SmartClinic-API-Laravel/**)"
+    ]
+  }
+}

@@ -94,22 +94,131 @@
         {{ error }}
       </v-alert>
 
-      <SmartTable
-        :columns="columns"
+      <v-data-table-server
+        v-model:items-per-page="perPage"
+        v-model:page="currentPage"
+        :headers="headers"
         :items="cases"
-        :actions="tableActions"
+        :items-length="totalCases"
         :loading="loading"
-        :pagination="pagination"
-        :empty-text="$t('cases.no_cases')"
-        :empty-subtext="$t('cases.no_cases_desc')"
-        empty-icon="mdi-folder-search-outline"
-        :actions-label="$t('common.actions') || ''"
-        server-sort
-        @click:row="openDrawer"
-        @action="handleAction"
+        class="cases-table"
+        density="compact"
+        mobile-breakpoint="md"
+        hover
+        hide-default-footer
         @update:page="onPageChange"
-        @update:per-page="onPerPageChange"
-      />
+        @update:items-per-page="onPerPageChange"
+        @click:row="(event, { item }) => openDrawer(item)"
+      >
+        <!-- Generic cell renderer for every config-driven column -->
+        <template
+          v-for="col in columns"
+          :key="col.key"
+          v-slot:[`item.${col.key}`]="{ item }"
+        >
+          <!-- Avatar (patient name + subtitle) -->
+          <div v-if="col.type === 'avatar'" class="d-flex align-center ga-3 py-2">
+            <v-avatar :color="getAvatarColor(cellValue(item, col))" size="42">
+              <span class="text-white font-weight-bold">{{ getInitials(cellValue(item, col)) }}</span>
+            </v-avatar>
+            <div>
+              <div class="font-weight-medium">{{ cellValue(item, col) }}</div>
+              <div v-if="col.subtitleGetter" class="text-caption text-grey">{{ col.subtitleGetter(item) }}</div>
+            </div>
+          </div>
+
+          <!-- Badge / Chip -->
+          <v-chip
+            v-else-if="col.type === 'badge' || col.type === 'chip'"
+            :color="resolveColor(item, col)"
+            size="small"
+            :variant="col.type === 'chip' ? 'flat' : 'tonal'"
+          >
+            <v-icon v-if="resolveIcon(item, col)" start size="14">{{ resolveIcon(item, col) }}</v-icon>
+            {{ cellValue(item, col) }}
+          </v-chip>
+
+          <!-- Currency -->
+          <span v-else-if="col.type === 'currency'" class="font-weight-medium">
+            {{ formatCurrency(cellValue(item, col), col.suffix) }}
+          </span>
+
+          <!-- Date -->
+          <div v-else-if="col.type === 'date'" class="text-caption">
+            {{ formatDate(cellValue(item, col)) }}
+          </div>
+
+          <!-- Icon + text (e.g. doctor) -->
+          <div v-else-if="col.type === 'icon-text'" class="d-flex align-center ga-2">
+            <v-icon v-if="resolveIcon(item, col)" size="16" :color="col.iconColor || 'primary'">{{ resolveIcon(item, col) }}</v-icon>
+            <span>{{ cellValue(item, col) }}</span>
+          </div>
+
+          <!-- Plain text / truncate / fallback -->
+          <span v-else>{{ cellValue(item, col) || '-' }}</span>
+        </template>
+
+        <!-- Actions -->
+        <template v-slot:item.actions="{ item }">
+          <div class="d-flex ga-1">
+            <v-btn
+              icon="mdi-eye"
+              size="small"
+              variant="text"
+              color="info"
+              @click.stop="openDrawer(item)"
+            >
+              <v-icon>mdi-eye</v-icon>
+              <v-tooltip activator="parent" location="top">
+                {{ $t('common.view') || 'View' }}
+              </v-tooltip>
+            </v-btn>
+          </div>
+        </template>
+
+        <!-- Empty State -->
+        <template v-slot:no-data>
+          <div class="text-center py-12">
+            <v-icon size="80" color="grey-lighten-2">mdi-folder-search-outline</v-icon>
+            <h3 class="text-h6 mt-4 text-grey">{{ $t('cases.no_cases') }}</h3>
+            <p class="text-grey-darken-1">{{ $t('cases.no_cases_desc') }}</p>
+          </div>
+        </template>
+
+        <!-- Loading Skeleton -->
+        <template v-slot:loading>
+          <v-skeleton-loader type="table-row@10" />
+        </template>
+      </v-data-table-server>
+
+      <!-- Numbered Pagination -->
+      <v-divider />
+      <div class="d-flex align-center justify-space-between pa-3 flex-wrap ga-3">
+        <div class="text-caption text-grey">
+          {{ $t('patients.showing') || 'Showing' }}
+          {{ paginationInfo.from }}-{{ paginationInfo.to }}
+          {{ $t('patients.of') || 'of' }}
+          {{ paginationInfo.total }}
+        </div>
+        <v-pagination
+          v-if="paginationInfo.lastPage > 1"
+          v-model="currentPage"
+          :length="paginationInfo.lastPage"
+          :total-visible="5"
+          density="compact"
+          size="small"
+          @update:model-value="onPageChange"
+        />
+        <v-select
+          v-model="perPage"
+          :items="[10, 15, 25, 50]"
+          variant="outlined"
+          density="compact"
+          hide-details
+          style="max-width: 90px;"
+          @update:model-value="onPerPageChange"
+        />
+      </div>
     </v-card>
 
     <!-- Case Detail Drawer -->
@@ -130,7 +239,6 @@ import { useRouter, useRoute } from 'vue-router'
 import api from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
 import { getSmartCaseColumns } from '@/config/specialties'
-import SmartTable from '@/components/SmartTable.vue'
 import CaseDrawer from '@/components/CaseDrawer.vue'
 
 const { t } = useI18n()
@@ -187,15 +295,67 @@ const paymentOptions = computed(() => [
 
 const columns = computed(() => getSmartCaseColumns(authStore.specialty, t))
 
-const pagination = computed(() => ({
-  page: currentPage.value,
-  perPage: perPage.value,
+// Vuetify data-table headers derived from the config-driven columns (+ actions)
+const headers = computed(() => [
+  ...columns.value.map(col => ({
+    title: col.label,
+    key: col.key,
+    sortable: false,
+    align: col.align || 'start',
+    width: col.width,
+    minWidth: col.minWidth,
+  })),
+  { title: t('common.actions') || 'Actions', key: 'actions', sortable: false, align: 'center' },
+])
+
+const paginationInfo = computed(() => ({
+  from: totalCases.value === 0 ? 0 : (currentPage.value - 1) * perPage.value + 1,
+  to: Math.min(currentPage.value * perPage.value, totalCases.value),
   total: totalCases.value,
+  lastPage: Math.ceil(totalCases.value / perPage.value) || 1,
 }))
 
-const tableActions = computed(() => [
-  { key: 'view', label: t('common.view') || 'View', icon: 'mdi-eye-outline', color: 'info' },
-])
+// ==================== Cell helpers ====================
+function cellValue(row, col) {
+  if (col.getter) return col.getter(row)
+  const key = col.key
+  if (!key.includes('.')) return row[key]
+  return key.split('.').reduce((obj, k) => obj?.[k], row)
+}
+
+function resolveColor(row, col) {
+  if (col.type === 'badge' && col.colorMap) {
+    const raw = col.rawValueGetter ? col.rawValueGetter(row) : cellValue(row, col)
+    if (col.colorMap[raw]) return col.colorMap[raw]
+  }
+  return typeof col.color === 'function' ? col.color(row) : (col.color || (col.type === 'chip' ? 'primary' : 'grey'))
+}
+
+function resolveIcon(row, col) {
+  return typeof col.icon === 'function' ? col.icon(row) : (col.icon || null)
+}
+
+function formatCurrency(val, suffix) {
+  if (val === null || val === undefined || val === '') return '-'
+  const formatted = new Intl.NumberFormat('en-US', { minimumFractionDigits: 0 }).format(val)
+  return `${formatted} ${suffix || 'IQD'}`
+}
+
+function formatDate(val) {
+  if (!val) return '-'
+  return new Date(val).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+}
+
+function getInitials(name) {
+  if (!name) return '?'
+  return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+}
+
+function getAvatarColor(name) {
+  const colors = ['primary', 'secondary', 'success', 'warning', 'error', 'info']
+  if (!name) return 'grey'
+  return colors[name.charCodeAt(0) % colors.length]
+}
 
 // ==================== Methods ====================
 let searchTimeout = null
@@ -228,7 +388,7 @@ async function loadCases() {
     const params = {
       page: currentPage.value,
       per_page: perPage.value,
-      include: 'patient,doctor,category,status,ophthalmologyEncounterDetails',
+      include: 'patient,doctor,category,status,warehouseItems,ophthalmologyEncounterDetails',
     }
 
     if (search.value) params['filter[notes]'] = search.value
@@ -301,10 +461,6 @@ async function fetchCaseNotes(caseId) {
   }
 }
 
-function handleAction({ key, item }) {
-  if (key === 'view') openDrawer(item)
-}
-
 // ==================== Lifecycle ====================
 onMounted(() => {
   loadCases()
@@ -321,5 +477,11 @@ onMounted(() => {
 }
 .toolbar-card {
   background: #fff;
+}
+.cases-table {
+  min-height: 400px;
+}
+.cases-table :deep(tbody tr) {
+  cursor: pointer;
 }
 </style>

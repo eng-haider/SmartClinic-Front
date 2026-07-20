@@ -450,7 +450,3 @@ watch(() => props.defaultDoctorId, (newVal) => {
   }
 })
 </script>
-
-<style scoped>
-/* Add any component-specific styles here */
-</style>

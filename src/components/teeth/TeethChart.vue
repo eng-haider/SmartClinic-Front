@@ -8,7 +8,7 @@
           v-for="(tooth, index) in upperTeeth"
           :key="'upper-num-' + tooth.tooth_num"
           class="tooth-number-item upper"
-          :style="{ left: getToothPosition(tooth)-3 + '%' }"
+          :style="{ left: getToothPosition(tooth) + '%' }"
         >
           <div
             :data-tooth-index="index"
@@ -65,7 +65,7 @@
           v-for="(tooth, index) in lowerTeeth"
           :key="'lower-num-' + tooth.tooth_num"
           class="tooth-number-item lower"
-          :style="{ left: getToothPosition(tooth) - 2 + '%' }"
+          :style="{ left: getToothPosition(tooth) + '%' }"
         >
           <div class="dotted-line"></div>
           <div
@@ -1508,7 +1508,9 @@ onUnmounted(() => {
 }
 
 /* RTL Support */
+/* Badge centering is purely physical (left% + translateX(-50%)) and the SVG is
+   not mirrored, so the same centering applies in both LTR and RTL. */
 .teeth-chart.rtl .tooth-number-item {
-  transform: translateX(50%);
+  transform: translateX(-50%);
 }
 </style>

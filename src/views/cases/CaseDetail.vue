@@ -141,7 +141,7 @@
                   <div class="text-center pa-3 rounded-lg" :class="remaining > 0 ? 'bg-orange-lighten-5' : 'bg-green-lighten-5'">
                     <div class="text-caption text-grey">{{ $t('patients.remaining') }}</div>
                     <div class="font-weight-bold text-body-1" :class="remaining > 0 ? 'text-warning' : 'text-success'">
-                      {{ remaining > 0 ? formatCurrency(remaining) : $t('patients.fullyPaid') }}
+                      {{ !hasPrice ? '-' : (remaining > 0 ? formatCurrency(remaining) : $t('patients.fullyPaid')) }}
                     </div>
                   </div>
                 </v-col>
@@ -185,6 +185,30 @@
               <v-icon size="36" color="grey-lighten-2">mdi-receipt-text-outline</v-icon>
               <p class="text-caption mt-1">{{ $t('patients.no_bills') }}</p>
             </div>
+          </v-card>
+
+          <!-- Materials Consumed Section -->
+          <v-card v-if="materials.length" elevation="2" rounded="xl">
+            <v-card-title class="pa-4 d-flex align-center ga-2">
+              <v-icon color="primary">mdi-package-variant-closed</v-icon>
+              <span>{{ $t('warehouse.materials') || 'Materials used' }}</span>
+              <v-chip size="x-small" color="primary" variant="tonal">{{ materials.length }}</v-chip>
+            </v-card-title>
+            <v-divider />
+            <v-list density="compact">
+              <v-list-item v-for="mat in materials" :key="mat.id" class="px-4 py-2">
+                <template v-slot:prepend>
+                  <v-icon color="primary" size="20">mdi-package-variant-closed</v-icon>
+                </template>
+                <v-list-item-title class="font-weight-medium">{{ mat.name }}</v-list-item-title>
+                <v-list-item-subtitle class="text-caption">
+                  {{ mat.quantity }}<template v-if="mat.unit"> {{ mat.unit }}</template>
+                </v-list-item-subtitle>
+                <template v-slot:append>
+                  <span v-if="mat.total_cost != null" class="text-caption text-grey">{{ formatCurrency(mat.total_cost) }}</span>
+                </template>
+              </v-list-item>
+            </v-list>
           </v-card>
         </v-col>
 
@@ -302,6 +326,12 @@ const remaining = computed(() => {
   return (caseData.value?.price || 0) - totalPaid.value
 })
 
+// A case with no (or zero) price has nothing to pay.
+const hasPrice = computed(() => Number(caseData.value?.price) > 0)
+
+// Materials consumed in this case (deducted from warehouse stock).
+const materials = computed(() => caseData.value?.warehouse_items || [])
+
 // Load Case
 async function loadCase() {
   loading.value = true
@@ -310,7 +340,7 @@ async function loadCase() {
   try {
     const response = await api.get(`/cases/${route.params.id}`, {
       params: {
-        include: 'patient,doctor,category,status,bills,ophthalmologyEncounterDetails'
+        include: 'patient,doctor,category,status,bills,warehouseItems,ophthalmologyEncounterDetails'
       }
     })
     
