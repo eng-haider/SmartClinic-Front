@@ -77,6 +77,16 @@
               <v-icon start size="14">{{ categoryTypeIcon(item.category_type) }}</v-icon>
               {{ categoryTypeLabel(item.category_type) }}
             </v-chip>
+            <v-chip
+              v-if="item.is_orthodontic"
+              color="indigo"
+              size="small"
+              variant="tonal"
+              class="ms-1"
+            >
+              <v-icon start size="14">mdi-tooth-outline</v-icon>
+              {{ $t('caseCategories.isOrthodontic') || 'Orthodontics' }}
+            </v-chip>
           </template>
 
           <!-- Item Cost Column -->
@@ -216,6 +226,25 @@
                 </div>
               </template>
             </v-switch>
+
+            <!-- Marks this specific dental category as orthodontics, so the patient
+                 page shows arch/appliance/phase/duration fields only for it. -->
+            <v-switch
+              v-if="formData.category_type === 'dental'"
+              v-model="formData.is_orthodontic"
+              color="indigo"
+              hide-details
+              class="mb-3"
+            >
+              <template v-slot:label>
+                <div class="d-flex flex-column">
+                  <span>{{ $t('caseCategories.isOrthodontic') || 'Orthodontics category' }}</span>
+                  <span class="text-caption text-medium-emphasis">
+                    {{ $t('caseCategories.isOrthodonticHint') || 'Enable this for the orthodontics (تقويم) category so the patient page shows arch/appliance/phase/duration fields for its cases' }}
+                  </span>
+                </div>
+              </template>
+            </v-switch>
           </v-form>
         </v-card-text>
 
@@ -345,7 +374,8 @@ const formData = ref({
   clinic_id: null,
   item_cost: 0,
   category_type: getDefaultCategoryType(authStore.specialty),
-  without_detect_tooth: false
+  without_detect_tooth: false,
+  is_orthodontic: false
 })
 
 // Snackbar
@@ -428,7 +458,8 @@ const openCreateDialog = () => {
     clinic_id: authStore.user?.clinic_id || null,
     item_cost: 0,
     category_type: defaultCategoryType.value,
-    without_detect_tooth: false
+    without_detect_tooth: false,
+    is_orthodontic: false
   }
   dialog.value = true
 }
@@ -447,7 +478,8 @@ const closeDialog = () => {
     clinic_id: null,
     item_cost: 0,
     category_type: defaultCategoryType.value,
-    without_detect_tooth: false
+    without_detect_tooth: false,
+    is_orthodontic: false
   }
 }
 
@@ -522,6 +554,11 @@ watch(() => formData.value.category_type, (newType) => {
     // Beauty categories never require tooth detection
     formData.value.without_detect_tooth = true
   }
+})
+
+// Orthodontics categories don't need single-tooth detection either.
+watch(() => formData.value.is_orthodontic, (isOrtho) => {
+  if (isOrtho) formData.value.without_detect_tooth = true
 })
 
 // Lifecycle

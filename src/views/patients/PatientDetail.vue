@@ -297,6 +297,8 @@
             :headers="caseHeaders"
             :items="filteredCases"
             :items-per-page="-1"
+            item-value="id"
+            :expanded="expandedOrthoCaseIds"
             density="compact"
             mobile-breakpoint="sm"
             :hide-default-footer="true"
@@ -469,10 +471,20 @@
               <span class="text-caption">{{ formatDate(item.case_date || item.created_at) }}</span>
             </template>
 
-            <!-- Notes inline -->
+            <!-- Notes: orthodontics cases show their full detail panel automatically
+                 below the row (see #expanded-row) — this cell is just a small
+                 indicator. Every other category keeps the simple, always-visible
+                 note box — no click needed, easy for any user. -->
             <template #item.notes="{ item }">
-              <div class="notes-container" style="min-width:210px;max-width:260px">
-                <!-- New note textarea + add button -->
+              <div v-if="isOrthoCase(item)" class="ortho-row-indicator">
+                <v-icon size="14">mdi-tooth-outline</v-icon>
+                {{ $t('caseCategories.isOrthodontic') || 'تقويم' }}
+                <v-chip v-if="getCaseNotesCount(item.id)" size="x-small" color="indigo" variant="flat" class="ms-1">
+                  {{ getCaseNotesCount(item.id) }}
+                </v-chip>
+              </div>
+
+              <div v-else class="notes-container" style="min-width:210px;max-width:260px">
                 <div class="d-flex align-start ga-1 mb-1">
                   <v-textarea
                     v-model="noteInputs[item.id]"
@@ -497,7 +509,6 @@
                     <v-icon size="18">mdi-plus</v-icon>
                   </v-btn>
                 </div>
-                <!-- Existing notes below the textarea -->
                 <div
                   v-for="note in getCaseNotes(item.id)"
                   :key="note.id"
@@ -551,6 +562,110 @@
                   </template>
                 </v-tooltip>
               </div>
+            </template>
+
+            <!-- Expanded row: roomy in-page notes panel (no dialog/overlay) -->
+            <template #expanded-row="{ columns, item }">
+              <tr class="case-notes-panel-row">
+                <td :colspan="columns.length" class="pa-0">
+                  <div class="case-notes-panel">
+                    <!-- Roomy notes textarea -->
+                    <div class="case-notes-section">
+                      <div class="d-flex align-center justify-space-between">
+                        <div class="case-notes-section-title">
+                          <v-icon size="15" class="me-1">mdi-note-edit-outline</v-icon>ملاحظات الحالة
+                        </div>
+                        <span v-if="draftStatus[item.id] === 'saving'" class="draft-status draft-status--saving">
+                          <v-progress-circular indeterminate size="10" width="2" class="me-1" />جارٍ الحفظ...
+                        </span>
+                        <span v-else-if="draftStatus[item.id] === 'saved'" class="draft-status draft-status--saved">
+                          <v-icon size="12" class="me-1">mdi-check-circle</v-icon>تم الحفظ
+                        </span>
+                      </div>
+                      <div
+                        class="case-notes-dropzone"
+                        :class="{ 'case-notes-dropzone--drag': noteDropActive === item.id }"
+                        @dragover.prevent="noteDropActive = item.id"
+                        @dragleave.prevent="noteDropActive = null"
+                        @drop.prevent="onNoteDrop($event, item.id)"
+                      >
+                        <v-textarea
+                          v-model="getOrthoForm(item.id).text"
+                          :placeholder="'اكتب كل تفاصيل الحالة هنا... (يمكنك سحب الصور أو لصقها هنا)'"
+                          variant="outlined"
+                          rows="4"
+                          auto-grow
+                          density="comfortable"
+                          hide-details
+                          class="case-notes-textarea"
+                          @update:model-value="scheduleDraftSave(item.id)"
+                          @paste="onNotePaste($event, item.id)"
+                        />
+                      </div>
+                      <NoteImageAttachments
+                        :images="getOrthoForm(item.id).images"
+                        v-model:selected-type="getOrthoForm(item.id).imageType"
+                        add-label="أضف صورة (JPG, PNG, WEBP)"
+                        @add-files="({ files, type }) => addPendingImages(item.id, files, type)"
+                        @remove="removePendingImage(item.id, $event)"
+                        @open="openLightbox(getOrthoForm(item.id).images, $event)"
+                      />
+                    </div>
+
+                    <div class="d-flex align-center justify-space-between mt-3 flex-wrap ga-2">
+                      <OrthoMetaBadges v-if="orthoHeaderLine(item.id)" :meta="getOrthoForm(item.id)" />
+                      <v-spacer v-else />
+                      <v-tooltip
+                        v-if="canCreateNote"
+                        :text="canSaveOrthoNote(item.id) ? '' : 'أدخل نصًا أو اختر حقلاً أو أضف صورة قبل الحفظ'"
+                        location="top"
+                        :disabled="canSaveOrthoNote(item.id)"
+                      >
+                        <template #activator="{ props: tp }">
+                          <v-btn
+                            v-bind="tp"
+                            color="primary"
+                            variant="elevated"
+                            size="small"
+                            :loading="savingNoteFor === item.id"
+                            :disabled="!canSaveOrthoNote(item.id)"
+                            prepend-icon="mdi-content-save"
+                            @click="saveCasePanelNote(item)"
+                          >
+                            حفظ الملاحظة
+                          </v-btn>
+                        </template>
+                      </v-tooltip>
+                    </div>
+
+                    <!-- Timeline of previous notes -->
+                    <div class="existing-notes-wrap">
+                      <div class="existing-notes-title">
+                        <v-icon size="14" class="me-1">mdi-history</v-icon>الملاحظات السابقة
+                        <span v-if="getCaseNotes(item.id).length" class="existing-notes-count">{{ getCaseNotes(item.id).length }}</span>
+                      </div>
+                      <div v-if="getCaseNotes(item.id).length" class="existing-notes-timeline">
+                        <CaseNoteCard
+                          v-for="note in getCaseNotes(item.id)"
+                          :key="note.id"
+                          :note="note"
+                          :images="getResolvedNoteImages(note, item.id)"
+                          :is-ortho-case="isOrthoCase(item)"
+                          :can-edit="canEditNote"
+                          :can-delete="canDeleteNote"
+                          :saving="updatingNoteId === note.id"
+                          @update="updateNote(note, item.id, $event)"
+                          @delete="deleteNote(note.id, item.id)"
+                          @add-images="addImagesToExistingNote(note, item.id, $event)"
+                          @remove-image="deleteNoteImage($event, note, item.id)"
+                          @open-lightbox="openLightbox(getResolvedNoteImages(note, item.id), $event)"
+                        />
+                      </div>
+                      <div v-else class="existing-notes-empty">لا توجد ملاحظات سابقة بعد</div>
+                    </div>
+                  </div>
+                </td>
+              </tr>
             </template>
 
             <!-- No data -->
@@ -946,6 +1061,14 @@
       </v-card>
     </v-dialog>
 
+    <!-- Clinical note image lightbox (zoom / pan / navigate / download / fullscreen) -->
+    <ImageLightbox
+      v-model="lightboxOpen"
+      :images="lightboxImages"
+      :index="lightboxIndex"
+      @update:index="lightboxIndex = $event"
+    />
+
     <!-- Edit Bill Dialog -->
     <v-dialog v-model="billDateDialog" max-width="420">
       <v-card rounded="lg">
@@ -1079,7 +1202,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
@@ -1093,8 +1216,15 @@ import PatientReportDialog from '@/components/PatientReportDialog.vue'
 import CaseDrawer from '@/components/CaseDrawer.vue'
 import SmartTable from '@/components/SmartTable.vue'
 import AiInsightDrawer from '@/components/ai/AiInsightDrawer.vue'
+import ImageLightbox from '@/components/ImageLightbox.vue'
+import CaseNoteCard from '@/components/patients/CaseNoteCard.vue'
+import NoteImageAttachments from '@/components/patients/NoteImageAttachments.vue'
+import OrthoMetaBadges from '@/components/patients/OrthoMetaBadges.vue'
 import aiService from '@/services/ai.service'
 import { formatXrayAnalysis } from '@/utils/aiFormat'
+import { extractImageFiles, isSupportedImage, makeImageKey } from '@/utils/imageFiles'
+import { buildOrthoLine } from '@/utils/orthoNote'
+import { parseImageTag, setImageTag } from '@/utils/noteImageTag'
 import RecipeService from '@/services/recipe.service'
 import billService from '@/services/bill.service'
 import reservationService from '@/services/reservation.service'
@@ -1139,6 +1269,7 @@ const canCreateRecipe = computed(() => hasPermission(PERMISSIONS.CREATE_RECIPE))
 const canViewNotes = computed(() => hasPermission(PERMISSIONS.VIEW_NOTES))
 const canCreateNote = computed(() => hasPermission(PERMISSIONS.CREATE_NOTE))
 const canDeleteNote = computed(() => hasPermission(PERMISSIONS.DELETE_NOTE))
+const canEditNote = computed(() => hasPermission(PERMISSIONS.EDIT_NOTE))
 
 // Debug permissions in development
 if (import.meta.env.DEV) {
@@ -1212,7 +1343,6 @@ const drawerCase = ref(null)
 const drawerCaseNotes = ref([])
 
 // Case Notes inline state
-const noteInputs = ref({})
 const savingNoteFor = ref(null)
 
 // ===== AI Insight Drawer =====
@@ -1495,6 +1625,146 @@ const onAiDrawerError = (msg) => {
   showSnackbar(msg, 'error')
 }
 
+// Inline notes panel (shown below the row — no dialog/overlay) with
+// ortho quick-fields (note date / appliance / phase / duration).
+const orthoForms = reactive({}) // { [caseId]: { noteDate, appliance, phase, duration, text, images } }
+
+const todayDateString = () => new Date().toISOString().slice(0, 10)
+
+// Autosave: drafts (quick-fields + text, not the pending image files — those
+// can't survive a reload) persist to localStorage while typing so an
+// accidental navigation/refresh doesn't lose an in-progress note.
+const draftKey = (caseId) => `case-note-draft-${caseId}`
+const draftStatus = reactive({}) // { [caseId]: 'saving' | 'saved' | null }
+const draftTimers = {}
+
+const getOrthoForm = (caseId) => {
+  if (!orthoForms[caseId]) {
+    let draft = null
+    try {
+      const raw = localStorage.getItem(draftKey(caseId))
+      if (raw) draft = JSON.parse(raw)
+    } catch {
+      draft = null
+    }
+    orthoForms[caseId] = {
+      noteDate: draft?.noteDate ?? todayDateString(),
+      appliance: draft?.appliance ?? null,
+      phase: draft?.phase ?? null,
+      duration: draft?.duration ?? null,
+      text: draft?.text ?? '',
+      images: [],
+      imageType: 'other',
+    }
+  }
+  return orthoForms[caseId]
+}
+
+const scheduleDraftSave = (caseId) => {
+  draftStatus[caseId] = 'saving'
+  clearTimeout(draftTimers[caseId])
+  draftTimers[caseId] = setTimeout(() => {
+    const f = orthoForms[caseId]
+    if (!f) return
+    const { noteDate, appliance, phase, duration, text } = f
+    if (appliance || phase || duration || text?.trim()) {
+      localStorage.setItem(draftKey(caseId), JSON.stringify({ noteDate, appliance, phase, duration, text }))
+    } else {
+      localStorage.removeItem(draftKey(caseId))
+    }
+    draftStatus[caseId] = 'saved'
+    setTimeout(() => {
+      if (draftStatus[caseId] === 'saved') draftStatus[caseId] = null
+    }, 2000)
+  }, 600)
+}
+
+const clearNoteDraft = (caseId) => {
+  clearTimeout(draftTimers[caseId])
+  localStorage.removeItem(draftKey(caseId))
+  draftStatus[caseId] = null
+}
+
+// Pending image attachments for the note being composed (not yet uploaded —
+// the note must exist server-side first since images attach to a note id).
+const addPendingImages = (caseId, files, type) => {
+  const f = getOrthoForm(caseId)
+  const valid = files.filter(isSupportedImage)
+  if (!valid.length) {
+    showSnackbar('صيغ الصور المدعومة: JPG, PNG, WEBP فقط', 'warning')
+    return
+  }
+  for (const file of valid) {
+    f.images.push({
+      key: makeImageKey(),
+      file,
+      url: URL.createObjectURL(file),
+      progress: 0,
+      status: 'pending',
+      type: type || f.imageType || 'other',
+    })
+  }
+}
+
+const removePendingImage = (caseId, key) => {
+  const f = getOrthoForm(caseId)
+  const idx = f.images.findIndex((img) => img.key === key)
+  if (idx === -1) return
+  URL.revokeObjectURL(f.images[idx].url)
+  f.images.splice(idx, 1)
+}
+
+const noteDropActive = ref(null)
+const onNoteDrop = (event, caseId) => {
+  noteDropActive.value = null
+  const files = extractImageFiles(event.dataTransfer)
+  if (files.length) addPendingImages(caseId, files)
+}
+const onNotePaste = (event, caseId) => {
+  const files = extractImageFiles(event.clipboardData)
+  if (files.length) addPendingImages(caseId, files)
+}
+
+// Fullscreen image viewer (shared by the composer previews and every saved note)
+const lightboxOpen = ref(false)
+const lightboxImages = ref([])
+const lightboxIndex = ref(0)
+const openLightbox = (images, index) => {
+  lightboxImages.value = images.map((img) => ({ url: img.url, name: img.name }))
+  lightboxIndex.value = index
+  lightboxOpen.value = true
+}
+
+// Ortho quick-fields only apply to categories flagged is_orthodontic
+// (a regular 'dental' category, e.g. تقويم — not a separate category_type).
+const isOrthoCase = (item) => {
+  if (item.category?.is_orthodontic !== undefined) return !!item.category.is_orthodontic
+  const cat = categories.value.find(c => c.id === (item.category?.id || item.case_categores_id))
+  return !!cat?.is_orthodontic
+}
+
+// One-line summary tag built from whichever ortho quick-fields are filled
+// (shared with the saved-note editor via utils/orthoNote.js so both sides
+// build/parse the exact same format).
+const orthoHeaderLine = (caseId) => {
+  const f = orthoForms[caseId]
+  return f ? buildOrthoLine(f) : ''
+}
+
+const canSaveOrthoNote = (caseId) => {
+  const f = orthoForms[caseId]
+  return !!(f && (orthoHeaderLine(caseId) || f.text?.trim() || f.images?.length))
+}
+
+// Orthodontics cases show their detail panel automatically — no click needed.
+// (Notes for every case are already prefetched in fetchPatientCases.)
+const expandedOrthoCaseIds = computed(() =>
+  filteredCases.value.filter(isOrthoCase).map(c => c.id)
+)
+
+// Original always-visible note box for every non-orthodontics category.
+const noteInputs = ref({})
+
 const submitInlineNote = async (caseId) => {
   const text = noteInputs.value[caseId]?.trim()
   if (!text) return
@@ -1502,6 +1772,21 @@ const submitInlineNote = async (caseId) => {
   await addNoteToCase(caseId, text)
   noteInputs.value[caseId] = ''
   savingNoteFor.value = null
+}
+
+const saveCasePanelNote = async (item) => {
+  const f = getOrthoForm(item.id)
+  const content = [orthoHeaderLine(item.id), f.text.trim()].filter(Boolean).join('\n')
+  if (!content && !f.images.length) return
+  savingNoteFor.value = item.id
+  const noteId = await addNoteToCase(item.id, content || '📷 مرفقات صور', f.images)
+  savingNoteFor.value = null
+  if (!noteId) return
+  // Clear the free-text box and pending images but keep the quick-fields for a possible follow-up entry.
+  f.text = ''
+  f.images.forEach((img) => URL.revokeObjectURL(img.url))
+  f.images = []
+  clearNoteDraft(item.id)
 }
 
 const openCaseDrawer = (item) => {
@@ -1719,7 +2004,7 @@ const fetchPatientCases = async () => {
         caseItem.case_date = caseItem.created_at
       }
       if (caseItem.id) {
-        await fetchCaseNotes(caseItem.id)
+        await Promise.all([fetchCaseNotes(caseItem.id), fetchCaseImages(caseItem.id)])
       }
     }
   } catch (err) {
@@ -2606,23 +2891,169 @@ const getCaseNotesCount = (caseId) => {
   return caseNotes.value[caseId]?.length || 0
 }
 
-const addNoteToCase = async (caseId, content) => {
-  if (!content?.trim()) return
+// The API's polymorphic /images endpoint has no "Note" imageable type
+// (only Patient/Case/User/Reservation/Recipe), so note images are actually
+// uploaded against the Case, and each note tracks which of the case's
+// images are "its own" via a hidden [images:id,id] tag in its content —
+// see utils/noteImageTag.js.
+const caseImages = reactive({}) // { [caseId]: [image, ...] }
+
+const fetchCaseImages = async (caseId) => {
+  try {
+    const res = await api.get('/images/by-imageable', {
+      params: { imageable_type: 'Case', imageable_id: caseId }
+    })
+    caseImages[caseId] = res?.data?.data || res?.data || []
+  } catch (err) {
+    console.error('Error fetching case images:', err)
+    caseImages[caseId] = []
+  }
+}
+
+const getNoteImages = (note, caseId) => {
+  const { imageIds } = parseImageTag(note?.content)
+  if (!imageIds.length) return []
+  const pool = caseImages[caseId] || []
+  return pool.filter((img) => imageIds.includes(img.id))
+}
+
+const getImageSrc = (image) => getCasePhotoUrl(image)
+
+// Resolved-URL view of a note's images, ready to hand to <CaseNoteCard>/<ImageLightbox>.
+const getResolvedNoteImages = (note, caseId) =>
+  getNoteImages(note, caseId).map((img) => ({ ...img, url: getImageSrc(img) }))
+
+const uploadNoteImage = async (caseId, pendingImg) => {
+  try {
+    pendingImg.status = 'uploading'
+    const formData = new FormData()
+    formData.append('image', pendingImg.file)
+    formData.append('imageable_type', 'Case')
+    formData.append('imageable_id', caseId)
+    formData.append('type', pendingImg.type || 'other')
+    const res = await api.post('/images', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      onUploadProgress: (evt) => {
+        if (evt.total) pendingImg.progress = Math.round((evt.loaded / evt.total) * 100)
+      },
+    })
+    pendingImg.status = 'done'
+    return res?.data?.data || res?.data || res
+  } catch (err) {
+    console.error('Error uploading note image:', err)
+    pendingImg.status = 'error'
+    return null
+  }
+}
+
+const addNoteToCase = async (caseId, content, images = []) => {
+  if (!content?.trim() && !images.length) return null
 
   try {
     savingNote.value = true
-    await api.post('/notes', {
+
+    const uploaded = images.length
+      ? await Promise.all(images.map((img) => uploadNoteImage(caseId, img)))
+      : []
+    const ok = uploaded.filter(Boolean)
+    if (ok.length < images.length) {
+      showSnackbar('تم حفظ الملاحظة، لكن فشل رفع بعض الصور', 'warning')
+    }
+    const finalContent = setImageTag(content?.trim() || '', ok.map((img) => img.id))
+
+    const res = await api.post('/notes', {
       noteable_id: caseId,
       noteable_type: 'App\\Models\\CaseModel',
-      content,
+      content: finalContent,
     })
+    const created = res?.data?.data || res?.data || res
+
+    if (ok.length) await fetchCaseImages(caseId)
     await fetchCaseNotes(caseId)
     showSnackbar(t('messages.noteAdded') || 'Note added successfully', 'success')
+    return created?.id || true
   } catch (err) {
     console.error('Error saving note:', err)
     showSnackbar(err.response?.data?.message || t('errors.saveFailed'), 'error')
+    return null
   } finally {
     savingNote.value = false
+  }
+}
+
+const updatingNoteId = ref(null)
+const updateNote = async (note, caseId, content) => {
+  updatingNoteId.value = note.id
+  try {
+    await api.put(`/notes/${note.id}`, {
+      content,
+      noteable_id: caseId,
+      noteable_type: 'App\\Models\\CaseModel',
+    })
+    await fetchCaseNotes(caseId)
+    showSnackbar(t('messages.noteUpdated') || 'تم تحديث الملاحظة بنجاح', 'success')
+  } catch (err) {
+    console.error('Error updating note:', err)
+    showSnackbar(err.response?.data?.message || t('errors.saveFailed'), 'error')
+  } finally {
+    updatingNoteId.value = null
+  }
+}
+
+// Silent variant used by the image add/remove flows below — doesn't touch
+// `updatingNoteId` (that drives the text-edit form's loading/close behavior,
+// which an image action shouldn't trigger) and skips the "note updated" toast
+// since the caller shows a more accurate one.
+const patchNoteContent = async (note, caseId, content) => {
+  await api.put(`/notes/${note.id}`, {
+    content,
+    noteable_id: caseId,
+    noteable_type: 'App\\Models\\CaseModel',
+  })
+  await fetchCaseNotes(caseId)
+}
+
+const addImagesToExistingNote = async (note, caseId, { files, type }) => {
+  const valid = files.filter(isSupportedImage)
+  if (!valid.length) {
+    showSnackbar('صيغ الصور المدعومة: JPG, PNG, WEBP فقط', 'warning')
+    return
+  }
+  const uploaded = await Promise.all(
+    valid.map((file) => uploadNoteImage(caseId, { file, progress: 0, status: 'pending', type }))
+  )
+  const ok = uploaded.filter(Boolean)
+  if (!ok.length) {
+    showSnackbar('فشل رفع الصور', 'error')
+    return
+  }
+  if (ok.length < valid.length) {
+    showSnackbar('فشل رفع بعض الصور', 'warning')
+  }
+
+  try {
+    const { imageIds: existingIds } = parseImageTag(note.content)
+    const newContent = setImageTag(note.content, [...existingIds, ...ok.map((img) => img.id)])
+    await fetchCaseImages(caseId)
+    await patchNoteContent(note, caseId, newContent)
+    showSnackbar('تم إضافة الصور', 'success')
+  } catch (err) {
+    console.error('Error attaching images to note:', err)
+    showSnackbar(err.response?.data?.message || t('errors.saveFailed'), 'error')
+  }
+}
+
+const deleteNoteImage = async (image, note, caseId) => {
+  try {
+    await api.delete(`/images/${image.id}`)
+    const { imageIds } = parseImageTag(note.content)
+    const newContent = setImageTag(note.content, imageIds.filter((id) => id !== image.id))
+    await fetchCaseImages(caseId)
+    await patchNoteContent(note, caseId, newContent)
+    showSnackbar(t('messages.deleteSuccess') || 'تم حذف الصورة', 'success')
+  } catch (err) {
+    console.error('Error deleting note image:', err)
+    showSnackbar(err.response?.data?.message || t('errors.deleteFailed'), 'error')
   }
 }
 
@@ -2630,7 +3061,7 @@ const deleteNote = async (noteId, caseId) => {
   try {
     await api.delete(`/notes/${noteId}`)
     showSnackbar(t('messages.noteDeleted') || 'Note deleted successfully', 'success')
-    
+
     // Refresh notes for this case
     await fetchCaseNotes(caseId)
   } catch (err) {
@@ -2884,9 +3315,11 @@ const setDefaultTab = () => {
   background: rgba(0,0,0,0.06);
 }
 
-/* Price native input — zero Vue overhead */
+/* Price native input — zero Vue overhead.
+   Kept narrow on purpose: this column was the single widest contributor to the
+   table's minimum width (see the padding note below). */
 .case-price-input {
-  width: 110px;
+  width: 70px;
   border: none;
   border-bottom: 1.5px solid rgba(0,0,0,0.3);
   outline: none;
@@ -2898,6 +3331,108 @@ const setDefaultTab = () => {
 }
 .case-price-input:focus {
   border-bottom-color: rgb(var(--v-theme-primary));
+}
+
+/* Small static indicator shown for orthodontics rows (full panel is below) */
+.ortho-row-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: rgb(var(--v-theme-primary));
+}
+
+/* Inline "notes / ortho" expandable panel (replaces the old cramped textarea) */
+.case-notes-panel-row {
+  background: rgba(var(--v-theme-primary), 0.03);
+}
+.case-notes-panel {
+  padding: 20px 22px 22px;
+  margin: 10px 14px 16px;
+  background: #f6f7f9;
+  border: 1px solid rgba(16, 24, 40, 0.05);
+  border-radius: 16px;
+  box-shadow: 0 4px 18px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.04);
+  animation: notes-panel-in 0.15s ease-out;
+}
+@keyframes notes-panel-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.case-notes-section-title {
+  display: flex;
+  align-items: center;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #64748b;
+  margin-bottom: 6px;
+}
+.case-notes-textarea {
+  max-width: 100%;
+}
+
+.draft-status {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 600;
+}
+.draft-status--saving {
+  color: #94a3b8;
+}
+.draft-status--saved {
+  color: #16a34a;
+}
+
+.case-notes-dropzone {
+  border-radius: 12px;
+  transition: box-shadow 0.15s;
+}
+.case-notes-dropzone--drag {
+  box-shadow: 0 0 0 2px rgb(var(--v-theme-primary)) inset;
+  border-radius: 12px;
+}
+
+.existing-notes-wrap {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(0,0,0,0.06);
+}
+.existing-notes-title {
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+  margin-bottom: 8px;
+}
+.existing-notes-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  margin-inline-start: 6px;
+  border-radius: 999px;
+  background: rgba(var(--v-theme-primary), 0.12);
+  color: rgb(var(--v-theme-primary));
+  font-size: 11px;
+  font-weight: 700;
+}
+.existing-notes-timeline {
+  display: flex;
+  flex-direction: column;
+  max-height: 360px;
+  overflow-y: auto;
+  padding-inline-end: 4px;
+}
+.existing-notes-empty {
+  font-size: 12.5px;
+  color: #94a3b8;
+  padding: 2px;
 }
 
 /* AI "analyze case" button — gradient accent */
@@ -3024,6 +3559,41 @@ const setDefaultTab = () => {
 :deep(.v-data-table th) {
   text-align: right !important;
   font-size: 12px !important;
+}
+
+/* Cases table header — solid teal bar for strong contrast against the body */
+.cases-data-table :deep(.v-data-table__th) {
+  background: #407f9d !important;
+  border-bottom: none !important;
+}
+.cases-data-table :deep(.v-data-table-header__content span) {
+  font-size: 12.5px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  letter-spacing: 0.4px;
+}
+.cases-data-table :deep(.v-data-table-header__sort-icon) {
+  color: #ffffff !important;
+  opacity: 0.85;
+}
+/* Ten columns don't fit a laptop at Vuetify's default 16px inline cell padding —
+   that padding alone was 320px of the table's 979px minimum width, which is what
+   forced the horizontal scrollbar. Halving it buys back 160px and lets the table
+   sit inside its container. */
+.cases-data-table :deep(.v-data-table__td),
+.cases-data-table :deep(.v-data-table__th) {
+  padding-inline: 8px !important;
+}
+/* …but the expanded notes panel spans all ten columns and supplies its own. */
+.cases-data-table :deep(.case-notes-panel-row .v-data-table__td) {
+  padding-inline: 0 !important;
+}
+
+.cases-data-table :deep(.v-data-table__th:first-child) {
+  border-start-start-radius: 12px;
+}
+.cases-data-table :deep(.v-data-table__th:last-child) {
+  border-start-end-radius: 12px;
 }
 
 /* Vuetify 3 Mobile Card View (screens ≤ 600px) */

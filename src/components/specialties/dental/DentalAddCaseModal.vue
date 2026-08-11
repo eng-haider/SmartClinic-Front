@@ -231,7 +231,8 @@ const showToothField = computed(() => {
   if (!selectedCategory.value) return false
   const requiresTooth = selectedCategory.value.requires_tooth_detection
   const isBeauty = selectedCategory.value.category_type === 'beauty'
-  return requiresTooth && !isBeauty
+  const isOrtho = !!selectedCategory.value.is_orthodontic
+  return requiresTooth && !isBeauty && !isOrtho
 })
 
 watch(() => form.value.category_id, (newCategoryId) => {

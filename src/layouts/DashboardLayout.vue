@@ -79,13 +79,23 @@
     </v-app-bar>
 
     <!-- Navigation Drawer -->
+    <!-- No click-to-expand on the drawer itself: on a tablet the rail is the
+         resting state, so tapping a nav icon must navigate and leave the rail
+         alone. Expanding is the toggle button below, and nothing else. -->
     <v-navigation-drawer
       v-model="drawer"
       :rail="rail"
       :permanent="!isMobile"
-      @click="rail = false"
     >
+      <!-- Rail: just the toggle, since a title/append would be clipped away -->
+      <v-list-item v-if="rail" nav @click.stop="rail = false">
+        <template v-slot:prepend>
+          <v-icon>mdi-menu</v-icon>
+        </template>
+      </v-list-item>
+
       <v-list-item
+        v-else
         :title="t('layout.dashboard')"
         nav
       >
@@ -95,8 +105,8 @@
         <template v-slot:append>
           <v-btn
             variant="text"
-            icon="mdi-chevron-left"
-            @click.stop="rail = !rail"
+            icon="mdi-menu-open"
+            @click.stop="rail = true"
           ></v-btn>
         </template>
       </v-list-item>
@@ -216,6 +226,7 @@ const {
 const drawer = ref(true)
 const rail = ref(false)
 const isMobile = ref(false)
+const isTablet = ref(false)
 const aiChatRef = ref(null)
 
 // Pending booking requests badge (shared count + polling)
@@ -310,8 +321,26 @@ const reloadPage = () => {
   window.location.reload()
 }
 
+// Tablet = iPad-sized landscape (iPad 1024, Air 1180, Pro 11" 1194). Below 960 the
+// drawer is already a mobile overlay; 1280+ has room for the labelled list.
+const TABLET_MIN = 960
+const TABLET_MAX = 1280
+
+let lastBreakpoint = null
+
 const checkMobile = () => {
-  isMobile.value = window.innerWidth < 960
+  const width = window.innerWidth
+  isMobile.value = width < TABLET_MIN
+  isTablet.value = width >= TABLET_MIN && width < TABLET_MAX
+
+  const breakpoint = isMobile.value ? 'mobile' : isTablet.value ? 'tablet' : 'desktop'
+  // Only react when the size class actually changes — iPad fires resize when the
+  // browser chrome hides on scroll, and re-railing there would undo a manual toggle.
+  if (breakpoint !== lastBreakpoint) {
+    lastBreakpoint = breakpoint
+    rail.value = breakpoint === 'tablet'
+  }
+
   if (isMobile.value) {
     drawer.value = false
   }
