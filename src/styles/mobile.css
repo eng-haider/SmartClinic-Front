@@ -52,15 +52,6 @@ body.keyboard-is-open .bottom-tab-bar {
     min-height: 44px !important;
   }
 
-  .v-dialog {
-    margin: 8px !important;
-    max-height: calc(100vh - 16px) !important;
-  }
-
-  .v-dialog > .v-card {
-    border-radius: 16px !important;
-  }
-
   .v-toolbar-title {
     font-size: 1rem !important;
   }

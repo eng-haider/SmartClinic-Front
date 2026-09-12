@@ -1,5 +1,5 @@
 <template>
-  <v-container fluid class="pa-4">
+  <v-container fluid class="settings-page pa-4" :class="{ 'settings-page--with-save': showMobileSave }">
     <v-row class="mobile-page-heading">
       <v-col cols="12">
         <h1 class="text-h4 mb-4">{{ $t('settings.title') }}</h1>
@@ -8,15 +8,18 @@
 
     <v-row>
       <v-col cols="12">
-        <v-card>
-          <v-tabs v-model="activeTab" bg-color="primary">
+        <v-card class="settings-workspace">
+          <nav v-if="xs" class="settings-mobile-nav" :aria-label="$t('settings.title')">
+            <button v-for="tab in settingsTabs" :key="tab.value" type="button"
+              :aria-pressed="activeTab === tab.value" @click="activeTab = tab.value">
+              <v-icon size="23">{{ tab.icon }}</v-icon>
+              <span>{{ tab.title }}</span>
+            </button>
+          </nav>
+          <v-tabs v-else v-model="activeTab" bg-color="primary">
             <v-tab value="caseCategories">
               <v-icon start>mdi-tag-multiple</v-icon>
               {{ $t('settings.caseCategories') }}
-            </v-tab>
-            <v-tab value="general">
-              <v-icon start>mdi-cog</v-icon>
-              {{ $t('settings.general') }}
             </v-tab>
             <v-tab value="clinic">
               <v-icon start>mdi-hospital-building</v-icon>
@@ -28,24 +31,15 @@
             </v-tab>
           </v-tabs>
 
-          <v-window v-model="activeTab">
+          <v-window v-model="activeTab" class="settings-panels">
             <!-- Case Categories Tab -->
             <v-window-item value="caseCategories">
               <CaseCategories />
             </v-window-item>
 
-            <!-- General Settings Tab -->
-            <v-window-item value="general">
-              <v-card-text>
-                <v-alert type="info" variant="tonal">
-                  {{ $t('messages.featureComingSoon') }}
-                </v-alert>
-              </v-card-text>
-            </v-window-item>
-
             <!-- Clinic Settings Tab -->
             <v-window-item value="clinic">
-              <v-card-text class="pa-6">
+              <v-card-text class="pa-6 clinic-settings-content">
                 <!-- Loading State -->
                 <div v-if="loadingSettings" class="text-center py-8">
                   <v-progress-circular indeterminate color="primary" size="48"></v-progress-circular>
@@ -63,15 +57,11 @@
                 <!-- Settings Form -->
                 <v-form v-else ref="settingsForm" v-model="formValid" @submit.prevent="saveAllSettings">
                   <!-- Logo Upload Section -->
-                  <v-card variant="outlined" class="mb-6">
-                    <v-card-title class="bg-grey-lighten-4">
-                      <v-icon start>mdi-image</v-icon>
-                      {{ $t('clinicSettings.logo') }}
-                    </v-card-title>
+                  <SettingsSection id="clinic-logo" :title="$t('clinicSettings.logo')" icon="mdi-image">
                     <v-card-text class="pa-4">
                       <v-row align="center">
                         <v-col cols="12" md="4" class="text-center">
-                          <v-avatar size="150" class="border elevation-2" color="grey-lighten-3">
+                          <v-avatar :size="xs ? 88 : 150" class="border elevation-2" color="grey-lighten-3">
                             <v-img 
                               v-if="logoPreview || clinicForm.logo" 
                               :src="logoPreview || clinicForm.logo"
@@ -106,14 +96,10 @@
                         </v-col>
                       </v-row>
                     </v-card-text>
-                  </v-card>
+                  </SettingsSection>
 
                   <!-- Basic Information Section -->
-                  <v-card variant="outlined" class="mb-6">
-                    <v-card-title class="bg-grey-lighten-4">
-                      <v-icon start>mdi-information</v-icon>
-                      {{ $t('clinicSettings.basicInfo') }}
-                    </v-card-title>
+                  <SettingsSection id="clinic-basicInfo" :title="$t('clinicSettings.basicInfo')" icon="mdi-information" initially-open>
                     <v-card-text class="pa-4">
                       <v-row>
                         <v-col cols="12" md="6">
@@ -185,14 +171,10 @@
                         </v-col>
                       </v-row>
                     </v-card-text>
-                  </v-card>
+                  </SettingsSection>
 
                   <!-- Appointment Settings Section -->
-                  <v-card variant="outlined" class="mb-6">
-                    <v-card-title class="bg-grey-lighten-4">
-                      <v-icon start>mdi-calendar-clock</v-icon>
-                      {{ $t('clinicSettings.appointmentSettings') }}
-                    </v-card-title>
+                  <SettingsSection id="clinic-appointmentSettings" :title="$t('clinicSettings.appointmentSettings')" icon="mdi-calendar-clock">
                     <v-card-text class="pa-4">
                       <v-row>
                         <v-col cols="12" md="6">
@@ -237,14 +219,10 @@
                         </v-col>
                       </v-row>
                     </v-card-text>
-                  </v-card>
+                  </SettingsSection>
 
                   <!-- Notification Settings Section -->
-                  <v-card variant="outlined" class="mb-6">
-                    <v-card-title class="bg-grey-lighten-4">
-                      <v-icon start>mdi-bell</v-icon>
-                      {{ $t('clinicSettings.notificationSettings') }}
-                    </v-card-title>
+                  <SettingsSection id="clinic-notificationSettings" :title="$t('clinicSettings.notificationSettings')" icon="mdi-bell">
                     <v-card-text class="pa-4">
                       <v-row>
                         <v-col cols="12" md="4">
@@ -284,14 +262,10 @@
                         </v-col>
                       </v-row>
                     </v-card-text>
-                  </v-card>
+                  </SettingsSection>
 
                   <!-- Financial Settings Section -->
-                  <v-card variant="outlined" class="mb-6">
-                    <v-card-title class="bg-grey-lighten-4">
-                      <v-icon start>mdi-currency-usd</v-icon>
-                      {{ $t('clinicSettings.financialSettings') }}
-                    </v-card-title>
+                  <SettingsSection id="clinic-financialSettings" :title="$t('clinicSettings.financialSettings')" icon="mdi-currency-usd">
                     <v-card-text class="pa-4">
                       <v-row>
                         <v-col cols="12" md="6">
@@ -337,14 +311,10 @@
                         </v-col>
                       </v-row>
                     </v-card-text>
-                  </v-card>
+                  </SettingsSection>
 
                   <!-- Display Settings Section -->
-                  <v-card variant="outlined" class="mb-6">
-                    <v-card-title class="bg-grey-lighten-4">
-                      <v-icon start>mdi-palette</v-icon>
-                      {{ $t('clinicSettings.displaySettings') }}
-                    </v-card-title>
+                  <SettingsSection id="clinic-displaySettings" :title="$t('clinicSettings.displaySettings')" icon="mdi-palette">
                     <v-card-text class="pa-4">
                       <v-row>
                         <v-col cols="12" md="6">
@@ -502,14 +472,10 @@
                         </v-col>
                       </v-row>
                     </v-card-text>
-                  </v-card>
+                  </SettingsSection>
 
                   <!-- Social Media Section -->
-                  <v-card variant="outlined" class="mb-6">
-                    <v-card-title class="bg-grey-lighten-4">
-                      <v-icon start>mdi-share-variant</v-icon>
-                      {{ $t('clinicSettings.socialMedia') }}
-                    </v-card-title>
+                  <SettingsSection id="clinic-socialMedia" :title="$t('clinicSettings.socialMedia')" icon="mdi-share-variant">
                     <v-card-text class="pa-4">
                       <v-row>
                         <v-col cols="12" md="6">
@@ -550,14 +516,10 @@
                         </v-col>
                       </v-row>
                     </v-card-text>
-                  </v-card>
+                  </SettingsSection>
 
                   <!-- Medical/Dental Settings Section -->
-                  <v-card variant="outlined" class="mb-6">
-                    <v-card-title class="bg-grey-lighten-4">
-                      <v-icon start>mdi-tooth</v-icon>
-                      {{ $t('clinicSettings.medicalSettings') }}
-                    </v-card-title>
+                  <SettingsSection id="clinic-medicalSettings" :title="$t('clinicSettings.medicalSettings')" icon="mdi-tooth">
                     <v-card-text class="pa-4">
                       <!-- Tooth Condition Colors -->
                       <h3 class="text-h6 mb-3">{{ $t('clinicSettings.toothConditionColors') }}</h3>
@@ -680,16 +642,12 @@
                         </v-col>
                       </v-row> -->
                     </v-card-text>
-                  </v-card>
+                  </SettingsSection>
 
                   <!-- Working Hours Section -->
-                  <v-card variant="outlined" class="mb-6">
-                    <v-card-title class="bg-grey-lighten-4">
-                      <v-icon start>mdi-clock-outline</v-icon>
-                      {{ $t('clinicSettings.workingHours') }}
-                    </v-card-title>
+                  <SettingsSection id="clinic-workingHours" :title="$t('clinicSettings.workingHours')" icon="mdi-clock-outline">
                     <v-card-text class="pa-4">
-                      <v-row v-for="(day, index) in weekDays" :key="day.value">
+                      <v-row v-for="(day, index) in weekDays" :key="day.value" class="working-day">
                         <v-col cols="12" md="3" class="d-flex align-center">
                           <v-checkbox
                             v-model="workingHours[day.value].enabled"
@@ -698,7 +656,7 @@
                             :disabled="!canEdit"
                           ></v-checkbox>
                         </v-col>
-                        <v-col cols="12" md="4">
+                        <v-col cols="6" md="4">
                           <v-text-field
                             v-model="workingHours[day.value].from"
                             :label="$t('clinicSettings.from')"
@@ -708,7 +666,7 @@
                             :disabled="!workingHours[day.value].enabled || !canEdit"
                           ></v-text-field>
                         </v-col>
-                        <v-col cols="12" md="4">
+                        <v-col cols="6" md="4">
                           <v-text-field
                             v-model="workingHours[day.value].to"
                             :label="$t('clinicSettings.to')"
@@ -723,10 +681,10 @@
                         </v-col>
                       </v-row>
                     </v-card-text>
-                  </v-card>
+                  </SettingsSection>
 
                   <!-- Save Button -->
-                  <v-row v-if="canEdit">
+                  <v-row v-if="canEdit && !xs">
                     <v-col cols="12" class="text-end">
                       <v-btn
                         color="primary"
@@ -821,6 +779,14 @@
       </v-col>
     </v-row>
 
+    <div v-if="showMobileSave" class="settings-mobile-save">
+      <v-btn color="primary" variant="flat" block size="large" rounded="lg"
+        prepend-icon="mdi-content-save-outline" :loading="savingSettings"
+        :disabled="uploadingLogo" @click="saveAllSettings">
+        {{ $t('common.save') }}
+      </v-btn>
+    </div>
+
     <!-- Snackbar for notifications -->
     <v-snackbar
       v-model="snackbar"
@@ -840,6 +806,8 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useDisplay } from 'vuetify'
+import SettingsSection from '@/components/SettingsSection.vue'
 import CaseCategories from '@/views/settings/CaseCategories.vue'
 import aiService from '@/services/ai.service'
 import { useAuthStore } from '@/stores/authNew'
@@ -853,10 +821,17 @@ import { useClinicSettings } from '@/composables/useClinicSettings'
 import { DEFAULT_TOOTH_NOTATION, normalizeToothNotation } from '@/components/teeth/toothNotation'
 
 const { t } = useI18n()
+const { xs } = useDisplay()
 const authStore = useAuthStore()
 const { resetCache } = useClinicSettings()
 
 const activeTab = ref('caseCategories')
+const settingsTabs = computed(() => [
+  { value: 'caseCategories', title: t('settings.caseCategories'), icon: 'mdi-tag-multiple-outline' },
+  { value: 'clinic', title: t('settings.clinic'), icon: 'mdi-hospital-building' },
+  { value: 'ai', title: 'AI', icon: 'mdi-robot-outline' }
+])
+const showMobileSave = computed(() => xs.value && activeTab.value === 'clinic' && canEdit.value && !loadingSettings.value && !settingsError.value)
 
 // Permission check
 const canEdit = computed(() => {
@@ -1357,6 +1332,113 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.settings-mobile-nav {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.settings-mobile-nav button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+  padding: 12px;
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-radius: 14px;
+  background: rgb(var(--v-theme-surface));
+  color: rgba(var(--v-theme-on-surface), 0.75);
+  font-size: 0.8125rem;
+  text-align: start;
+}
+
+.settings-mobile-nav button[aria-pressed="true"] {
+  background: rgba(var(--v-theme-primary), 0.09);
+  color: rgb(var(--v-theme-primary));
+  border-color: rgba(var(--v-theme-primary), 0.4);
+  font-weight: 700;
+}
+
+.settings-mobile-nav button:focus-visible {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: 2px;
+}
+
+.settings-mobile-save {
+  position: fixed;
+  inset-inline: 0;
+  bottom: calc(60px + env(safe-area-inset-bottom, 0px));
+  z-index: 20;
+  padding: 12px 16px;
+  background: rgb(var(--v-theme-surface));
+  border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
+:global(.flutter-app .settings-mobile-save) {
+  bottom: 0;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+}
+
+:global(body.keyboard-is-open .settings-mobile-save) {
+  bottom: 0;
+}
+
+@media (max-width: 599px) {
+  .settings-page {
+    padding: 12px !important;
+  }
+
+  .settings-page--with-save {
+    padding-bottom: 96px !important;
+  }
+
+  .settings-workspace {
+    background: transparent;
+    box-shadow: none;
+    overflow: visible;
+  }
+
+  .settings-panels :deep(.v-window-item > .v-card-text) {
+    padding: 0 !important;
+  }
+
+  .clinic-settings-content :deep(.v-row) {
+    margin: -6px;
+  }
+
+  .clinic-settings-content :deep(.v-row > [class*="v-col"]) {
+    padding: 6px;
+    min-width: 0;
+  }
+
+  .settings-page :deep(.v-card-title) {
+    font-size: 0.9375rem;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .settings-page :deep(.v-btn__content) {
+    white-space: normal;
+  }
+
+  .settings-page :deep(.v-btn:not(.v-btn--icon)) {
+    height: auto;
+    min-height: 44px;
+    padding-block: 10px;
+    letter-spacing: 0;
+  }
+
+  .settings-page :deep(input.v-field__input),
+  .settings-page :deep(textarea.v-field__input) {
+    font-size: 16px;
+  }
+
+  .working-day + .working-day {
+    margin-top: 8px;
+  }
+}
+
 .border {
   border: 2px solid #e0e0e0 !important;
 }

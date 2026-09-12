@@ -78,6 +78,7 @@ import pl from './locales/pl.json'
 // Styles
 import './styles/main.css'
 import './styles/mobile.css'
+import './styles/dialogs.css'
 
 // Custom Directives
 import permissionDirective, { roleDirective as roleDir, canDirective } from './directives/permission'
@@ -125,7 +126,8 @@ const vuetify = createVuetify({
   },
   defaults: {
     VDialog: {
-      scrollStrategy: 'reposition'
+      scrollable: true,
+      scrollStrategy: 'block'
     },
     VMenu: {
       scrollStrategy: 'reposition'

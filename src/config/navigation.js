@@ -91,7 +91,7 @@ export const NAV_CONFIG = [
   },
   {
     key: 'bills',
-    title: { ar: 'الحاسبات', en: 'Bills', ku: 'پسوڵەکان', pl: 'Rachunki' },
+    title: { ar: 'الحسابات', en: 'Bills', ku: 'پسوڵەکان', pl: 'Rachunki' },
     icon: 'mdi-receipt',
     to: '/bills',
     permissionKeywords: ['bill'], // matches: create-bill, view-clinic-bills, etc.

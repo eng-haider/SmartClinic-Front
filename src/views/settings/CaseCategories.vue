@@ -1,10 +1,10 @@
 <template>
-  <v-container fluid class="pa-6">
+  <v-container fluid class="case-categories pa-6">
     <!-- Header with Add Button -->
-    <v-row class="mb-4">
+    <v-row class="mb-4 categories-header">
       <v-col cols="12" md="8">
         <h2 class="text-h5">{{ $t('caseCategories.title') }}</h2>
-        <p class="text-body-2 text-medium-emphasis">
+        <p class="text-body-2 text-medium-emphasis d-none d-sm-block">
           {{ $t('caseCategories.subtitle') }}
         </p>
       </v-col>
@@ -14,6 +14,7 @@
           color="primary"
           prepend-icon="mdi-plus"
           @click="openCreateDialog"
+          :block="xs"
         >
           {{ $t('caseCategories.addCategory') }}
         </v-btn>
@@ -21,7 +22,7 @@
     </v-row>
 
     <!-- Search and Filters -->
-    <v-row class="mb-4">
+    <v-row class="mb-4 categories-filters">
       <v-col cols="12" md="6">
         <v-text-field
           v-model="search"
@@ -30,35 +31,80 @@
           variant="outlined"
           density="compact"
           clearable
-          @input="debouncedSearch"
+          hide-details
+          @update:model-value="debouncedSearch"
         ></v-text-field>
       </v-col>
-      <v-col cols="12" md="3">
+      <v-col cols="6" md="3">
         <v-select
           v-model="sortBy"
           :items="sortOptions"
           :label="$t('common.sortBy')"
           variant="outlined"
           density="compact"
-          @update:modelValue="loadCategories"
+          hide-details
+          @update:modelValue="resetCategoryPage"
         ></v-select>
       </v-col>
-      <v-col cols="12" md="3">
+      <v-col cols="6" md="3">
         <v-select
           v-model="itemsPerPage"
           :items="[10, 15, 20, 50]"
           :label="$t('common.itemsPerPage')"
           variant="outlined"
           density="compact"
-          @update:modelValue="loadCategories"
+          hide-details
+          @update:modelValue="resetCategoryPage"
         ></v-select>
       </v-col>
     </v-row>
 
     <!-- Data Table -->
-    <v-card>
-      <v-card-text>
+    <v-card :variant="xs ? 'flat' : 'elevated'" :class="{ 'categories-mobile-list': xs }">
+      <v-card-text :class="{ 'pa-0': xs }">
+        <div v-if="xs" class="category-cards" :aria-busy="loading">
+          <template v-if="loading">
+            <v-skeleton-loader v-for="n in 3" :key="n" type="list-item-two-line" />
+          </template>
+          <v-alert v-else-if="!categories.length" type="info" variant="tonal">{{ $t('common.noData') }}</v-alert>
+          <template v-else>
+            <article v-for="category in categories" :key="category.id" class="category-card">
+              <div class="category-card__heading">
+                <v-avatar color="primary" variant="tonal" size="38" rounded="lg">
+                  <v-icon size="20">{{ categoryTypeIcon(category.category_type) }}</v-icon>
+                </v-avatar>
+                <h3>{{ category.name }}</h3>
+              </div>
+              <div class="category-card__meta">
+                <span>{{ categoryTypeLabel(category.category_type) }}</span>
+                <v-chip v-if="category.is_orthodontic" size="small" color="indigo" variant="tonal">
+                  {{ $t('caseCategories.isOrthodontic') }}
+                </v-chip>
+                <span>{{ $t('caseCategories.displayOrder') }}: {{ category.order }}</span>
+              </div>
+              <div class="category-card__detail">
+                <span>{{ $t('caseCategories.defaultCost') }}</span>
+                <strong>{{ formatCurrency(category.item_cost) }}</strong>
+              </div>
+              <div class="category-card__detail">
+                <span>{{ $t('caseCategories.requiresTooth') }}</span>
+                <span>{{ category.without_detect_tooth ? $t('common.no') : $t('common.yes') }}</span>
+              </div>
+              <div class="category-card__actions">
+                <v-btn v-permission="PERMISSIONS.EDIT_CASE" color="primary" variant="tonal"
+                  prepend-icon="mdi-pencil-outline" @click="openEditDialog(category)">
+                  {{ $t('common.edit') }}
+                </v-btn>
+                <v-btn v-permission="PERMISSIONS.DELETE_CASE" color="error" variant="text"
+                  prepend-icon="mdi-delete-outline" @click="confirmDelete(category)">
+                  {{ $t('common.delete') }}
+                </v-btn>
+              </div>
+            </article>
+          </template>
+        </div>
         <v-data-table
+          v-else
           :headers="headers"
           :items="categories"
           :loading="loading"
@@ -153,7 +199,9 @@
         <v-pagination
           v-model="currentPage"
           :length="totalPages"
-          :total-visible="7"
+          :total-visible="xs ? 3 : 7"
+          :density="xs ? 'compact' : 'default'"
+          :disabled="loading"
           @update:modelValue="loadCategories"
         ></v-pagination>
         <v-spacer></v-spacer>
@@ -320,6 +368,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useDisplay } from 'vuetify'
 import { useAuthStore } from '@/stores/authNew'
 import { PERMISSIONS } from '@/constants/permissions'
 import { getCategoryTypeOptions, getDefaultCategoryType } from '@/config/specialties'
@@ -331,6 +380,7 @@ import {
 } from '@/services/caseCategory.service'
 
 const { t } = useI18n()
+const { xs } = useDisplay()
 const authStore = useAuthStore()
 
 // Category types available for this clinic's specialty, and the default type
@@ -442,6 +492,11 @@ const loadCategories = async () => {
 }
 
 let searchTimeout
+const resetCategoryPage = () => {
+  currentPage.value = 1
+  loadCategories()
+}
+
 const debouncedSearch = () => {
   clearTimeout(searchTimeout)
   searchTimeout = setTimeout(() => {
@@ -568,6 +623,92 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.category-cards {
+  display: grid;
+  gap: 12px;
+}
+
+.category-card {
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  background: rgb(var(--v-theme-surface));
+}
+
+.category-card__heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.category-card__heading h3 {
+  min-width: 0;
+  font-size: 0.9375rem;
+  overflow-wrap: anywhere;
+}
+
+.category-card__meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-block: 12px;
+  font-size: 0.75rem;
+  color: rgba(var(--v-theme-on-surface), 0.65);
+}
+
+.category-card__detail {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 0.8125rem;
+}
+
+.category-card__detail strong {
+  color: rgb(var(--v-theme-primary));
+  overflow-wrap: anywhere;
+}
+
+.category-card__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.category-card__actions .v-btn {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  border-radius: 10px;
+}
+
+@media (max-width: 599px) {
+  .case-categories {
+    padding: 0 !important;
+  }
+
+  .categories-mobile-list {
+    background: transparent;
+  }
+
+  .categories-header,
+  .categories-filters {
+    margin: -6px -6px 12px !important;
+  }
+
+  .categories-header > [class*="v-col"],
+  .categories-filters > [class*="v-col"] {
+    padding: 6px;
+  }
+
+  .categories-header h2 {
+    font-size: 1rem !important;
+    font-weight: 600;
+  }
+}
+
 /* Data Table Alignment for Arabic */
 :deep(.v-data-table th) {
   text-align: right !important;

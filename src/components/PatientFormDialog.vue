@@ -1,11 +1,16 @@
 <template>
   <v-dialog v-model="internalDialog" max-width="700" persistent>
     <v-card rounded="xl">
-      <v-card-title class="d-flex align-center justify-space-between pa-4 bg-primary">
-        <span class="text-white">
-          {{ editMode ? $t('patients.edit_patient') : $t('patients.add_patient') }}
-        </span>
-        <v-btn icon="mdi-close" variant="text" color="white" @click="handleClose" />
+      <v-card-title class="d-flex align-center justify-space-between">
+        <div class="patient-form-heading">
+          <v-avatar color="primary" variant="tonal" rounded="lg" size="42">
+            <v-icon size="23">{{ editMode ? 'mdi-account-edit-outline' : 'mdi-account-plus-outline' }}</v-icon>
+          </v-avatar>
+          <h2 class="patient-form-heading__title">
+            {{ editMode ? $t('patients.edit_patient') : $t('patients.add_patient') }}
+          </h2>
+        </div>
+        <v-btn icon="mdi-close" variant="text" color="primary" :aria-label="$t('common.close')" @click="handleClose" />
       </v-card-title>
 
       <v-card-text class="pa-6">
@@ -652,3 +657,19 @@ async function savePatient() {
   }
 }
 </script>
+
+<style scoped>
+.patient-form-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.patient-form-heading__title {
+  font-size: inherit;
+  font-weight: 700;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+</style>

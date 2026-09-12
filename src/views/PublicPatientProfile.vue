@@ -310,7 +310,9 @@
           {{ selectedImage.alt_text || $t('publicProfile.medicalImage') }}
           <v-btn icon="mdi-close" variant="text" @click="imageDialog = false" />
         </v-card-title>
-        <v-img :src="selectedImage.url" />
+        <v-card-text class="pa-0">
+          <v-img :src="selectedImage.url" />
+        </v-card-text>
       </v-card>
     </v-dialog>
   </div>

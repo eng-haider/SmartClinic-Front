@@ -1,0 +1,185 @@
+/* Shared dialog chrome. Only the outer card is styled: nested cards, alerts,
+   printable reports, and document previews keep their own appearance. */
+.v-dialog > .v-overlay__content {
+  max-height: calc(100dvh - 48px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+}
+
+:is(.v-dialog > .v-overlay__content, .v-dialog > .v-overlay__content > form) > .v-card {
+  min-height: 0;
+  border-radius: 16px !important;
+}
+
+:is(.v-dialog--scrollable > .v-overlay__content, .v-dialog--scrollable > .v-overlay__content > form) > .v-card {
+  overflow: hidden;
+}
+
+/* A quiet primary tint separates the header from the form without bringing
+   back the solid colored banners. Both layers adapt to light and dark themes. */
+:is(.v-dialog > .v-overlay__content, .v-dialog > .v-overlay__content > form) > .v-card > :is(.v-card-title, .v-toolbar) {
+  flex-shrink: 0;
+  background: linear-gradient(rgba(var(--v-theme-primary), 0.08), rgba(var(--v-theme-primary), 0.08)), rgb(var(--v-theme-surface)) !important;
+  color: rgb(var(--v-theme-on-surface)) !important;
+  box-shadow: none !important;
+  border-bottom: 1px solid rgba(var(--v-theme-primary), 0.12);
+}
+
+:is(.v-dialog > .v-overlay__content, .v-dialog > .v-overlay__content > form) > .v-card > .v-card-title {
+  padding: 12px 20px !important;
+  font-size: 1.0625rem !important;
+  font-weight: 600;
+  line-height: 1.6;
+  letter-spacing: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  gap: 12px;
+}
+
+:is(.v-dialog > .v-overlay__content, .v-dialog > .v-overlay__content > form) > .v-card > :is(.v-card-title, .v-toolbar) .text-white {
+  color: rgb(var(--v-theme-on-surface)) !important;
+}
+
+:is(.v-dialog > .v-overlay__content, .v-dialog > .v-overlay__content > form) > .v-card > .v-card-title :is(.text-h6, .text-h5) {
+  font-size: inherit !important;
+  line-height: inherit;
+}
+
+:is(.v-dialog > .v-overlay__content, .v-dialog > .v-overlay__content > form) > .v-card > .v-card-title > :not(.v-btn) {
+  min-width: 0;
+}
+
+:is(.v-dialog > .v-overlay__content, .v-dialog > .v-overlay__content > form) > .v-card > :is(.v-card-title, .v-toolbar) .v-btn--icon {
+  flex-shrink: 0;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 50%;
+  background: rgba(var(--v-theme-primary), 0.07);
+}
+
+:is(.v-dialog--scrollable > .v-overlay__content, .v-dialog--scrollable > .v-overlay__content > form) > .v-card > .v-card-text {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--v-theme-on-surface), 0.25) transparent;
+}
+
+:is(.v-dialog > .v-overlay__content, .v-dialog > .v-overlay__content > form) > .v-card > .v-card-actions {
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  gap: 8px;
+  background: rgb(var(--v-theme-surface));
+}
+
+.v-dialog .v-card-text::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.v-dialog .v-card-text::-webkit-scrollbar-thumb {
+  background: rgba(var(--v-theme-on-surface), 0.25);
+  border-radius: 8px;
+}
+
+@media (max-width: 599px) {
+  /* Phone dialogs sit within thumb reach; long forms grow up to the safe top
+     edge while short confirmations keep their natural height. */
+  .v-dialog:not(.v-dialog--fullscreen) {
+    align-items: flex-end;
+  }
+
+  .v-dialog:not(.v-dialog--fullscreen) > .v-overlay__content {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: calc(100dvh - max(24px, env(safe-area-inset-top, 0px)));
+    margin: 0;
+    transform-origin: center bottom;
+  }
+
+  :is(.v-dialog:not(.v-dialog--fullscreen) > .v-overlay__content, .v-dialog:not(.v-dialog--fullscreen) > .v-overlay__content > form) > .v-card {
+    border-radius: 24px 24px 0 0 !important;
+    box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.12);
+  }
+
+  :is(.v-dialog > .v-overlay__content, .v-dialog > .v-overlay__content > form) > .v-card > .v-card-title {
+    padding: 16px 20px 12px !important;
+    font-size: 1rem !important;
+  }
+
+  :is(.v-dialog > .v-overlay__content, .v-dialog > .v-overlay__content > form) > .v-card > :is(.v-card-title, .v-toolbar) .v-btn--icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+  }
+
+  /* Respect zero-padding document previews; reduce ordinary form padding. */
+  :is(.v-dialog > .v-overlay__content, .v-dialog > .v-overlay__content > form) > .v-card > .v-card-text:not(.pa-0) {
+    padding: 20px !important;
+  }
+
+  /* A large field font also prevents iOS from zooming when a field receives focus. */
+  .v-dialog :is(input, textarea).v-field__input {
+    font-size: 16px;
+  }
+
+  :is(.v-dialog > .v-overlay__content, .v-dialog > .v-overlay__content > form) > .v-card > .v-card-actions {
+    padding: 12px 20px calc(12px + env(safe-area-inset-bottom, 0px)) !important;
+    border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  }
+
+  :is(.v-dialog > .v-overlay__content, .v-dialog > .v-overlay__content > form) > .v-card > .v-card-actions > .v-spacer {
+    display: none;
+  }
+
+  :is(.v-dialog > .v-overlay__content, .v-dialog > .v-overlay__content > form) > .v-card > .v-card-actions > .v-btn:not(.v-btn--icon) {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 48px;
+    height: auto;
+    margin-inline: 0;
+    padding: 12px;
+    border-radius: 12px;
+    font-size: 0.9375rem;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  :is(.v-dialog--fullscreen > .v-overlay__content, .v-dialog--fullscreen > .v-overlay__content > form) > .v-card > .v-card-title {
+    padding-top: calc(16px + env(safe-area-inset-top, 0px)) !important;
+  }
+
+  :is(.v-dialog > .v-overlay__content, .v-dialog > .v-overlay__content > form) > .v-card > .v-card-actions .v-btn__content {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  /* Dialogs without a footer still clear the phone's home indicator. */
+  :is(.v-dialog > .v-overlay__content, .v-dialog > .v-overlay__content > form) > .v-card > .v-card-text:last-child {
+    padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  /* Existing Vuetify transitions slide the sheet from its bottom edge. */
+  .v-dialog:not(.v-dialog--fullscreen) > .v-overlay__content:is(.dialog-transition-enter-active, .dialog-transition-leave-active) {
+    transition: transform 220ms ease, opacity 180ms ease;
+  }
+
+  .v-dialog:not(.v-dialog--fullscreen) > .v-overlay__content:is(.dialog-transition-enter-from, .dialog-transition-leave-to) {
+    transform: translateY(100%);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .v-dialog > .v-overlay__content:is(.dialog-transition-enter-active, .dialog-transition-leave-active) {
+      transition: none;
+    }
+  }
+}
+
+/* Fullscreen reports retain their edge-to-edge layout and safe areas. */
+.v-dialog--fullscreen > .v-overlay__content {
+  max-height: 100%;
+}
+
+:is(.v-dialog--fullscreen > .v-overlay__content, .v-dialog--fullscreen > .v-overlay__content > form) > .v-card {
+  min-height: 100%;
+  border-radius: 0 !important;
+}
