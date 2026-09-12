@@ -49,13 +49,13 @@
               <div class="info-grid">
                 <div class="info-item" v-if="patient.phone">
                   <v-icon size="18" color="primary">mdi-phone</v-icon>
-                  <a :href="`tel:${patient.phone}`" class="text-decoration-none">
+                  <a :href="`tel:${patient.phone}`" class="text-decoration-none" dir="ltr">
                     {{ patient.phone }}
                   </a>
                 </div>
                 <div class="info-item" v-if="patient.phone2">
                   <v-icon size="18" color="primary">mdi-phone-plus</v-icon>
-                  <a :href="`tel:${patient.phone2}`" class="text-decoration-none">
+                  <a :href="`tel:${patient.phone2}`" class="text-decoration-none" dir="ltr">
                     {{ patient.phone2 }}
                   </a>
                 </div>
@@ -308,7 +308,7 @@
             <template #item.tooth_num="{ item }">
               <v-chip v-if="item.tooth_num" size="small" color="info" variant="flat">
                 <v-icon start size="13">mdi-tooth</v-icon>
-                {{ item.tooth_num }}
+                {{ formatToothLabel(item.tooth_num) }}
               </v-chip>
               <span v-else class="text-grey text-caption">{{ $t('patients.general') }}</span>
             </template>
@@ -825,7 +825,7 @@
                           <v-chip size="x-small" :color="item.raw.category?.color || 'primary'" variant="flat">
                             {{ item.raw.category?.name || getCategoryName(item.raw.case_categores_id) }}
                           </v-chip>
-                          <span v-if="item.raw.tooth_num" class="text-caption">#{{ item.raw.tooth_num }}</span>
+                          <span v-if="item.raw.tooth_num" class="text-caption">#{{ formatToothLabel(item.raw.tooth_num) }}</span>
                           <span class="text-caption text-grey-darken-1">{{ formatNumberWithCommas(getRemainingAmount(item.raw)) }} IQD</span>
                         </div>
                       </template>
@@ -844,7 +844,7 @@
                               </v-chip>
                               <v-chip v-if="item.raw.tooth_num" size="x-small" color="info" variant="tonal">
                                 <v-icon start size="10">mdi-tooth</v-icon>
-                                {{ item.raw.tooth_num }}
+                                {{ formatToothLabel(item.raw.tooth_num) }}
                               </v-chip>
                             </div>
                             <div class="d-flex align-center ga-2">
@@ -929,7 +929,7 @@
                     variant="outlined"
                   >
                     <v-icon start size="14">mdi-tooth</v-icon>
-                    {{ item.billable.tooth_num }}
+                    {{ formatToothLabel(item.billable.tooth_num) }}
                   </v-chip>
                   <span v-else class="text-grey text-body-2">{{ $t('patients.general') }}</span>
                 </template>
@@ -1180,6 +1180,7 @@
 
     <!-- AI Insight Drawer (per-case & whole-patient analysis) -->
     <AiInsightDrawer
+      v-if="aiDrawer.open"
       v-model="aiDrawer.open"
       :title="aiDrawer.title"
       :loading="aiDrawer.loading"
@@ -1232,6 +1233,7 @@ import { useAuthStore } from '@/stores/auth'
 import { usePermissions } from '@/composables/usePermissions'
 import { PERMISSIONS } from '@/constants/permissions'
 import { addCaseModals, specialtyViews, getSmartPatientCaseColumns } from '@/config/specialties'
+import { useClinicSettings } from '@/composables/useClinicSettings'
 
 const route = useRoute()
 const router = useRouter()
@@ -1303,7 +1305,8 @@ const selectedRecipe = ref(null)
 const recipeViewDialog = ref(false)
 const recipePrintRef = ref(null)
 const recipeToPrint = ref(null)
-const clinicSettings = ref(null)
+// Clinic identity (name / logo / phone / address) for print + preview dialogs
+const { clinicInfo: clinicSettings, loadSettings: loadClinicSettings, formatToothLabel } = useClinicSettings()
 
 // Dialogs
 const editDialog = ref(false)
@@ -1384,7 +1387,7 @@ const buildCaseContext = (item) => {
   }
   lines.push('---')
   lines.push(`${t('patients.category')}: ${item.category?.name || getCategoryName(item.category?.id || item.case_categores_id) || '-'}`)
-  if (item.tooth_num) lines.push(`${t('patients.toothNumber') || 'Tooth'}: ${item.tooth_num}`)
+  if (item.tooth_num) lines.push(`${t('patients.toothNumber') || 'Tooth'}: ${formatToothLabel(item.tooth_num)}`)
   lines.push(`${t('common.doctor')}: ${item.doctor?.name || '-'}`)
   lines.push(`${t('status') || 'Status'}: ${getCaseStatusId(item) === 3 ? t('common.completed') : t('common.pending')}`)
   lines.push(`${t('common.date')}: ${formatDate(item.case_date || item.created_at) || '-'}`)
@@ -1408,7 +1411,7 @@ const buildPatientContext = () => {
   patientCases.value.forEach((c, i) => {
     const cat = c.category?.name || getCategoryName(c.category?.id || c.case_categores_id) || '-'
     const st = getCaseStatusId(c) === 3 ? t('common.completed') : t('common.pending')
-    const tooth = c.tooth_num ? ` | ${t('patients.toothNumber') || 'Tooth'} ${c.tooth_num}` : ''
+    const tooth = c.tooth_num ? ` | ${t('patients.toothNumber') || 'Tooth'} ${formatToothLabel(c.tooth_num)}` : ''
     const price = c.price ? ` | ${t('cases.price')} ${c.price}` : ''
     lines.push(`${i + 1}. ${cat}${tooth} | ${st}${price} | ${formatDate(c.case_date || c.created_at) || '-'}`)
   })
@@ -1924,7 +1927,10 @@ const filteredCases = computed(() => {
   const search = caseSearch.value.toLowerCase()
   return patientCases.value.filter(c => {
     return (
-      (c.tooth_num && String(c.tooth_num).includes(search)) ||
+      (c.tooth_num && (
+        String(c.tooth_num).includes(search) ||
+        formatToothLabel(c.tooth_num).toLowerCase().includes(search)
+      )) ||
       c.description?.toLowerCase().includes(search) ||
       getCategoryName(c.category_id).toLowerCase().includes(search)
     )
@@ -2264,28 +2270,8 @@ const fetchPatientRecipes = async () => {
 }
 
 const fetchClinicSettings = async () => {
-  try {
-    const storedClinic = localStorage.getItem('clinic')
-    if (storedClinic) {
-      clinicSettings.value = JSON.parse(storedClinic)
-      return
-    }
-    const response = await api.get('/settings/clinic')
-    clinicSettings.value = response.data || response || {
-      name: 'Smart Clinic',
-      address: '',
-      phone: '',
-      logo: null
-    }
-  } catch (error) {
-    console.error('Error fetching clinic settings:', error)
-    clinicSettings.value = {
-      name: 'Smart Clinic',
-      address: '',
-      phone: '',
-      logo: null
-    }
-  }
+  // Single source of truth: the clinic-settings API (logo + name + contact).
+  await loadClinicSettings()
 }
 
 const handleRecipeSaved = async (recipe) => {
@@ -2632,7 +2618,7 @@ const totalUnpaid = computed(() => {
 
 const getCaseBillingTitle = (item) => {
   const categoryName = item.category?.name || getCategoryName(item.case_categores_id || item.category_id)
-  const toothInfo = item.tooth_num ? ` - ${t('patients.tooth')} ${item.tooth_num}` : ''
+  const toothInfo = item.tooth_num ? ` - ${t('patients.tooth')} ${formatToothLabel(item.tooth_num)}` : ''
   const dateInfo = item.created_at ? ` - ${formatDate(item.created_at)}` : ''
   
   // Calculate remaining amount
@@ -3359,6 +3345,13 @@ const setDefaultTab = () => {
 @keyframes notes-panel-in {
   from { opacity: 0; transform: translateY(-4px); }
   to { opacity: 1; transform: translateY(0); }
+}
+/* On a phone the panel's own padding + margin was 72px of a ~390px screen. */
+@media (max-width: 600px) {
+  .case-notes-panel {
+    padding: 12px 12px 14px;
+    margin: 8px 6px 12px;
+  }
 }
 
 .case-notes-section-title {

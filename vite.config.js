@@ -31,6 +31,11 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         runtimeCaching: [
           {
+            // Financial balances must never fall back to an old cached response.
+            urlPattern: /^https:\/\/api\.smartclinic\.software\/.*\/bills\/(?:patient-balances|payments)(?:[/?]|$)/i,
+            handler: 'NetworkOnly'
+          },
+          {
             // Reports/dashboard data must always be live — never serve stale
             // numbers from cache. This rule is first, so it wins for /reports/.
             urlPattern: /^https:\/\/api\.smartclinic\.software\/.*\/reports\//i,

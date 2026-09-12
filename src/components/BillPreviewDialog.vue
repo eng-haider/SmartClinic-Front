@@ -160,8 +160,9 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useClinicSettings, resolveLogoUrl } from '@/composables/useClinicSettings'
 
 const props = defineProps({
   modelValue: {
@@ -205,29 +206,34 @@ const internalDialog = computed({
 // Computed
 const isRtl = computed(() => locale.value === 'ar' || locale.value === 'ku')
 
+// Prop first, then the shared clinic settings, so the bill header renders
+// even when the parent did not pass anything down.
+const { clinicInfo: sharedClinic, loadSettings: loadClinicSettings } = useClinicSettings()
+onMounted(() => { loadClinicSettings() })
+
 const clinicName = computed(() => {
   return props.clinicSettings?.name || 
          props.clinicSettings?.clinic_name || 
-         'Smart Clinic'
+         sharedClinic.value.name || ''
 })
 
 const clinicAddress = computed(() => {
   return props.clinicSettings?.address || 
          props.clinicSettings?.clinic_address || 
-         ''
+         sharedClinic.value.address || ''
 })
 
 const clinicPhone = computed(() => {
   return props.clinicSettings?.phone || 
          props.clinicSettings?.clinic_phone || 
-         ''
+         sharedClinic.value.phone || ''
 })
 
 const clinicLogo = computed(() => {
-  const logo = props.clinicSettings?.logo || props.clinicSettings?.clinic_logo
-  if (!logo) return null
-  if (logo.startsWith('http')) return logo
-  return `${import.meta.env.VITE_API_URL || ''}/storage/${logo}`
+  // Prefer the value handed down by the parent, fall back to the shared
+  // clinic settings so the header still renders when no prop is passed.
+  const logo = props.clinicSettings?.logo || props.clinicSettings?.clinic_logo || sharedClinic.value.logo
+  return resolveLogoUrl(logo) || null
 })
 
 const totalAmount = computed(() => {

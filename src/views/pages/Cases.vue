@@ -1,7 +1,7 @@
 <template>
   <div class="cases-page">
     <!-- Page Header -->
-    <div class="page-header mb-5">
+    <div class="page-header mb-5 mobile-page-heading">
       <div class="d-flex flex-wrap align-center justify-space-between ga-4">
         <div>
           <h1 class="text-h5 font-weight-bold text-primary">{{ $t('cases.title') }}</h1>

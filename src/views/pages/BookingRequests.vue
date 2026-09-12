@@ -3,7 +3,7 @@
     <!-- Page Header -->
     <div class="page-header mb-4">
       <div class="d-flex flex-wrap align-center justify-space-between gap-3">
-        <div>
+        <div class="mobile-page-heading">
           <h1 class="text-h5 text-md-h4 font-weight-bold text-primary ma-0">
             {{ t('bookingRequests.title') }}
           </h1>
@@ -12,11 +12,12 @@
           </p>
         </div>
 
-        <div class="d-flex align-center gap-2">
+        <div class="d-flex align-center gap-2 booking-requests-page__actions">
           <v-btn
             color="primary"
             variant="tonal"
             prepend-icon="mdi-share-variant"
+            class="flex-grow-1 flex-sm-grow-0"
             @click="openShare"
           >
             {{ t('bookingRequests.share') }}
@@ -101,6 +102,7 @@
 
       <v-card-text class="pa-0">
         <v-data-table
+          v-if="!isMobile"
           :headers="headers"
           :items="requests"
           :loading="loading"
@@ -197,6 +199,113 @@
             </div>
           </template>
         </v-data-table>
+
+        <!-- Mobile cards -->
+        <div v-else class="pa-3">
+          <div v-if="!requests.length && !loading" class="text-center pa-8">
+            <v-icon size="64" color="grey-lighten-1">mdi-inbox-outline</v-icon>
+            <p class="text-body-1 text-medium-emphasis mt-4">{{ t('bookingRequests.empty') }}</p>
+          </div>
+
+          <v-card
+            v-for="item in requests"
+            :key="item.id"
+            class="mb-3 booking-request-card"
+            variant="outlined"
+            rounded="lg"
+            @click="openDetails(item)"
+          >
+            <v-card-text class="pa-3">
+              <!-- Requester + status -->
+              <div class="d-flex align-center gap-2 mb-3">
+                <v-avatar size="40" color="primary">
+                  <span class="text-white text-caption font-weight-bold">{{ initials(item.name) }}</span>
+                </v-avatar>
+                <div class="booking-request-card__info">
+                  <div class="font-weight-medium text-truncate">{{ item.name }}</div>
+                  <div class="text-caption text-medium-emphasis text-truncate" dir="ltr">{{ item.phone }}</div>
+                </div>
+                <v-chip :color="statusColor(item.status)" size="small" variant="flat">
+                  <v-icon start size="14">{{ statusIcon(item.status) }}</v-icon>
+                  {{ t('bookingRequests.status.' + item.status) }}
+                </v-chip>
+              </div>
+
+              <!-- Preferred slot + submission time -->
+              <div class="d-flex flex-wrap gap-2">
+                <v-chip size="small" color="primary" variant="tonal">
+                  <v-icon start size="14">mdi-calendar</v-icon>
+                  {{ item.preferred_date }}
+                </v-chip>
+                <v-chip v-if="item.preferred_time" size="small" color="primary" variant="tonal">
+                  <v-icon start size="14">mdi-clock-outline</v-icon>
+                  {{ formatTime(item.preferred_time) }}
+                </v-chip>
+                <v-chip size="small" variant="outlined">
+                  <v-icon start size="14">mdi-send-clock-outline</v-icon>
+                  {{ formatDateTime(item.created_at) }}
+                </v-chip>
+              </div>
+
+              <!-- Note -->
+              <div v-if="item.note" class="text-caption text-medium-emphasis mt-2 booking-request-card__note">
+                {{ item.note }}
+              </div>
+
+              <v-divider class="my-3" />
+
+              <!-- Actions -->
+              <div class="d-flex align-center gap-2">
+                <v-btn
+                  icon="mdi-whatsapp"
+                  size="small"
+                  variant="tonal"
+                  color="green"
+                  :disabled="!item.phone"
+                  @click.stop="openWhatsAppChat(item)"
+                />
+                <v-btn
+                  icon="mdi-delete"
+                  size="small"
+                  variant="tonal"
+                  color="grey"
+                  @click.stop="openDelete(item)"
+                />
+                <v-spacer />
+                <template v-if="item.status === 'pending'">
+                  <v-btn
+                    color="success"
+                    variant="tonal"
+                    size="small"
+                    prepend-icon="mdi-check"
+                    @click.stop="openApprove(item)"
+                  >
+                    {{ t('bookingRequests.approve') }}
+                  </v-btn>
+                  <v-btn
+                    color="error"
+                    variant="tonal"
+                    size="small"
+                    prepend-icon="mdi-close"
+                    @click.stop="openReject(item)"
+                  >
+                    {{ t('bookingRequests.reject') }}
+                  </v-btn>
+                </template>
+                <v-btn
+                  v-else
+                  color="primary"
+                  variant="text"
+                  size="small"
+                  prepend-icon="mdi-eye"
+                  @click.stop="openDetails(item)"
+                >
+                  {{ t('bookingRequests.view') }}
+                </v-btn>
+              </div>
+            </v-card-text>
+          </v-card>
+        </div>
       </v-card-text>
 
       <!-- Pagination -->
@@ -268,13 +377,28 @@
             auto-grow
             hide-details
           />
+          <v-switch
+            v-model="approveSendWhatsApp"
+            :label="t('bookingRequests.sendWhatsApp')"
+            :disabled="approveDialog.loading"
+            color="success"
+            hide-details
+            class="mt-3"
+          />
+          <v-alert v-if="approveSendWhatsApp && !approveWhatsAppPhone" type="warning" variant="tonal" density="compact" class="mt-3">
+            {{ t('bookingRequests.invalidWhatsAppPhone') }}
+          </v-alert>
+          <v-alert v-if="approveSendWhatsApp && approveWhatsAppPhone" type="success" variant="tonal" density="compact" class="mt-3">
+            <div class="text-caption">{{ t('reservations.message_preview') }}:</div>
+            <div class="mt-1" style="white-space: pre-line;">{{ approveWhatsAppMessage }}</div>
+          </v-alert>
         </v-card-text>
         <v-card-actions class="px-4 pb-4">
           <v-spacer />
           <v-btn variant="text" :disabled="approveDialog.loading" @click="approveDialog.show = false">
             {{ t('common.cancel') }}
           </v-btn>
-          <v-btn color="success" variant="flat" :loading="approveDialog.loading" @click="confirmApprove">
+          <v-btn color="success" variant="flat" :loading="approveDialog.loading" :disabled="approveDialog.loading || (approveSendWhatsApp && !approveWhatsAppPhone)" @click="confirmApprove">
             {{ t('bookingRequests.approveConfirm') }}
           </v-btn>
         </v-card-actions>
@@ -300,13 +424,27 @@
             counter="1000"
             :rules="[v => !v || v.length <= 1000 || t('publicBooking.tooLong')]"
           />
+          <v-switch
+            v-model="rejectSendWhatsApp"
+            :label="t('bookingRequests.sendWhatsApp')"
+            :disabled="rejectDialog.loading"
+            color="success"
+            hide-details
+          />
+          <v-alert v-if="rejectSendWhatsApp && !rejectWhatsAppPhone" type="warning" variant="tonal" density="compact" class="mt-3">
+            {{ t('bookingRequests.invalidWhatsAppPhone') }}
+          </v-alert>
+          <v-alert v-if="rejectSendWhatsApp && rejectWhatsAppPhone" type="success" variant="tonal" density="compact" class="mt-3">
+            <div class="text-caption">{{ t('reservations.message_preview') }}:</div>
+            <div class="mt-1" style="white-space: pre-line;">{{ rejectWhatsAppMessage }}</div>
+          </v-alert>
         </v-card-text>
         <v-card-actions class="px-4 pb-4">
           <v-spacer />
           <v-btn variant="text" :disabled="rejectDialog.loading" @click="rejectDialog.show = false">
             {{ t('common.cancel') }}
           </v-btn>
-          <v-btn color="error" variant="flat" :loading="rejectDialog.loading" @click="confirmReject">
+          <v-btn color="error" variant="flat" :loading="rejectDialog.loading" :disabled="rejectDialog.loading || (rejectSendWhatsApp && !rejectWhatsAppPhone)" @click="confirmReject">
             {{ t('bookingRequests.rejectConfirm') }}
           </v-btn>
         </v-card-actions>
@@ -503,15 +641,20 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { useDisplay } from 'vuetify'
 import QRCode from 'qrcode'
 import bookingRequestService from '@/services/bookingRequest.service'
 import DoctorService from '@/services/doctor.service'
 import { getClinicSettings } from '@/services/clinicSettings.service'
 import { useBookingRequests } from '@/composables/useBookingRequests'
 import { useWhatsAppSender } from '@/composables/useWhatsAppSender'
+import { resolveLogoUrl } from '@/composables/useClinicSettings'
+import { formatWhatsAppPhone, prepareWhatsAppMessage } from '@/utils/whatsapp'
 
 const { t, locale } = useI18n()
 const router = useRouter()
+// Below md the table is swapped for a card list (same breakpoint the patients table uses).
+const { smAndDown: isMobile } = useDisplay()
 const { pendingCount, refreshPendingCount } = useBookingRequests()
 const { formatPhoneNumber, openWhatsApp } = useWhatsAppSender()
 
@@ -591,6 +734,20 @@ const approveForm = reactive({
   reservation_time: '',
   notes: '',
 })
+const approveSendWhatsApp = ref(false)
+const approveWhatsAppPhone = computed(() => formatWhatsAppPhone(approveDialog.item?.phone))
+const approveWhatsAppMessage = computed(() => {
+  const lines = [
+    t('bookingRequests.approvedWhatsAppMessage', { name: approveDialog.item?.name || '' }),
+    `${t('bookingRequests.date')}: ${approveForm.reservation_date}`,
+  ]
+  lines.push(approveForm.reservation_time
+    ? `${t('bookingRequests.time')}: ${formatTime(approveForm.reservation_time)}`
+    : t('bookingRequests.whatsAppWaitingList'))
+  const doctor = doctors.value.find(item => item.id === approveForm.doctor_id)
+  if (doctor) lines.push(`${t('bookingRequests.doctor')}: ${doctor.name}`)
+  return lines.join('\n')
+})
 
 function openApprove(item) {
   approveDialog.item = item
@@ -598,17 +755,22 @@ function openApprove(item) {
   approveForm.reservation_date = item.preferred_date || ''
   approveForm.reservation_time = toInputTime(item.preferred_time)
   approveForm.notes = item.note || ''
+  approveSendWhatsApp.value = false
   approveDialog.show = true
   loadDoctors()
 }
 
 async function confirmApprove() {
-  if (!approveDialog.item) return
+  if (!approveDialog.item || approveDialog.loading) return
+  if (approveSendWhatsApp.value && !approveWhatsAppPhone.value) return
   if (!approveForm.reservation_date) {
     notify(t('validation.required'), 'error')
     return
   }
   approveDialog.loading = true
+  const whatsApp = approveSendWhatsApp.value
+    ? prepareWhatsAppMessage(approveWhatsAppPhone.value, approveWhatsAppMessage.value)
+    : null
   try {
     // No is_waiting flag: the backend auto-decides — an empty time books the
     // patient into the waiting list on the chosen date, a set time makes a
@@ -622,8 +784,10 @@ async function confirmApprove() {
     await bookingRequestService.approve(approveDialog.item.id, overrides)
     notify(t('bookingRequests.approveSuccess'), 'success')
     approveDialog.show = false
+    whatsApp?.open()
     await Promise.all([loadRequests(), refreshPendingCount()])
   } catch (err) {
+    whatsApp?.cancel()
     notify(err?.response?.data?.message || t('bookingRequests.actionError'), 'error')
   } finally {
     approveDialog.loading = false
@@ -633,22 +797,42 @@ async function confirmApprove() {
 // ==================== Reject ====================
 const rejectDialog = reactive({ show: false, loading: false, item: null })
 const rejectReason = ref('')
+const rejectSendWhatsApp = ref(false)
+const rejectWhatsAppPhone = computed(() => formatWhatsAppPhone(rejectDialog.item?.phone))
+const rejectWhatsAppMessage = computed(() => {
+  const lines = [t('bookingRequests.rejectedWhatsAppMessage', { name: rejectDialog.item?.name || '' })]
+  if (rejectReason.value.trim()) {
+    lines.push(`${t('bookingRequests.rejectReason')}: ${rejectReason.value.trim()}`)
+  }
+  return lines.join('\n')
+})
 
 function openReject(item) {
   rejectDialog.item = item
   rejectReason.value = ''
+  rejectSendWhatsApp.value = false
   rejectDialog.show = true
 }
 
 async function confirmReject() {
-  if (!rejectDialog.item) return
+  if (!rejectDialog.item || rejectDialog.loading) return
+  if (rejectSendWhatsApp.value && !rejectWhatsAppPhone.value) return
+  if (rejectReason.value.length > 1000) {
+    notify(t('publicBooking.tooLong'), 'error')
+    return
+  }
   rejectDialog.loading = true
+  const whatsApp = rejectSendWhatsApp.value
+    ? prepareWhatsAppMessage(rejectWhatsAppPhone.value, rejectWhatsAppMessage.value)
+    : null
   try {
     await bookingRequestService.reject(rejectDialog.item.id, rejectReason.value)
     notify(t('bookingRequests.rejectSuccess'), 'success')
     rejectDialog.show = false
+    whatsApp?.open()
     await Promise.all([loadRequests(), refreshPendingCount()])
   } catch (err) {
+    whatsApp?.cancel()
     notify(err?.response?.data?.message || t('bookingRequests.actionError'), 'error')
   } finally {
     rejectDialog.loading = false
@@ -747,7 +931,7 @@ async function fetchClinicInfo() {
       address: flat.address || flat.clinic_address || '',
       phone: flat.phone || '',
       email: flat.email || '',
-      logo: /^https?:\/\//i.test(flat.logo || '') ? flat.logo : '',
+      logo: resolveLogoUrl(flat.logo),
     }
   } catch (err) {
     console.warn('Failed to load clinic info for share link', err)
@@ -861,5 +1045,39 @@ onMounted(() => {
 
 .booking-requests-table :deep(.v-data-table-header th) {
   font-weight: 600 !important;
+}
+
+/* Mobile cards */
+.booking-request-card {
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.booking-request-card:active {
+  transform: scale(0.995);
+}
+
+/* Let the name/phone column shrink so long values truncate instead of pushing the chip out. */
+.booking-request-card__info {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.booking-request-card__note {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+@media (max-width: 600px) {
+  .booking-requests-page {
+    padding: 12px !important;
+  }
+
+  /* Give the share/refresh row its own line so the title keeps full width. */
+  .booking-requests-page__actions {
+    width: 100%;
+  }
 }
 </style>

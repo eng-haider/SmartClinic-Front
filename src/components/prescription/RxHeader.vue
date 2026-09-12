@@ -7,7 +7,7 @@
           <img :src="logo" :alt="clinicName" class="rx-header__logo" />
         </div>
         <div class="rx-header__center">
-          <h1 class="rx-header__clinic-name">{{ clinicName }}</h1>
+          <h1 v-if="clinicName" class="rx-header__clinic-name">{{ clinicName }}</h1>
           <p v-if="doctorName" class="rx-header__doctor">{{ doctorName }}
             <span v-if="specialty" class="rx-header__specialty">— {{ specialty }}</span>
           </p>
@@ -24,7 +24,7 @@
             <img :src="logo" :alt="clinicName" class="rx-header__logo rx-header__logo--lg" />
           </div>
           <div class="rx-header__classic-info">
-            <h1 class="rx-header__clinic-name rx-header__clinic-name--lg">{{ clinicName }}</h1>
+            <h1 v-if="clinicName" class="rx-header__clinic-name rx-header__clinic-name--lg">{{ clinicName }}</h1>
             <p v-if="doctorName" class="rx-header__doctor">
               {{ doctorName }}
               <span v-if="specialty" class="rx-header__specialty">| {{ specialty }}</span>
@@ -57,7 +57,7 @@
               <img :src="logo" :alt="clinicName" class="rx-header__logo rx-header__logo--round" />
             </div>
             <div>
-              <h1 class="rx-header__clinic-name">{{ clinicName }}</h1>
+              <h1 v-if="clinicName" class="rx-header__clinic-name">{{ clinicName }}</h1>
               <p v-if="doctorName" class="rx-header__doctor">
                 {{ doctorName }}
               </p>
@@ -97,7 +97,7 @@ defineProps({
     validator: (v) => ['minimal', 'classic', 'modern'].includes(v)
   },
   logo: { type: String, default: '' },
-  clinicName: { type: String, default: 'Smart Clinic' },
+  clinicName: { type: String, default: '' },
   doctorName: { type: String, default: '' },
   specialty: { type: String, default: '' },
   phone: { type: String, default: '' },

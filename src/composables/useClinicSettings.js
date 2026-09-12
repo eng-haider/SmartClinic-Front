@@ -8,6 +8,12 @@
 
 import { ref, computed, readonly } from 'vue'
 import { getClinicSettings } from '@/services/clinicSettings.service'
+import {
+  BABY_TEETH_NOTATION_KEY,
+  DEFAULT_TOOTH_NOTATION,
+  formatToothNumber,
+  normalizeToothNotation
+} from '@/components/teeth/toothNotation'
 
 // Shared state (singleton pattern)
 const settings = ref(null)
@@ -17,6 +23,21 @@ const lastFetched = ref(null)
 
 // Cache duration (5 minutes)
 const CACHE_DURATION = 5 * 60 * 1000
+
+/**
+ * Turn a stored logo value into something an <img> can actually load.
+ * The API returns an absolute URL (/file/tenant/{id}/{path}); older records
+ * may still hold a bare disk path, and the print dialogs may hold a data: URI.
+ */
+export const resolveLogoUrl = (logo) => {
+  if (!logo || typeof logo !== 'string') return ''
+  if (/^(https?:|data:|blob:)/i.test(logo)) return logo
+
+  // Bare path fallback - hang it off the API origin, not the SPA origin.
+  const base = import.meta?.env?.VITE_API_BASE_URL || 'https://api.smartclinic.software/api'
+  const origin = base.replace(/\/api\/?$/, '')
+  return `${origin}/storage/${logo.replace(/^\/+/, '')}`
+}
 
 /**
  * Composable for accessing clinic settings across the app
@@ -89,6 +110,23 @@ export function useClinicSettings() {
   }
 
   /**
+   * Get a setting by key, whatever category the API filed it under.
+   * The backend infers the category from the key, so newer keys can land in
+   * `general` even when they belong to `display`.
+   * @param {string} key - Setting key
+   * @returns {any} Setting value
+   */
+  const getSettingByKey = (key) => {
+    if (!settings.value) return null
+
+    for (const category of Object.values(settings.value)) {
+      const found = category?.settings?.find(s => s.setting_key === key)
+      if (found) return found.setting_value
+    }
+    return null
+  }
+
+  /**
    * Get all settings in a category
    * @param {string} category - Category name
    * @returns {Object} Flattened settings object
@@ -149,6 +187,22 @@ export function useClinicSettings() {
     return statuses.filter(s => s.is_active !== false)
   })
 
+  /**
+   * How baby (primary) teeth are labelled on the dental chart:
+   * 'fdi' (51-85), 'universal' (A-T) or 'palmer' (A-E per quadrant).
+   * Cases are always stored with the FDI number - this only changes the label.
+   */
+  const babyTeethNotation = computed(() =>
+    normalizeToothNotation(getSettingByKey(BABY_TEETH_NOTATION_KEY) || DEFAULT_TOOTH_NOTATION)
+  )
+
+  /**
+   * Label for a stored FDI tooth number, using the clinic's notation setting.
+   * @param {number|string} toothNum
+   * @returns {string}
+   */
+  const formatToothLabel = (toothNum) => formatToothNumber(toothNum, babyTeethNotation.value)
+
   // ==================== GENERAL SETTINGS ====================
 
   const clinicName = computed(() => getSetting('general', 'clinic_name') || '')
@@ -156,7 +210,24 @@ export function useClinicSettings() {
   const clinicEmail = computed(() => getSetting('general', 'email') || '')
   const clinicAddress = computed(() => getSetting('general', 'address') || '')
   const clinicWebsite = computed(() => getSetting('general', 'website') || '')
-  const clinicLogo = computed(() => getSetting('general', 'logo') || '')
+  const clinicLogo = computed(() => resolveLogoUrl(getSetting('general', 'logo')))
+
+  /**
+   * Flat clinic identity object, shaped for the print/preview components
+   * (bill, report, prescription) which accept a `clinicSettings` prop.
+   */
+  const clinicInfo = computed(() => ({
+    name: clinicName.value,
+    clinic_name: clinicName.value,
+    logo: clinicLogo.value,
+    clinic_logo: clinicLogo.value,
+    phone: clinicPhone.value,
+    clinic_phone: clinicPhone.value,
+    address: clinicAddress.value,
+    clinic_address: clinicAddress.value,
+    email: clinicEmail.value,
+    website: clinicWebsite.value
+  }))
 
   // ==================== APPOINTMENT SETTINGS ====================
 
@@ -248,6 +319,7 @@ export function useClinicSettings() {
     // Methods
     loadSettings,
     getSetting,
+    getSettingByKey,
     getCategorySettings,
     clearCache,
     resetCache,
@@ -255,6 +327,8 @@ export function useClinicSettings() {
     // Medical Settings
     toothConditionColors,
     toothStatuses,
+    babyTeethNotation,
+    formatToothLabel,
     
     // General Settings
     clinicName,
@@ -263,6 +337,9 @@ export function useClinicSettings() {
     clinicAddress,
     clinicWebsite,
     clinicLogo,
+    clinicInfo,
+    // Alias: components that expect a flat `clinicSettings` object.
+    clinicSettings: clinicInfo,
     
     // Appointment Settings
     appointmentDuration,

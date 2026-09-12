@@ -1,7 +1,7 @@
 <template>
   <div class="teeth-chart" :class="{ 'rtl': isRtl }">
     <!-- SVG Teeth Diagram -->
-    <div class="svg-container" ref="svgContainer">
+    <div class="svg-container" ref="svgContainer" :style="{ '--chart-scale': chartScale }">
       <!-- Upper Teeth Numbers Overlay -->
       <div class="teeth-numbers-overlay upper-overlay">
         <div
@@ -17,20 +17,20 @@
             :class="{ 'active': isToothActive(tooth.tooth_num), 'has-case': hasExistingCase(tooth.tooth_num) }"
             @click="handleToothClick(tooth.tooth_num, $event)"
           >
-            {{ tooth.tooth_num }}
+            {{ formatToothLabel(tooth.tooth_num) }}
           </div>
           <v-tooltip location="bottom">
             <template v-slot:activator="{ props }">
               <span v-bind="props" class="tooltip-trigger"></span>
             </template>
-            {{ t('teeth.tooth') }} {{ tooth.tooth_num }}
+            {{ t('teeth.tooth') }} {{ formatToothLabel(tooth.tooth_num) }}
           </v-tooltip>
           <div class="dotted-line"></div>
         </div>
       </div>
 
       <svg
-        viewBox="0 0 1792 539"
+        :viewBox="viewBox"
         xmlns="http://www.w3.org/2000/svg"
         preserveAspectRatio="xMidYMid meet"
         class="teeth-svg"
@@ -75,13 +75,13 @@
             :class="{ 'active': isToothActive(tooth.tooth_num), 'has-case': hasExistingCase(tooth.tooth_num) }"
             @click="handleToothClick(tooth.tooth_num, $event)"
           >
-            {{ tooth.tooth_num }}
+            {{ formatToothLabel(tooth.tooth_num) }}
           </div>
           <v-tooltip location="top">
             <template v-slot:activator="{ props }">
               <span v-bind="props" class="tooltip-trigger"></span>
             </template>
-            {{ t('teeth.tooth') }} {{ tooth.tooth_num }}
+            {{ t('teeth.tooth') }} {{ formatToothLabel(tooth.tooth_num) }}
           </v-tooltip>
         </div>
       </div>
@@ -152,7 +152,7 @@
         <div class="menu-header">
           <div class="tooth-info">
             <v-icon color="primary">mdi-tooth</v-icon>
-            <span>{{ t('teeth.tooth') }} {{ contextMenu.toothNum }}</span>
+            <span>{{ t('teeth.tooth') }} {{ formatToothLabel(contextMenu.toothNum) }}</span>
           </div>
           <v-btn
             icon
@@ -236,7 +236,7 @@
         <div class="menu-header">
           <div class="tooth-info">
             <v-icon color="primary">mdi-tooth</v-icon>
-            <span>{{ t('teeth.tooth') }} {{ caseDetailsDialog.toothNum }} - {{ t('patients.cases') }}</span>
+            <span>{{ t('teeth.tooth') }} {{ formatToothLabel(caseDetailsDialog.toothNum) }} - {{ t('patients.cases') }}</span>
           </div>
           <v-btn
             icon
@@ -320,8 +320,9 @@
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRtl } from 'vuetify'
-import { teethData } from './teethData'
+import { useDisplay, useRtl } from 'vuetify'
+import { teethData, babyTeethData } from './teethData'
+import { formatToothNumber } from './toothNotation'
 import { isOldFormat, convertOldToNew } from './oldToothMapping'
 import { useClinicSettings } from '@/composables/useClinicSettings'
 
@@ -342,6 +343,18 @@ const props = defineProps({
   showColorPicker: {
     type: Boolean,
     default: true
+  },
+  // 'permanent' -> adult chart (FDI 11-48), 'primary' -> baby chart (FDI 51-85)
+  dentition: {
+    type: String,
+    default: 'permanent'
+  },
+  // Baby teeth labels: 'fdi' | 'universal' | 'palmer'. Left empty the chart
+  // follows the clinic setting - the public profile, which cannot read the
+  // settings endpoint, passes the notation it got with the patient payload.
+  notation: {
+    type: String,
+    default: ''
   }
 })
 
@@ -351,11 +364,17 @@ const emit = defineEmits(['case-added', 'case-removed', 'color-changed', 'tooth-
 // Composables
 const { t, locale } = useI18n()
 const { isRtl } = useRtl()
-const { toothConditionColors, loadSettings } = useClinicSettings()
+const { smAndDown } = useDisplay()
+const { toothConditionColors, loadSettings, babyTeethNotation } = useClinicSettings()
+
+// Tooth label as it is drawn on the chart (baby teeth may be lettered)
+const formatToothLabel = (toothNum) =>
+  formatToothNumber(toothNum, props.notation || babyTeethNotation.value)
 
 // State
 const svgContainer = ref(null)
-const teeth = ref(teethData)
+const isPrimaryDentition = computed(() => props.dentition === 'primary')
+const teeth = computed(() => (isPrimaryDentition.value ? babyTeethData : teethData))
 const selectedColor = ref('#FF5252')
 const coloredParts = ref([])
 const selectedCases = ref([])
@@ -387,10 +406,6 @@ const lastTouchTime = ref(0)
 const lastTouchedTooth = ref(null)
 const touchTimeout = ref(null)
 
-// Teeth Numbers
-const topTeethNumbers = [28, 27, 26, 25, 24, 23, 22, 21, 11, 12, 13, 14, 15, 16, 17, 18]
-const bottomTeethNumbers = [38, 37, 36, 35, 34, 33, 32, 31, 41, 42, 43, 44, 45, 46, 47, 48]
-
 // Available Colors from Clinic Settings
 const availableColors = computed(() => {
   // Use colors from clinic settings API (display.tooth_colors)
@@ -412,28 +427,43 @@ const availableColors = computed(() => {
   }))
 })
 
-// Computed - Upper Teeth (11-28)
+// FDI helpers - quadrants 1/2 (upper) and 3/4 (lower) for adults,
+// 5/6 (upper) and 7/8 (lower) for baby teeth
+function toothQuadrant(toothNum) {
+  return Math.floor(toothNum / 10)
+}
+
+function toothPosition(toothNum) {
+  return toothNum % 10
+}
+
+function isUpperTooth(toothNum) {
+  const q = toothQuadrant(toothNum)
+  return q === 1 || q === 2 || q === 5 || q === 6
+}
+
+// Patient's left quadrants sit first (left to right) in the chart
+function isLeftQuadrant(toothNum) {
+  const q = toothQuadrant(toothNum)
+  return q === 2 || q === 3 || q === 6 || q === 7
+}
+
+// Display order: left quadrant from the back forward, then right quadrant outward
+// e.g. 28,27,...,21,11,12,...,18 - or 65,64,...,61,51,...,55 for baby teeth
+function archSortKey(toothNum) {
+  return isLeftQuadrant(toothNum) ? -toothPosition(toothNum) : toothPosition(toothNum)
+}
+
+// Computed - Upper Teeth (11-28, or 51-65 for baby teeth)
 const upperTeeth = computed(() => {
-  return teeth.value.filter(t => t.tooth_num >= 11 && t.tooth_num <= 28)
-    .sort((a, b) => {
-      // Sort: 28,27,26,25,24,23,22,21 then 11,12,13,14,15,16,17,18
-      if (a.tooth_num >= 21 && b.tooth_num >= 21) return b.tooth_num - a.tooth_num
-      if (a.tooth_num <= 18 && b.tooth_num <= 18) return a.tooth_num - b.tooth_num
-      return b.tooth_num - a.tooth_num
-    })
+  return teeth.value.filter(t => isUpperTooth(t.tooth_num))
+    .sort((a, b) => archSortKey(a.tooth_num) - archSortKey(b.tooth_num))
 })
 
-// Computed - Lower Teeth (31-48)
+// Computed - Lower Teeth (31-48, or 71-85 for baby teeth)
 const lowerTeeth = computed(() => {
-  return teeth.value.filter(t => t.tooth_num >= 31 && t.tooth_num <= 48)
-    .sort((a, b) => {
-      // Sort: 38,37,36,35,34,33,32,31 then 41,42,43,44,45,46,47,48
-      if (a.tooth_num >= 31 && a.tooth_num <= 38 && b.tooth_num >= 31 && b.tooth_num <= 38) {
-        return b.tooth_num - a.tooth_num
-      }
-      if (a.tooth_num >= 41 && b.tooth_num >= 41) return a.tooth_num - b.tooth_num
-      return a.tooth_num < 41 ? -1 : 1
-    })
+  return teeth.value.filter(t => !isUpperTooth(t.tooth_num))
+    .sort((a, b) => archSortKey(a.tooth_num) - archSortKey(b.tooth_num))
 })
 
 // Computed
@@ -465,13 +495,60 @@ function extractPathData(svgString) {
   return match ? match[1] : ''
 }
 
+// Full-arch artwork size. The baby chart reuses the same paths with the back
+// molars removed, so it is cropped to the teeth that are left - otherwise it
+// would render as a small cluster with large empty margins on both sides.
+const CHART_WIDTH = 1792
+const CHART_HEIGHT = 539
+const PRIMARY_CHART_PADDING = 20
+
+const chartViewport = computed(() => {
+  if (!isPrimaryDentition.value) return { x: 0, width: CHART_WIDTH }
+
+  let minX = Infinity
+  let maxX = -Infinity
+  teeth.value.forEach(tooth => {
+    tooth.parts.forEach(part => {
+      const coords = extractPathData(part.svg).match(/[\d.]+/g)
+      if (!coords) return
+      for (let i = 0; i < coords.length; i += 2) {
+        const x = parseFloat(coords[i])
+        if (!isNaN(x)) {
+          minX = Math.min(minX, x)
+          maxX = Math.max(maxX, x)
+        }
+      }
+    })
+  })
+
+  if (!isFinite(minX) || !isFinite(maxX)) return { x: 0, width: CHART_WIDTH }
+
+  const x = Math.max(0, minX - PRIMARY_CHART_PADDING)
+  return { x, width: Math.min(CHART_WIDTH - x, maxX - x + PRIMARY_CHART_PADDING) }
+})
+
+const viewBox = computed(() =>
+  `${chartViewport.value.x} 0 ${chartViewport.value.width} ${CHART_HEIGHT}`
+)
+
+// The baby chart is cropped to fewer teeth, so filling the full container width
+// would draw each tooth much larger than on the adult chart. Narrow the element
+// by the same ratio instead - the teeth then keep the adult scale and the arch
+// sits centered. On small screens it still fills the width, where there is
+// nothing to stay consistent with and bigger teeth are easier to tap.
+const chartScale = computed(() => {
+  if (!isPrimaryDentition.value || smAndDown.value) return '100%'
+  return `${(chartViewport.value.width / CHART_WIDTH) * 100}%`
+})
+
 // Calculate tooth position as percentage for overlay positioning
 function getToothPosition(tooth) {
   if (!tooth.parts || !tooth.parts.length) return 0
   
   const centerX = getToothCenterX(tooth)
-  // SVG viewBox is 0 0 1792 539, so convert to percentage
-  return (centerX / 1792) * 100
+  // Convert the SVG coordinate to a percentage of the visible viewBox
+  const { x, width } = chartViewport.value
+  return ((centerX - x) / width) * 100
 }
 
 // Calculate center X position of a tooth based on its paths
@@ -503,8 +580,7 @@ function getToothCenterX(tooth) {
 function getToothLabelY(tooth) {
   if (!tooth.parts || !tooth.parts.length) return 0
   
-  const toothNum = tooth.tooth_num
-  const isUpperTooth = (toothNum >= 11 && toothNum <= 28)
+  const isUpper = isUpperTooth(tooth.tooth_num)
   
   let minY = Infinity
   let maxY = -Infinity
@@ -525,7 +601,7 @@ function getToothLabelY(tooth) {
   })
   
   // Upper teeth: label above (minY - offset), Lower teeth: label below (maxY + offset)
-  return isUpperTooth ? minY - 10 : maxY + 20
+  return isUpper ? minY - 10 : maxY + 20
 }
 
 function getPartColor(toothId, partId) {
@@ -987,7 +1063,7 @@ onUnmounted(() => {
 
 .teeth-svg {
   display: block;
-  width: 100%;
+  width: var(--chart-scale, 100%);
   height: auto;
   max-width: 100%;
   margin: 0 auto;
@@ -997,8 +1073,9 @@ onUnmounted(() => {
 /* Teeth Numbers Overlay */
 .teeth-numbers-overlay {
   position: absolute;
-  left: 0;
-  right: 0;
+  /* Track the SVG box so the numbers stay above/below their tooth */
+  left: calc((100% - var(--chart-scale, 100%)) / 2);
+  width: var(--chart-scale, 100%);
   display: flex;
   justify-content: space-around;
   pointer-events: none;

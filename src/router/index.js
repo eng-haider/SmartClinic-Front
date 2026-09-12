@@ -11,7 +11,7 @@
  * @version 3.0.0
  */
 
-import { createRouter, createWebHistory } from '@ionic/vue-router'
+import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/authNew'
 import permissionHelper from '@/services/permission.helper'
 import { ROUTE_CONFIG } from '@/config/navigation'
@@ -87,20 +87,20 @@ const routes = [
         }
       },
       {
-        path: 'patients/:id',
-        name: 'PatientDetail',
-        component: () => import('@/views/patients/PatientDetail.vue'),
-        meta: { 
-          title: 'Patient Details',
-          permissionKeywords: ['patient']
-        }
-      },
-      {
         path: 'patients/ophthalmology/:id',
         name: 'OphthalmologyPatientDetail',
         component: () => import('@/views/patients/OphthalmologyPatientPage.vue'),
         meta: {
           title: 'Ophthalmology Patient Details',
+          permissionKeywords: ['patient']
+        }
+      },
+      {
+        path: 'patients/:id',
+        name: 'PatientDetail',
+        component: () => import('@/views/patients/PatientDetail.vue'),
+        meta: { 
+          title: 'Patient Details',
           permissionKeywords: ['patient']
         }
       },

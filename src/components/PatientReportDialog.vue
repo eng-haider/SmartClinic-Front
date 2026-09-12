@@ -105,6 +105,15 @@
             </div>
             <div class="teeth-wrap">
               <TeethChart
+                v-if="hasPermanentTeeth"
+                :patient-data="{ tooth_details: toothDetails }"
+                :show-color-picker="false"
+                :patient-cases="[]"
+                :categories="[]"
+              />
+              <TeethChart
+                v-if="hasBabyTeeth"
+                dentition="primary"
                 :patient-data="{ tooth_details: toothDetails }"
                 :show-color-picker="false"
                 :patient-cases="[]"
@@ -144,7 +153,7 @@
             <tbody>
               <tr v-for="c in cases" :key="c.id">
                 <td>{{ caseCategoryName(c) }}</td>
-                <td>{{ c.tooth_num || '—' }}</td>
+                <td>{{ formatToothLabel(c.tooth_num) || '—' }}</td>
                 <td>{{ c.doctor?.name || '—' }}</td>
                 <td>
                   <span class="status-pill" :class="caseDone(c) ? 'is-done' : 'is-pending'">
@@ -173,7 +182,7 @@
               <div class="cc-grid">
                 <div class="cc-item">
                   <span class="cc-label">{{ $t('report.tooth') }}</span>
-                  <span class="cc-val">{{ c.tooth_num || '—' }}</span>
+                  <span class="cc-val">{{ formatToothLabel(c.tooth_num) || '—' }}</span>
                 </div>
                 <div class="cc-item">
                   <span class="cc-label">{{ $t('report.doctor') }}</span>
@@ -292,7 +301,8 @@ import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
 import TeethChart from '@/components/teeth/TeethChart.vue'
-import { useClinicSettings } from '@/composables/useClinicSettings'
+import { isBabyToothNumber } from '@/components/teeth/toothNotation'
+import { useClinicSettings, resolveLogoUrl } from '@/composables/useClinicSettings'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -308,7 +318,7 @@ const emit = defineEmits(['update:modelValue', 'close'])
 const { t, locale } = useI18n()
 const { width } = useDisplay()
 const isPhone = computed(() => width.value < 600)
-const { loadSettings, toothConditionColors } = useClinicSettings()
+const { loadSettings, toothConditionColors, clinicInfo: sharedClinic, formatToothLabel } = useClinicSettings()
 
 onMounted(() => { loadSettings() })
 
@@ -325,17 +335,21 @@ const internalDialog = computed({
 const isRtl = computed(() => locale.value === 'ar' || locale.value === 'ku')
 
 /* ---------- Clinic ---------- */
+// Prop first, then the shared clinic settings, so the header renders
+// even when the parent did not pass anything down.
 const clinicName = computed(() =>
-  props.clinicSettings?.name || props.clinicSettings?.clinic_name || 'Smart Clinic')
+  props.clinicSettings?.name || props.clinicSettings?.clinic_name ||
+  sharedClinic.value.name || '')
 const clinicAddress = computed(() =>
-  props.clinicSettings?.address || props.clinicSettings?.clinic_address || '')
+  props.clinicSettings?.address || props.clinicSettings?.clinic_address ||
+  sharedClinic.value.address || '')
 const clinicPhone = computed(() =>
-  props.clinicSettings?.phone || props.clinicSettings?.clinic_phone || '')
+  props.clinicSettings?.phone || props.clinicSettings?.clinic_phone ||
+  sharedClinic.value.phone || '')
 const clinicLogo = computed(() => {
-  const logo = props.clinicSettings?.logo || props.clinicSettings?.clinic_logo
-  if (!logo) return null
-  if (logo.startsWith('http')) return logo
-  return `${import.meta.env.VITE_API_URL || ''}/storage/${logo}`
+  const logo = props.clinicSettings?.logo || props.clinicSettings?.clinic_logo ||
+    sharedClinic.value.logo
+  return resolveLogoUrl(logo) || null
 })
 
 /* ---------- Patient ---------- */
@@ -367,6 +381,9 @@ const genderClass = computed(() => !sexKnown.value ? 'g-unknown' : (isMale.value
 
 const toothDetails = computed(() => props.patient?.tooth_details || props.patient?.tooth_parts || [])
 const hasTeeth = computed(() => Array.isArray(toothDetails.value) && toothDetails.value.length > 0)
+/* Baby teeth use FDI 51-85, so a patient can have both charts worth of data */
+const hasBabyTeeth = computed(() => toothDetails.value.some(d => isBabyToothNumber(d.tooth_number)))
+const hasPermanentTeeth = computed(() => toothDetails.value.some(d => !isBabyToothNumber(d.tooth_number)))
 
 /* Resolve a tooth color hex -> readable condition name (from clinic settings) */
 const getColorName = (color) => {
@@ -415,7 +432,7 @@ const casePaid = (c) => (c.bills || []).reduce((s, b) => s + (Number(b.price) ||
 const billCategoryName = (b) => {
   const cat = b.billable?.category
   if (!cat) {
-    if (b.billable?.tooth_num) return `${t('report.tooth')} ${b.billable.tooth_num}`
+    if (b.billable?.tooth_num) return `${t('report.tooth')} ${formatToothLabel(b.billable.tooth_num)}`
     return '—'
   }
   if (locale.value === 'ar') return cat.name_ar || cat.name || cat.name_en || '—'

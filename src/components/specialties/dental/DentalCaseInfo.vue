@@ -4,19 +4,23 @@
       <v-icon color="info" size="24">mdi-tooth</v-icon>
       <div>
         <div class="text-caption text-grey">{{ $t('cases.tooth_num') }}</div>
-        <div class="font-weight-medium text-h6">{{ caseData?.tooth_num || '-' }}</div>
+        <div class="font-weight-medium text-h6">{{ formatToothLabel(caseData?.tooth_num) || '-' }}</div>
       </div>
     </div>
   </v-col>
 </template>
 
 <script setup>
+import { useClinicSettings } from '@/composables/useClinicSettings'
+
 defineProps({
   caseData: {
     type: Object,
     required: true
   }
 })
+
+const { formatToothLabel } = useClinicSettings()
 </script>
 
 <style scoped>

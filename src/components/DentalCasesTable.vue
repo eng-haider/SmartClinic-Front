@@ -11,7 +11,7 @@
     <template #item.tooth_num="{ item }">
       <v-chip v-if="item.tooth_num" size="small" color="info" variant="flat">
         <v-icon start size="14">mdi-tooth</v-icon>
-        {{ item.tooth_num }}
+        {{ formatToothLabel(item.tooth_num) }}
       </v-chip>
       <span v-else class="text-grey text-caption">{{ $t('patients.general') }}</span>
     </template>
@@ -181,6 +181,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useClinicSettings } from '@/composables/useClinicSettings'
 
 const props = defineProps({
   cases:         { type: Array,   default: () => [] },
@@ -193,6 +194,7 @@ const props = defineProps({
 const emit = defineEmits(['save-case', 'update-status', 'view', 'edit', 'delete', 'add-note', 'delete-note'])
 
 const { t, locale } = useI18n()
+const { formatToothLabel } = useClinicSettings()
 
 const newNoteContent = ref({})
 

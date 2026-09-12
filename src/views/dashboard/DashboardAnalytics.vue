@@ -4,7 +4,7 @@
          1️⃣ HEADER SECTION
          ═══════════════════════════════════════════════════════════════════ -->
     <div class="dashboard__header mb-6">
-      <div class="dashboard__header-text">
+      <div class="dashboard__header-text mobile-page-heading">
         <h1 class="text-h5 font-weight-medium">{{ $t('dashboard.title') }}</h1>
         <p class="text-body-2 text-medium-emphasis mt-1">{{ dateRangeText }}</p>
       </div>
@@ -18,7 +18,7 @@
               size="small"
               prepend-icon="mdi-calendar-range"
             >
-              {{ $t('dashboard.dateRange') }}
+              {{ dateRangeText }}
             </v-btn>
           </template>
           <v-card min-width="280" class="pa-4">
@@ -428,14 +428,52 @@ onMounted(() => {
 }
 
 /* Responsive adjustments */
-@media (max-width: 600px) {
+@media (max-width: 959px) {
+  .dashboard {
+    padding: 12px !important;
+  }
+
   .dashboard__header {
     flex-direction: column;
     align-items: stretch;
+    margin-bottom: 16px !important;
   }
   
   .dashboard__header-actions {
-    align-self: flex-end;
+    width: 100%;
+  }
+
+  .dashboard__header-actions .v-btn {
+    width: 100%;
+    min-height: 44px;
+    border-radius: 12px;
+  }
+
+  .dashboard > .v-row {
+    margin: -6px -6px 16px !important;
+  }
+
+  .dashboard > .v-row > [class*="v-col"] {
+    padding: 6px;
+    min-width: 0;
+  }
+
+  .dashboard :deep(.kpi-card) {
+    padding: 12px;
+  }
+
+  .dashboard :deep(.kpi-card__content) {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .dashboard :deep(.kpi-card__text) {
+    width: 100%;
+  }
+
+  .dashboard :deep(.kpi-card__value) {
+    font-size: 1.125rem;
+    overflow-wrap: anywhere;
   }
 }
 </style>

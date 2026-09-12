@@ -4,7 +4,7 @@
     <div class="page-header mb-6 d-none d-sm-block">
       <div class="d-flex flex-wrap align-center justify-space-between ga-4">
         <!-- Title: hidden on mobile -->
-        <div class="d-none d-sm-block">
+        <div class="d-none d-sm-block mobile-page-heading">
           <h1 class="text-h4 font-weight-bold text-primary">{{ $t('patients.title') }}</h1>
           <p class="text-grey mt-1">{{ $t('patients.subtitle') }}</p>
         </div>
@@ -33,20 +33,61 @@
       </div>
     </div>
 
-    <!-- Mobile Search Bar (visible on mobile only) -->
+    <!-- Mobile search and payment filter -->
     <div class="d-sm-none mb-4">
-      <v-text-field
-        v-model="search"
-        :label="$t('patients.search')"
-        prepend-inner-icon="mdi-magnify"
-        variant="outlined"
-        density="comfortable"
-        hide-details
-        clearable
-        bg-color="white"
-        rounded="xl"
-        @update:model-value="debouncedSearch"
-      />
+      <div class="mobile-patient-toolbar">
+        <v-text-field
+          v-model="search"
+          :label="$t('patients.search')"
+          prepend-inner-icon="mdi-magnify"
+          variant="outlined"
+          density="comfortable"
+          hide-details
+          clearable
+          bg-color="white"
+          rounded="xl"
+          @update:model-value="debouncedSearch"
+        />
+        <v-menu location="bottom end">
+          <template #activator="{ props }">
+            <v-btn
+              v-bind="props"
+              :icon="filters.payment_status ? 'mdi-filter-check' : 'mdi-filter-outline'"
+              color="primary"
+              :variant="filters.payment_status ? 'flat' : 'tonal'"
+              size="48"
+              rounded="lg"
+              :aria-label="$t('patients.payment_status')"
+            />
+          </template>
+          <v-list density="comfortable" min-width="240" :aria-label="$t('patients.payment_status')">
+            <v-list-subheader>{{ $t('patients.payment_status') }}</v-list-subheader>
+            <v-list-item
+              v-for="option in paymentStatusOptions"
+              :key="option.value || 'all'"
+              :title="option.text"
+              :active="filters.payment_status === option.value"
+              color="primary"
+              @click="handlePaymentStatusChange(option.value)"
+            >
+              <template #append>
+                <v-icon v-if="filters.payment_status === option.value" size="20">mdi-check</v-icon>
+              </template>
+            </v-list-item>
+          </v-list>
+        </v-menu>
+      </div>
+      <v-chip
+        v-if="filters.payment_status"
+        class="mt-2"
+        color="primary"
+        variant="tonal"
+        prepend-icon="mdi-cash-check"
+        closable
+        @click:close="handlePaymentStatusChange(null)"
+      >
+        {{ paymentStatusOptions.find(option => option.value === filters.payment_status)?.text }}
+      </v-chip>
     </div>
 
     <!-- Filters & Search Toolbar (hidden on mobile) -->
@@ -80,7 +121,7 @@
               hide-details
               clearable
               prepend-inner-icon="mdi-cash-check"
-              @update:model-value="loadPatients"
+              @update:model-value="handlePaymentStatusChange"
             />
           </v-col>
 
@@ -113,8 +154,8 @@
       </v-card-text>
     </v-card>
 
-    <!-- Patients Table -->
-    <v-card elevation="2" rounded="xl">
+    <!-- Patient cards on small screens, table on desktop -->
+    <v-card :elevation="smAndDown ? 0 : 2" rounded="xl" :class="{ 'mobile-patients': smAndDown }">
       <!-- Loading State -->
       <v-progress-linear v-if="loading" indeterminate color="primary" />
 
@@ -123,8 +164,87 @@
         {{ error }}
       </v-alert>
 
-      <!-- Data Table -->
+      <div v-if="smAndDown" class="patient-card-list" :aria-busy="loading">
+        <template v-if="loading">
+          <v-skeleton-loader v-for="n in 3" :key="n" type="list-item-avatar-two-line, actions" class="patient-card" />
+        </template>
+        <div v-else-if="!patients.length" class="text-center py-10 px-4">
+          <v-icon size="56" color="grey-lighten-1">mdi-account-search</v-icon>
+          <h3 class="text-h6 mt-3">{{ $t('patients.no_patients') }}</h3>
+          <p class="text-medium-emphasis mt-1">{{ $t('patients.no_patients_desc') }}</p>
+          <v-btn color="primary" class="mt-4" prepend-icon="mdi-plus" @click="openAddDialog">
+            {{ $t('patients.add_first') }}
+          </v-btn>
+        </div>
+        <template v-else>
+          <article v-for="patient in patients" :key="patient.id" class="patient-card">
+            <div class="patient-card__header">
+              <v-avatar color="primary" variant="tonal" size="44">
+                <span class="font-weight-bold">{{ getInitials(patient.name) }}</span>
+              </v-avatar>
+              <div class="patient-card__identity">
+                <h2 class="patient-card__name">{{ patient.name }}</h2>
+                <div class="patient-card__meta">
+                  <bdi>#{{ patient.id }}</bdi>
+                  <span v-if="patient.age !== null && patient.age !== undefined && patient.age !== ''">
+                    {{ patient.age }} {{ $t('patients.years') }}
+                  </span>
+                  <span v-if="patient.sex === 1 || patient.sex === 2">
+                    {{ patient.sex === 1 ? $t('patients.male') : $t('patients.female') }}
+                  </span>
+                </div>
+              </div>
+              <v-menu location="bottom end">
+                <template #activator="{ props }">
+                  <v-btn v-bind="props" icon="mdi-dots-vertical" variant="text" size="44"
+                    :aria-label="`${$t('patients.actions')}: ${patient.name}`" />
+                </template>
+                <v-list density="comfortable" min-width="220">
+                  <v-list-item prepend-icon="mdi-eye-outline" :title="$t('patients.patient_details')" @click="viewPatient(patient)" />
+                  <v-list-item prepend-icon="mdi-pencil-outline" :title="$t('common.edit')" @click="editPatient(patient)" />
+                  <v-list-item prepend-icon="mdi-whatsapp" :title="$t('patients.send_whatsapp')"
+                    :disabled="!patient.phone" @click="openWhatsAppDialog(patient)" />
+                  <v-list-item prepend-icon="mdi-qrcode" :title="$t('patientIdCard.title')" @click="openQrCard(patient)" />
+                  <v-divider class="my-1" />
+                  <v-list-item prepend-icon="mdi-delete-outline" :title="$t('common.delete')" class="text-error" @click="confirmDelete(patient)" />
+                </v-list>
+              </v-menu>
+            </div>
+
+            <div class="patient-card__info">
+              <div class="patient-card__phone">
+                <v-btn
+                  icon="mdi-whatsapp"
+                  color="success"
+                  variant="tonal"
+                  size="44"
+                  :aria-label="`${$t('patients.send_whatsapp')}: ${patient.name}`"
+                  :disabled="!patient.phone"
+                  @click.stop="openWhatsAppDialog(patient)"
+                />
+                <span dir="ltr">{{ patient.phone || '—' }}</span>
+              </div>
+              <div class="patient-card__cases">
+                <span>{{ $t('patients.cases_count') }}</span>
+                <strong>{{ patient.cases_count ?? 0 }}</strong>
+              </div>
+            </div>
+
+            <div class="patient-card__actions">
+              <v-btn color="primary" variant="flat" prepend-icon="mdi-account-outline" @click="goToPatient(patient)">
+                {{ $t('patients.patient_details') }}
+              </v-btn>
+              <v-btn color="primary" variant="tonal" prepend-icon="mdi-calendar-plus" @click="openBookingForPatient(patient)">
+                {{ $t('patients.add_booking') }}
+              </v-btn>
+            </div>
+          </article>
+        </template>
+      </div>
+
+      <!-- Desktop Data Table -->
       <v-data-table-server
+        v-else
         v-model:items-per-page="perPage"
         v-model:page="currentPage"
         :headers="headers"
@@ -285,7 +405,7 @@
 
       <!-- Numbered Pagination -->
       <v-divider />
-      <div class="d-flex align-center justify-space-between pa-3">
+      <div class="patients-pagination d-flex align-center justify-space-between pa-3">
         <div class="text-caption text-grey">
           {{ $t('patients.showing') || 'Showing' }}
           {{ paginationInfo.from }}-{{ paginationInfo.to }}
@@ -295,8 +415,9 @@
         <v-pagination
           v-model="currentPage"
           :length="paginationInfo.lastPage"
-          :total-visible="7"
+          :total-visible="smAndDown ? 3 : 7"
           density="compact"
+          :disabled="loading"
           @update:model-value="handlePageChange"
         />
       </div>
@@ -605,6 +726,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useDisplay } from 'vuetify'
 import { useRouter, useRoute } from 'vue-router'
 import api from '@/services/api'
 import BookingDialog from '@/components/BookingDialog.vue'
@@ -614,9 +736,10 @@ import QrScanner from '@/components/QrScanner.vue'
 import { useClinicSettings } from '@/composables/useClinicSettings'
 
 const { t } = useI18n()
+const { smAndDown } = useDisplay()
 const router = useRouter()
 const route = useRoute()
-const { clinicSettings } = useClinicSettings()
+const { clinicSettings, clinicName } = useClinicSettings()
 
 // ==================== State ====================
 const loading = ref(false)
@@ -700,6 +823,10 @@ const sortOptions = computed(() => [
   { text: t('patients.name_za'), value: '-name' }
 ])
 
+// The clinic's own name for patient-facing messages, with a neutral wording
+// (never the product name) when the clinic has not set one yet.
+const whatsappClinicName = computed(() => clinicName.value || t('patients.clinic_name'))
+
 // WhatsApp Message Templates
 const messageTemplates = computed(() => [
   {
@@ -707,7 +834,7 @@ const messageTemplates = computed(() => [
     title: t('patients.template_reminder'),
     text: t('patients.template_reminder_text', {
       name: selectedPatientForWhatsApp.value?.name || '',
-      clinic: t('patients.clinic_name')
+      clinic: whatsappClinicName.value
     })
   },
   {
@@ -758,7 +885,7 @@ const headers = computed(() => [
 
 // Pagination Info
 const paginationInfo = computed(() => ({
-  from: (currentPage.value - 1) * perPage.value + 1,
+  from: totalPatients.value ? (currentPage.value - 1) * perPage.value + 1 : 0,
   to: Math.min(currentPage.value * perPage.value, totalPatients.value),
   total: totalPatients.value,
   lastPage: Math.ceil(totalPatients.value / perPage.value) || 1
@@ -776,6 +903,13 @@ function handlePageChange(page) {
 // Handle items per page change
 function handleItemsPerPageChange(itemsPerPage) {
   perPage.value = itemsPerPage
+  currentPage.value = 1
+  syncUrl()
+  loadPatients()
+}
+
+function handlePaymentStatusChange(value) {
+  filters.payment_status = value
   currentPage.value = 1
   syncUrl()
   loadPatients()
@@ -911,7 +1045,8 @@ function editFromView() {
 
 // Go to Patient Page
 function goToPatient(patient) {
-  router.push(`/patients/${patient.id}`)
+  if (!patient?.id) return
+  router.push({ name: 'PatientDetail', params: { id: patient.id } })
 }
 
 // View Patient
@@ -1020,7 +1155,7 @@ function generateProfileLinkMessage() {
   
   return t('patients.template_profile_link_text', {
     name: patient.name,
-    clinic: t('patients.clinic_name'),
+    clinic: whatsappClinicName.value,
     url: profileUrl
   })
 }
@@ -1126,12 +1261,124 @@ onMounted(() => {
   background: linear-gradient(135deg, #f5f7fa 0%, #ffffff 100%);
 }
 
+.mobile-patient-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mobile-patient-toolbar .v-text-field {
+  min-width: 0;
+}
+
 .patients-table {
   min-height: 400px;
 }
 
 .patients-table :deep(tbody tr) {
   cursor: pointer;
+}
+
+.mobile-patients {
+  background: transparent;
+  overflow: visible;
+}
+
+.patient-card-list {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.patient-card {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-radius: 16px;
+  background: rgb(var(--v-theme-surface));
+}
+
+.patient-card__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.patient-card__identity {
+  flex: 1;
+  min-width: 0;
+}
+
+.patient-card__name {
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.patient-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.75rem;
+}
+
+.patient-card__info {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-block: 16px;
+  font-size: 0.875rem;
+}
+
+.patient-card__phone,
+.patient-card__cases {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.patient-card__phone {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.patient-card__cases {
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+}
+
+.patient-card__cases strong {
+  color: rgb(var(--v-theme-primary));
+}
+
+.patient-card__actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.patient-card__actions .v-btn {
+  height: auto;
+  min-height: 44px;
+  padding: 10px 8px;
+  border-radius: 10px;
+  font-size: 0.8125rem;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.patient-card__actions :deep(.v-btn__content) {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+.mobile-patients .patients-pagination {
+  flex-direction: column;
+  gap: 8px;
 }
 
 .info-item {

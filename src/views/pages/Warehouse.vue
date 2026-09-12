@@ -3,7 +3,7 @@
     <!-- ============ Page Header ============ -->
     <div class="page-header mb-4">
       <div class="d-flex flex-wrap align-center justify-space-between ga-3">
-        <div>
+        <div class="mobile-page-heading">
           <h1 class="text-h5 text-md-h4 font-weight-bold text-primary ma-0">
             <v-icon class="me-2">mdi-warehouse</v-icon>
             {{ $t('warehouse.title') }}

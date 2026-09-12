@@ -1,6 +1,6 @@
 <template>
   <v-container fluid class="pa-4">
-    <v-row>
+    <v-row class="mobile-page-heading">
       <v-col cols="12">
         <h1 class="text-h4 mb-4">{{ $t('settings.title') }}</h1>
       </v-col>
@@ -162,6 +162,26 @@
                             rows="2"
                             :disabled="!canEdit"
                           ></v-textarea>
+                          <v-btn
+                            variant="tonal"
+                            color="primary"
+                            prepend-icon="mdi-crosshairs-gps"
+                            :loading="detectingLocation"
+                            :disabled="!canEdit"
+                            @click="detectClinicLocation"
+                          >{{ $t('clinicSettings.detectLocation') }}</v-btn>
+                          <p class="text-caption text-medium-emphasis mt-2">{{ $t('clinicSettings.detectLocationHint') }}</p>
+                          <v-alert v-if="locationError" type="error" variant="tonal" class="mt-2" role="alert">{{ locationError }}</v-alert>
+                          <iframe
+                            v-if="clinicForm.address.trim()"
+                            :src="clinicMapUrl"
+                            :title="$t('clinicSettings.clinicMap')"
+                            width="100%"
+                            height="250"
+                            style="border: 0; border-radius: 12px; margin-top: 12px"
+                            loading="lazy"
+                            referrerpolicy="no-referrer-when-downgrade"
+                          ></iframe>
                         </v-col>
                       </v-row>
                     </v-card-text>
@@ -381,6 +401,27 @@
                             :label="$t('clinicSettings.timeFormat')"
                             :items="timeFormatOptions"
                             prepend-inner-icon="mdi-clock"
+                            variant="outlined"
+                            :disabled="!canEdit"
+                          ></v-select>
+                        </v-col>
+
+                        <!-- Dental Chart Subsection -->
+                        <v-col cols="12">
+                          <v-divider class="my-4"></v-divider>
+                          <div class="text-h6 mb-4">
+                            <v-icon start color="primary">mdi-tooth-outline</v-icon>
+                            {{ $t('clinicSettings.dentalChart') }}
+                          </div>
+                        </v-col>
+                        <v-col cols="12" md="6">
+                          <v-select
+                            v-model="clinicForm.baby_teeth_notation"
+                            :label="$t('clinicSettings.babyTeethNotation')"
+                            :items="babyTeethNotationOptions"
+                            :hint="$t('clinicSettings.babyTeethNotationHint')"
+                            persistent-hint
+                            prepend-inner-icon="mdi-alphabetical-variant"
                             variant="outlined"
                             :disabled="!canEdit"
                           ></v-select>
@@ -809,6 +850,7 @@ import {
   uploadClinicLogo
 } from '@/services/clinicSettings.service'
 import { useClinicSettings } from '@/composables/useClinicSettings'
+import { DEFAULT_TOOTH_NOTATION, normalizeToothNotation } from '@/components/teeth/toothNotation'
 
 const { t } = useI18n()
 const authStore = useAuthStore()
@@ -855,6 +897,35 @@ const syncAiDatabase = async () => {
   }
 }
 
+const detectingLocation = ref(false)
+const locationError = ref('')
+const clinicMapUrl = computed(() =>
+  `https://maps.google.com/maps?q=${encodeURIComponent(clinicForm.value.address.trim())}&z=16&output=embed`
+)
+
+function detectClinicLocation() {
+  if (!canEdit.value || detectingLocation.value) return
+  locationError.value = ''
+  if (!navigator.geolocation) {
+    locationError.value = t('clinicSettings.locationUnavailable')
+    return
+  }
+  detectingLocation.value = true
+  navigator.geolocation.getCurrentPosition(
+    ({ coords }) => {
+      clinicForm.value.address = `${coords.latitude.toFixed(6)}, ${coords.longitude.toFixed(6)}`
+      detectingLocation.value = false
+    },
+    (error) => {
+      locationError.value = t(error.code === 1
+        ? 'clinicSettings.locationDenied'
+        : 'clinicSettings.locationUnavailable')
+      detectingLocation.value = false
+    },
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+  )
+}
+
 // Logo handling
 const logoFile = ref(null)
 const logoPreview = ref(null)
@@ -887,6 +958,8 @@ const clinicForm = ref({
   language: 'ar',
   date_format: 'DD/MM/YYYY',
   time_format: '12h',
+  // Dental chart: how baby (primary) teeth are labelled - 'fdi' | 'universal' | 'palmer'
+  baby_teeth_notation: DEFAULT_TOOTH_NOTATION,
   // Social media
   facebook: '',
   instagram: '',
@@ -962,6 +1035,14 @@ const timeFormatOptions = [
   { title: '12-hour (AM/PM)', value: '12h' },
   { title: '24-hour', value: '24h' }
 ]
+
+// Baby teeth can be shown as FDI numbers, Universal letters (A-T) or
+// Palmer letters (A-E per quadrant). Permanent teeth stay on FDI numbers.
+const babyTeethNotationOptions = computed(() => [
+  { title: `${t('clinicSettings.babyTeethNotationFdi')} (51-85)`, value: 'fdi' },
+  { title: `${t('clinicSettings.babyTeethNotationUniversal')} (A - T)`, value: 'universal' },
+  { title: `${t('clinicSettings.babyTeethNotationPalmer')} (A - E)`, value: 'palmer' }
+])
 
 const weekDays = computed(() => [
   { value: 'sunday', label: t('clinicSettings.days.sunday') },
@@ -1040,6 +1121,7 @@ const loadClinicSettings = async () => {
         language: settings.language || 'ar',
         date_format: settings.date_format || 'DD/MM/YYYY',
         time_format: settings.time_format || '12h',
+        baby_teeth_notation: normalizeToothNotation(settings.baby_teeth_notation),
         facebook: settings.facebook || '',
         instagram: settings.instagram || '',
         twitter: settings.twitter || '',
@@ -1175,10 +1257,15 @@ const uploadLogo = async () => {
     const response = await uploadClinicLogo(logoFile.value)
     
     if (response.success) {
-      clinicForm.value.logo = response.data?.logo_url || response.data?.setting_value
+      clinicForm.value.logo = response.data?.logo_url
+        || response.data?.setting?.logo_url
+        || response.data?.setting?.setting_value
       showNotification(t('clinicSettings.logoUploadSuccess'))
       logoFile.value = null
       logoPreview.value = null
+      // Refresh the shared settings cache so the new logo shows up everywhere
+      // (prescriptions, bills, reports) without a full page reload.
+      await resetCache()
     }
   } catch (error) {
     console.error('Error uploading logo:', error)
@@ -1226,6 +1313,7 @@ const saveAllSettings = async () => {
       { key: 'language', value: clinicForm.value.language, type: 'string' },
       { key: 'date_format', value: clinicForm.value.date_format, type: 'string' },
       { key: 'time_format', value: clinicForm.value.time_format, type: 'string' },
+      { key: 'baby_teeth_notation', value: clinicForm.value.baby_teeth_notation, type: 'string' },
       { key: 'facebook', value: clinicForm.value.facebook, type: 'string' },
       { key: 'instagram', value: clinicForm.value.instagram, type: 'string' },
       { key: 'twitter', value: clinicForm.value.twitter, type: 'string' },

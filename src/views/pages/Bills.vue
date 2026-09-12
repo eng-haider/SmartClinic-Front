@@ -1,7 +1,7 @@
 <template>
   <div class="bills-page">
     <!-- Page Header -->
-    <div class="page-header mb-6">
+    <div class="page-header mb-6 mobile-page-heading">
       <div class="d-flex flex-wrap align-center justify-space-between ga-4">
         <div>
           <h1 class="text-h4 font-weight-bold text-primary">{{ $t('bills.title') }}</h1>

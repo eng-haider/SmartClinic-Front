@@ -3,7 +3,7 @@
     <!-- ═══════════ Page Header ═══════════ -->
     <div class="rx-page__header mb-5">
       <div class="d-flex align-center justify-space-between flex-wrap gap-3">
-        <div>
+        <div class="mobile-page-heading">
           <h1 class="rx-page__title">
             <v-icon start size="32" color="primary">mdi-pill</v-icon>
             {{ $t('rx.title') }}
@@ -457,9 +457,12 @@ import RecipeService from '@/services/recipe.service'
 import MedicationService from '@/services/medication.service'
 import api from '@/services/api'
 import { MedicationTable, MedicationForm, RxPreview } from '@/components/prescription'
+import { useClinicSettings } from '@/composables/useClinicSettings'
 
 const { t, locale } = useI18n()
 const authStore = useAuthStore()
+
+const { clinicInfo: sharedClinic, loadSettings: loadClinicSettings } = useClinicSettings()
 
 const SETTINGS_KEY = 'rx_print_settings'
 const colorOptions = ['#17638D', '#1976d2', '#0d47a1', '#00695c', '#2e7d32', '#4527a0', '#37474f', '#000000']
@@ -814,16 +817,13 @@ const loadPrintSettings = () => {
     if (stored) Object.assign(rxPrintSettings.value, JSON.parse(stored))
   } catch { /* ignore */ }
 
-  // Fill from clinic settings if empty
-  try {
-    const clinicStr = localStorage.getItem('clinic_settings') || localStorage.getItem('clinic')
-    if (clinicStr) {
-      const clinic = JSON.parse(clinicStr)
-      if (!rxPrintSettings.value.clinicName) rxPrintSettings.value.clinicName = clinic.name || clinic.clinic_name || ''
-      if (!rxPrintSettings.value.phone) rxPrintSettings.value.phone = clinic.phone || clinic.clinic_phone || ''
-      if (!rxPrintSettings.value.address) rxPrintSettings.value.address = clinic.address || clinic.clinic_address || ''
-    }
-  } catch { /* ignore */ }
+  // Fill any blank field from the clinic settings (logo included) so a fresh
+  // browser prints the real clinic identity without touching this dialog.
+  const clinic = sharedClinic.value
+  if (!rxPrintSettings.value.clinicName) rxPrintSettings.value.clinicName = clinic.name || ''
+  if (!rxPrintSettings.value.phone) rxPrintSettings.value.phone = clinic.phone || ''
+  if (!rxPrintSettings.value.address) rxPrintSettings.value.address = clinic.address || ''
+  if (!rxPrintSettings.value.logo) rxPrintSettings.value.logo = clinic.logo || ''
 }
 
 const openPrintSettings = () => { settingsDialog.value = true }
@@ -856,9 +856,11 @@ const onLogoUpload = (event) => {
 }
 
 // ─── Lifecycle ───
-onMounted(() => {
+onMounted(async () => {
   fetchRecipes()
   fetchDoctors()
+  // Clinic settings first - loadPrintSettings() copies the logo/name out of them.
+  await loadClinicSettings()
   loadPrintSettings()
 })
 </script>

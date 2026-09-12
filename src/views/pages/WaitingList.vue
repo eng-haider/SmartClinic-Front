@@ -4,7 +4,7 @@
     <div class="page-header mb-4">
       <div class="d-flex flex-wrap align-center justify-space-between gap-3">
         <div>
-          <h1 class="text-h5 text-md-h4 font-weight-bold text-primary ma-0">
+          <h1 class="text-h5 text-md-h4 font-weight-bold text-primary ma-0 mobile-page-heading">
             {{ $t('waitingList.title') || 'قائمة الانتظار' }}
           </h1>
           <p class="text-body-2 text-medium-emphasis mt-1 mb-0">

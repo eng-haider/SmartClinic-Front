@@ -146,7 +146,7 @@ const props = defineProps({
     type: Object,
     default: () => ({
       logo: '',
-      clinicName: 'Smart Clinic',
+      clinicName: '',
       doctorName: '',
       specialty: '',
       phone: '',

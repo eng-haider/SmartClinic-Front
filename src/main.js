@@ -1,5 +1,5 @@
 /**
- * Main Entry Point - Vue 3 + Ionic + Capacitor
+ * Main Entry Point - Vue 3 + Capacitor
  * نقطة الدخول الرئيسية للتطبيق
  * 
  * @author Clinic Management System
@@ -52,36 +52,15 @@ if ('serviceWorker' in navigator) {
   })
 }
 
-import { createApp } from 'vue'
+import { createApp, nextTick } from 'vue'
 import App from './App.vue'
 import router from './router'
 import { createPinia } from 'pinia'
 import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
 
-// Ionic
-import { IonicVue } from '@ionic/vue'
-
-/* Ionic CSS - Core */
-import '@ionic/vue/css/core.css'
-
-/* Ionic CSS - Basic */
-import '@ionic/vue/css/normalize.css'
-import '@ionic/vue/css/structure.css'
-import '@ionic/vue/css/typography.css'
-
-/* Ionic CSS - Optional (recommended for clean mobile UI) */
-import '@ionic/vue/css/padding.css'
-import '@ionic/vue/css/float-elements.css'
-import '@ionic/vue/css/text-alignment.css'
-import '@ionic/vue/css/text-transformation.css'
-import '@ionic/vue/css/flex-utils.css'
-import '@ionic/vue/css/display.css'
-
 // Vuetify
 import 'vuetify/styles'
 import { createVuetify } from 'vuetify'
-import * as components from 'vuetify/components'
-import * as directives from 'vuetify/directives'
 import { aliases, mdi } from 'vuetify/iconsets/mdi'
 import '@mdi/font/css/materialdesignicons.css'
 import '@fortawesome/fontawesome-free/css/all.css'
@@ -112,8 +91,6 @@ import { initMobileApp } from './composables/useMobile'
 
 // ==================== Vuetify Setup ====================
 const vuetify = createVuetify({
-  components,
-  directives,
   icons: {
     defaultSet: 'mdi',
     aliases,
@@ -182,17 +159,13 @@ const app = createApp(App)
 app.config.globalProperties.$url = 'https://mina-api.tctate.com'
 app.config.globalProperties.$http = 'https://'
 
-// Use Plugins (Ionic must be registered before router)
+// Use Plugins
 app.use(pinia)
 
 // Initialize Auth Store BEFORE router so guards can read auth state immediately
 const authStore = useAuthStore()
 authStore.initializeAuth()
 
-app.use(IonicVue, {
-  mode: 'md', // Material Design mode for consistent look
-  animated: true,
-})
 app.use(router)
 app.use(vuetify)
 app.use(i18n)
@@ -208,10 +181,15 @@ const rtlLangs = ['ar', 'ku']
 document.documentElement.dir = rtlLangs.includes(currentLang) ? 'rtl' : 'ltr'
 document.documentElement.lang = currentLang
 
-// Mount App when Ionic router is ready
-router.isReady().then(() => {
+// Mount App when the router is ready
+router.isReady().then(async () => {
   app.mount('#app')
-  
+  await nextTick()
+  requestAnimationFrame(() => window.dispatchEvent(new Event('app:ready')))
+
   // Initialize mobile-specific features (status bar, splash screen, etc.)
   initMobileApp()
+}).catch((error) => {
+  console.error('Failed to start the app:', error)
+  window.dispatchEvent(new Event('app:startup-error'))
 })

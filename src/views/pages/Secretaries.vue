@@ -3,7 +3,7 @@
     <!-- Page Header -->
     <div class="page-header mb-6">
       <div class="d-flex flex-wrap align-center justify-space-between ga-4">
-        <div>
+        <div class="mobile-page-heading">
           <h1 class="text-h4 font-weight-bold text-primary">{{ $t('secretaries.title') }}</h1>
           <p class="text-grey mt-1">{{ $t('secretaries.subtitle') }}</p>
         </div>

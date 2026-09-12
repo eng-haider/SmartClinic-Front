@@ -236,6 +236,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useClinicSettings, resolveLogoUrl } from '@/composables/useClinicSettings'
 
 const SETTINGS_KEY = 'rx_print_settings'
 
@@ -243,6 +244,8 @@ const colorOptions = [
   '#1976d2', '#0d47a1', '#00695c', '#2e7d32',
   '#4527a0', '#c62828', '#37474f', '#000000'
 ]
+
+const { clinicInfo: sharedClinic } = useClinicSettings()
 
 const props = defineProps({
   recipe: { type: Object, default: null },
@@ -311,21 +314,24 @@ const onLogoUpload = (event) => {
 
 // Computed print values (user settings override clinic settings)
 const printClinicName = computed(() =>
-  rxSettings.value.clinicName || props.clinicSettings?.name || props.clinicSettings?.clinic_name || 'Smart Clinic'
+  rxSettings.value.clinicName || props.clinicSettings?.name || props.clinicSettings?.clinic_name ||
+  sharedClinic.value.name || ''
 )
 const printSlogan = computed(() => rxSettings.value.slogan || '')
 const printAddress = computed(() =>
-  rxSettings.value.address || props.clinicSettings?.address || props.clinicSettings?.clinic_address || ''
+  rxSettings.value.address || props.clinicSettings?.address || props.clinicSettings?.clinic_address ||
+  sharedClinic.value.address || ''
 )
 const printPhone = computed(() =>
-  rxSettings.value.phone || props.clinicSettings?.phone || props.clinicSettings?.clinic_phone || ''
+  rxSettings.value.phone || props.clinicSettings?.phone || props.clinicSettings?.clinic_phone ||
+  sharedClinic.value.phone || ''
 )
 const printLogo = computed(() => {
-  if (rxSettings.value.logo) return rxSettings.value.logo
-  const logo = props.clinicSettings?.logo || props.clinicSettings?.clinic_logo
-  if (!logo) return null
-  if (logo.startsWith('http') || logo.startsWith('data:')) return logo
-  return `${import.meta.env.VITE_API_URL || ''}/storage/${logo}`
+  // Manual override from the print dialog wins, then the prop, then clinic settings.
+  const logo = rxSettings.value.logo ||
+    props.clinicSettings?.logo || props.clinicSettings?.clinic_logo ||
+    sharedClinic.value.logo
+  return resolveLogoUrl(logo) || null
 })
 const printFooterText = computed(() =>
   rxSettings.value.footerText || t('recipes.footer_note')

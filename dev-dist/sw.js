@@ -85,6 +85,7 @@ define(['./workbox-07ba41de'], (function (workbox) { 'use strict';
     "revision": "3ca0b8505b4bec776b69afdba2768812"
   }], {});
   workbox.cleanupOutdatedCaches();
+  workbox.registerRoute(/^https:\/\/api\.smartclinic\.software\/.*\/bills\/(?:patient-balances|payments)(?:[/?]|$)/i, new workbox.NetworkOnly(), 'GET');
   workbox.registerRoute(/^https:\/\/api\.smartclinic\.software\/.*\/reports\//i, new workbox.NetworkOnly(), 'GET');
   workbox.registerRoute(/^https:\/\/api\.smartclinic\.software\/.*/i, new workbox.NetworkFirst({
     "cacheName": "api-cache",

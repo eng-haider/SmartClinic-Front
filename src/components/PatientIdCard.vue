@@ -39,7 +39,7 @@
             :dir="isRtl ? 'rtl' : 'ltr'"
           >
             <!-- Clinic Name -->
-            <div class="clinic-name">{{ clinicName }}</div>
+            <div v-if="clinicName" class="clinic-name">{{ clinicName }}</div>
             
             <!-- Patient Name -->
             <div class="patient-name">{{ patientName }}</div>
@@ -112,6 +112,7 @@
 import { ref, computed, watch, nextTick, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useCardImageExport } from '@/composables/useCardImageExport'
+import { useClinicSettings } from '@/composables/useClinicSettings'
 import { useWhatsAppSender } from '@/composables/useWhatsAppSender'
 import { patientService } from '@/services/patient.service'
 
@@ -166,13 +167,18 @@ const internalDialog = computed({
   set: (value) => emit('update:modelValue', value)
 })
 
+// Fall back to the shared clinic settings so the card still carries the
+// clinic's own name when the parent passed nothing down.
+const { clinicInfo: sharedClinic, loadSettings: loadClinicSettings } = useClinicSettings()
+onMounted(() => { loadClinicSettings() })
+
 // Computed
 const isRtl = computed(() => locale.value === 'ar' || locale.value === 'ku')
 
 const clinicName = computed(() => {
   return props.clinicSettings?.name || 
          props.clinicSettings?.clinic_name || 
-         'Smart Clinic'
+         sharedClinic.value.name || ''
 })
 
 const patientName = computed(() => {

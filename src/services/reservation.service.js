@@ -122,12 +122,13 @@ export const reservationService = {
 
   /**
    * Search patients for booking
-   * @param {string} query - Search query
+   * @param {string} query - Search query (matches name, phone, phone2, identifier)
+   * @param {number} perPage - Max results to return
    */
-  async searchPatients(query) {
+  async searchPatients(query, perPage = 20) {
     const params = {
       page: 1,
-      per_page: 15,
+      per_page: perPage,
       sort: '-created_at'
     }
     

@@ -62,7 +62,7 @@
             <template v-slot:no-data>
               <v-list-item>
                 <v-list-item-title>
-                  {{ patientSearch?.length >= 3 
+                  {{ patientSearch?.length >= 2
                     ? $t('reservations.no_patients_found') 
                     : $t('reservations.type_to_search') 
                   }}
@@ -142,6 +142,16 @@
             class="mb-2"
           />
 
+          <v-alert
+            v-if="bookingData.sendWhatsApp && !whatsAppPhone"
+            type="warning"
+            variant="tonal"
+            density="compact"
+            class="mt-3"
+          >
+            {{ $t('patients.whatsapp_error') }}
+          </v-alert>
+
           <!-- WhatsApp Message Preview -->
           <v-alert
             v-if="bookingData.sendWhatsApp && bookingData.patient"
@@ -170,7 +180,7 @@
           color="primary"
           variant="elevated"
           :loading="saving"
-          :disabled="!bookingFormValid"
+          :disabled="!bookingFormValid || saving || (bookingData.sendWhatsApp && !whatsAppPhone)"
           @click="handleSave"
         >
           {{ $t('common.save') }}
@@ -229,11 +239,19 @@ const reservationTypes = ref([
 ])
 const loadingTypes = ref(false)
 
+// Current time as HH:MM (used as the default reservation time)
+const getCurrentTime = () => {
+  const now = new Date()
+  const hours = String(now.getHours()).padStart(2, '0')
+  const minutes = String(now.getMinutes()).padStart(2, '0')
+  return `${hours}:${minutes}`
+}
+
 const bookingData = ref({
   patient: null,
   doctor_id: null,
   date: null,
-  from_time: '09:00',
+  from_time: getCurrentTime(),
   reservation_type_id: 1,
   reservation_type_note: '',
   notes: '',
@@ -259,6 +277,18 @@ const whatsAppMessage = computed(() => {
   const clinicName = authStore.clinicInfo?.name || 'العيادة'
   
   return `مرحباً ${patientName}،\n\nنود تذكيرك بموعدك في ${clinicName}\n📅 التاريخ: ${date}\n🕐 الوقت: ${time}\n\nنتطلع لرؤيتك!`
+})
+
+const whatsAppPhone = computed(() => {
+  const rawPhone = String(bookingData.value.patient?.phone || '').trim()
+  let phone = rawPhone.replace(/\D/g, '')
+  if (phone.startsWith('00')) {
+    phone = phone.slice(2)
+  } else if (!rawPhone.startsWith('+')) {
+    phone = phone.replace(/^0+/, '')
+    if (phone && !phone.startsWith('964')) phone = `964${phone}`
+  }
+  return /^[1-9]\d{7,14}$/.test(phone) ? phone : ''
 })
 
 // ==================== Rules ====================
@@ -298,7 +328,7 @@ const resetForm = () => {
     patient: null,
     doctor_id: props.defaultDoctorId,
     date: props.selectedDate || formatDateISO(new Date()),
-    from_time: '09:00',
+    from_time: getCurrentTime(),
     reservation_type_id: reservationTypes.value[0]?.id || 1,
     reservation_type_note: '',
     notes: '',
@@ -320,7 +350,14 @@ const handleClose = () => {
 }
 
 const handleSave = async () => {
-  if (!bookingFormValid.value) return
+  if (!bookingFormValid.value || saving.value || !bookingData.value.patient) return
+  if (bookingData.value.sendWhatsApp && !whatsAppPhone.value) return
+
+  // Capture the reminder before waiting so it matches the booking being saved.
+  const whatsAppUrl = bookingData.value.sendWhatsApp
+    ? `https://wa.me/${whatsAppPhone.value}?text=${encodeURIComponent(whatsAppMessage.value)}`
+    : null
+  let whatsAppWindow = null
   
   saving.value = true
   try {
@@ -341,22 +378,31 @@ const handleSave = async () => {
       notes: bookingData.value.notes,
       is_waiting: false
     }
-    
-    const response = await reservationService.create(payload)
-    
-    // Send WhatsApp if enabled
-    if (bookingData.value.sendWhatsApp && bookingData.value.patient?.phone) {
-      const message = encodeURIComponent(whatsAppMessage.value)
-      let phone = bookingData.value.patient.phone.replace(/\D/g, '')
-      if (!phone.startsWith('964')) {
-        phone = '964' + phone
+
+    // Reserve a tab during the Save click, before the request loses user activation.
+    if (whatsAppUrl) {
+      try {
+        whatsAppWindow = window.open('about:blank', '_blank')
+        if (whatsAppWindow) whatsAppWindow.opener = null
+      } catch {
+        // If popups are unavailable, navigate the current tab after saving.
       }
-      window.open(`https://wa.me/${phone}?text=${message}`, '_blank')
     }
     
+    const response = await reservationService.create(payload)
+
     emit('saved', response)
     internalDialog.value = false
+
+    if (whatsAppUrl) {
+      if (whatsAppWindow && !whatsAppWindow.closed) {
+        whatsAppWindow.location.replace(whatsAppUrl)
+      } else {
+        window.location.assign(whatsAppUrl)
+      }
+    }
   } catch (error) {
+    if (whatsAppWindow && !whatsAppWindow.closed) whatsAppWindow.close()
     console.error('Failed to save booking:', error)
     emit('error', error)
   } finally {
@@ -406,17 +452,21 @@ const loadPatientById = async (patientId) => {
 }
 
 const searchPatients = async (query) => {
-  if (!query || query.length < 3) {
+  const term = (query || '').trim()
+
+  // Below the minimum length fall back to the most recent patients
+  if (term.length < 2) {
     loadInitialPatients()
     return
   }
-  
+
   searchingPatients.value = true
   try {
-    const response = await reservationService.searchPatients(query)
+    const response = await reservationService.searchPatients(term)
     patientOptions.value = response.data || []
   } catch (error) {
     console.error('Failed to search patients:', error)
+    patientOptions.value = []
   } finally {
     searchingPatients.value = false
   }
@@ -425,6 +475,9 @@ const searchPatients = async (query) => {
 // ==================== Watchers ====================
 let searchTimeout = null
 watch(patientSearch, (newVal) => {
+  // Skip the echo emitted when a patient is picked from the list
+  if (newVal && newVal === bookingData.value.patient?.name) return
+
   clearTimeout(searchTimeout)
   searchTimeout = setTimeout(() => {
     searchPatients(newVal)

@@ -102,6 +102,7 @@ import RecipePrint                       from '@/components/RecipePrint.vue'
 import { useOphthalmologyData } from '@/composables/useOphthalmologyData.js'
 import api from '@/services/api'
 import billService from '@/services/bill.service'
+import { useClinicSettings } from '@/composables/useClinicSettings'
 
 const route = useRoute()
 const patientId = computed(() => route.params.id)
@@ -119,7 +120,8 @@ const billDialog    = ref(false)
 const recipeDialog  = ref(false)
 const billReservation = ref(null)
 const patientBills    = ref([])
-const clinicSettings  = ref(null)
+// Clinic identity (name / logo / phone / address) for print + preview dialogs
+const { clinicInfo: clinicSettings, loadSettings: loadClinicSettings } = useClinicSettings()
 const selectedRecipe  = ref(null)
 const recipePrintRef  = ref(null)
 const recipeToPrint   = ref(null)
@@ -157,14 +159,8 @@ const fetchPatientBills = async () => {
 }
 
 const fetchClinicSettings = async () => {
-  try {
-    const stored = localStorage.getItem('clinic')
-    if (stored) { clinicSettings.value = JSON.parse(stored); return }
-    const response = await api.get('/settings/clinic')
-    clinicSettings.value = response.data || response || { name: 'Smart Clinic', address: '', phone: '', logo: null }
-  } catch {
-    clinicSettings.value = { name: 'Smart Clinic', address: '', phone: '', logo: null }
-  }
+  // Single source of truth: the clinic-settings API (logo + name + contact).
+  await loadClinicSettings()
 }
 
 // ── Real data composable ──────────────────────────────────────

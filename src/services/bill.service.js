@@ -8,6 +8,20 @@
 import api from './api'
 
 export const billService = {
+  /** Patient balances include every case, even when no bill has been recorded. */
+  async getPatientBalances(params = {}) {
+    return await api.get('/bills/patient-balances', { params })
+  },
+
+  /** Paid case bills, with server-side search, dates, sorting and totals. */
+  async getPayments(params = {}) {
+    return await api.get('/bills/payments', { params })
+  },
+
+  async getPatientBillHistory(patientId, params = {}) {
+    return await api.get(`/bills/patient-balances/${patientId}/bills`, { params })
+  },
+
   /**
    * Get all bills with pagination and filtering
    * @param {Object} params - Query parameters

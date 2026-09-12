@@ -537,7 +537,7 @@ const printRx = () => {
 <html dir="${direction}" lang="${locale.value}">
 <head>
 <meta charset="UTF-8">
-<title>${clinic.clinicName || 'Smart Clinic'} - Rx</title>
+<title>${clinic.clinicName || 'Rx'}</title>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -631,7 +631,7 @@ const printRx = () => {
   <div class="rx-sheet">
   <div class="rx-header">
     <div>
-      <div class="rx-clinic">${clinic.clinicName || 'Smart Clinic'}</div>
+      <div class="rx-clinic">${clinic.clinicName || ''}</div>
       ${doctorName ? `<div class="rx-doctor-line">${doctorName}${clinic.specialty ? ` — ${clinic.specialty}` : ''}</div>` : ''}
     </div>
     <div style="text-align:${rtl ? 'left' : 'right'}">

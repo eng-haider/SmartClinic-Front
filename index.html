@@ -30,9 +30,130 @@
   <link rel="icon" href="/logo.png">
   <link rel="apple-touch-icon" href="/logo.png">
   <link rel="manifest" href="/manifest.webmanifest">
+  <!-- Available before Vue, application CSS, or web fonts finish loading. -->
+  <style>
+    html { background: #17638d; }
+    body { margin: 0; }
+    body.app-starting { background: #17638d; }
+    #startup-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 99999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      box-sizing: border-box;
+      padding: 32px;
+      padding-bottom: max(32px, env(safe-area-inset-bottom));
+      background: #17638d;
+      color: #fff;
+      color-scheme: light;
+      text-align: center;
+    }
+    #startup-screen, #startup-screen * {
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif !important;
+    }
+    #startup-screen .startup-logo {
+      width: 88px;
+      height: 88px;
+      padding: 12px;
+      box-sizing: border-box;
+      object-fit: contain;
+      border-radius: 24px;
+      background: #fff;
+    }
+    #startup-screen h1 { margin: 20px 0 28px; font-size: 25px; font-weight: 600; }
+    #startup-spinner {
+      width: 32px;
+      height: 32px;
+      box-sizing: border-box;
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: startup-spin 0.8s linear infinite;
+    }
+    #startup-message { max-width: 320px; margin: 20px 0 0; font-size: 15px; line-height: 1.7; }
+    #startup-retry {
+      margin-top: 20px;
+      padding: 12px 24px;
+      border: 1px solid rgba(255, 255, 255, 0.65);
+      border-radius: 12px;
+      background: transparent;
+      color: #fff;
+      font-size: 15px;
+      cursor: pointer;
+    }
+    #startup-retry:focus-visible { outline: 2px solid #fff; outline-offset: 4px; }
+    #startup-screen [hidden] { display: none !important; }
+    @keyframes startup-spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) {
+      #startup-spinner { animation: none; }
+    }
+  </style>
 </head>
-<body>
-  <div id="app"></div>
-  <script type="module" src="/src/main.js"></script>
+<body class="app-starting">
+  <div id="startup-screen">
+    <img class="startup-logo" src="/logo.png" alt="" width="88" height="88">
+    <h1 dir="ltr">SmartClinic</h1>
+    <div id="startup-spinner" aria-hidden="true"></div>
+    <p id="startup-message" role="status" aria-live="polite">جارٍ تحميل العيادة…</p>
+    <button id="startup-retry" type="button" hidden>إعادة المحاولة</button>
+    <noscript>
+      <style>#startup-spinner, #startup-message { display: none; }</style>
+      <p>يرجى تفعيل JavaScript لفتح التطبيق.<br>Please enable JavaScript to open the app.</p>
+    </noscript>
+  </div>
+  <div id="app" aria-busy="true"></div>
+  <script type="module" src="/src/bootstrap.js" id="app-entry"></script>
+  <script>
+    (() => {
+      const screen = document.getElementById('startup-screen')
+      const message = document.getElementById('startup-message')
+      const retry = document.getElementById('startup-retry')
+      const spinner = document.getElementById('startup-spinner')
+      // Vite replaces the module tag (including its id) in production builds.
+      const entry = document.getElementById('app-entry') || document.querySelector('script[type="module"][src]')
+      const translations = {
+        ar: ['جارٍ تحميل العيادة…', 'التحميل يستغرق وقتاً أطول. تحقق من اتصالك بالإنترنت أو أعد المحاولة.', 'تعذر فتح التطبيق. تحقق من اتصالك بالإنترنت وأعد المحاولة.', 'إعادة المحاولة'],
+        en: ['Loading your clinic…', 'Loading is taking longer. Check your internet connection or try again.', 'Unable to open the app. Check your internet connection and try again.', 'Try again'],
+        ku: ['کلینیکەکەت بار دەکرێت…', 'بارکردن کاتی زیاتر دەخایەنێت. پەیوەندی ئینتەرنێتەکەت بپشکنە یان دووبارە هەوڵ بدەوە.', 'نەتوانرا ئەپەکە بکرێتەوە. پەیوەندی ئینتەرنێتەکەت بپشکنە و دووبارە هەوڵ بدەوە.', 'دووبارە هەوڵ بدەوە'],
+        pl: ['Ładowanie kliniki…', 'Ładowanie trwa dłużej. Sprawdź połączenie z internetem lub spróbuj ponownie.', 'Nie można otworzyć aplikacji. Sprawdź połączenie z internetem i spróbuj ponownie.', 'Spróbuj ponownie'],
+      }
+      let locale = 'ar'
+      try { locale = localStorage.getItem('locale') || 'ar' } catch {}
+      const text = translations[locale] || translations.en
+      screen.lang = locale
+      screen.dir = ['ar', 'ku'].includes(locale) ? 'rtl' : 'ltr'
+      message.textContent = text[0]
+      retry.textContent = text[3]
+      retry.addEventListener('click', () => window.location.reload())
+
+      const slowTimer = setTimeout(() => {
+        message.textContent = text[1]
+        retry.hidden = false
+      }, 15000)
+
+      function showError() {
+        clearTimeout(slowTimer)
+        message.textContent = text[2]
+        spinner.hidden = true
+        retry.hidden = false
+      }
+
+      function finish() {
+        clearTimeout(slowTimer)
+        window.removeEventListener('app:startup-error', showError)
+        entry?.removeEventListener('error', showError)
+        document.getElementById('app').removeAttribute('aria-busy')
+        document.body.classList.remove('app-starting')
+        screen.remove()
+      }
+
+      entry?.addEventListener('error', showError)
+      window.addEventListener('app:startup-error', showError)
+      window.addEventListener('app:ready', finish, { once: true })
+    })()
+  </script>
 </body>
 </html>

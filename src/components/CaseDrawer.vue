@@ -72,7 +72,7 @@
             <component v-if="specialtyInfoComponent" :is="specialtyInfoComponent" :caseData="caseData" />
             <div v-else-if="caseData.tooth_num" class="info-row">
               <div class="info-label"><v-icon size="16" color="grey">mdi-tooth</v-icon>{{ $t('cases.tooth_num') || $t('patients.toothNumber') }}</div>
-              <div class="info-value">{{ caseData.tooth_num }}</div>
+              <div class="info-value">{{ formatToothLabel(caseData.tooth_num) }}</div>
             </div>
           </div>
 
@@ -240,7 +240,7 @@
             <v-icon size="16" color="grey">mdi-tooth</v-icon>
             {{ $t('cases.tooth_num') || $t('patients.toothNumber') }}
           </div>
-          <div class="info-value">{{ caseData.tooth_num }}</div>
+          <div class="info-value">{{ formatToothLabel(caseData.tooth_num) }}</div>
         </div>
       </div>
 
@@ -326,6 +326,7 @@ import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
 import { useAuthStore } from '@/stores/auth'
 import { specialtyInfos } from '@/config/specialties'
+import { useClinicSettings } from '@/composables/useClinicSettings'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -340,6 +341,7 @@ defineEmits(['update:modelValue', 'view-full', 'edit'])
 const { t } = useI18n()
 const { mobile: isMobile } = useDisplay()
 const authStore = useAuthStore()
+const { formatToothLabel } = useClinicSettings()
 
 const specialtyInfoComponent = computed(() => {
   return specialtyInfos[authStore.specialty] || null

@@ -471,6 +471,7 @@ import RecipeService from '@/services/recipe.service'
 import RecipeDialog from '@/components/RecipeDialog.vue'
 import RecipePrint from '@/components/RecipePrint.vue'
 import api from '@/services/api'
+import { useClinicSettings } from '@/composables/useClinicSettings'
 
 const { t, locale } = useI18n()
 const router = useRouter()
@@ -480,7 +481,8 @@ const authStore = useAuthStore()
 const loading = ref(false)
 const recipes = ref([])
 const doctors = ref([])
-const clinicSettings = ref(null)
+// Clinic identity (name / logo / phone / address) for the recipe print sheet
+const { clinicInfo: clinicSettings, loadSettings: loadClinicSettings } = useClinicSettings()
 
 // Filters
 const search = ref('')
@@ -581,27 +583,8 @@ const fetchDoctors = async () => {
 }
 
 const fetchClinicSettings = async () => {
-  try {
-    // Try to get clinic settings from localStorage first
-    const storedClinic = localStorage.getItem('clinic')
-    if (storedClinic) {
-      clinicSettings.value = JSON.parse(storedClinic)
-      return
-    }
-
-    // Fallback: fetch from API
-    const response = await api.get('/settings/clinic')
-    clinicSettings.value = response.data || response || null
-  } catch (error) {
-    console.error('Error fetching clinic settings:', error)
-    // Use default settings
-    clinicSettings.value = {
-      name: 'Smart Clinic',
-      address: '',
-      phone: '',
-      logo: null
-    }
-  }
+  // Single source of truth: the clinic-settings API (logo + name + contact).
+  await loadClinicSettings()
 }
 
 let searchTimeout = null

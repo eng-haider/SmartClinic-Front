@@ -3,7 +3,7 @@
     <!-- Header with Date Range -->
     <div class="dashboard-header mb-6">
       <div class="header-content">
-        <div class="header-text">
+        <div class="header-text mobile-page-heading">
           <h1 class="text-h4 font-weight-bold mb-1">{{ $t('dashboard.title') }}</h1>
           <p class="text-body-2 text-medium-emphasis">{{ $t('dashboard.welcome') }}</p>
         </div>
@@ -20,7 +20,7 @@
                 {{ formatDateRange(dateRange.from, dateRange.to) }}
               </v-btn>
             </template>
-            <v-card min-width="300">
+            <v-card class="dashboard-date-picker">
               <v-card-text>
                 <v-row>
                   <v-col cols="12">
@@ -44,7 +44,7 @@
                     />
                   </v-col>
                 </v-row>
-                <div class="d-flex gap-2 mt-3">
+                <div class="date-presets d-flex flex-wrap ga-2 mt-3">
                   <v-btn size="small" variant="text" @click="setQuickRange('today')">{{ $t('dashboard.today') }}</v-btn>
                   <v-btn size="small" variant="text" @click="setQuickRange('week')">{{ $t('dashboard.this_week') }}</v-btn>
                   <v-btn size="small" variant="text" @click="setQuickRange('month')">{{ $t('dashboard.this_month') }}</v-btn>
@@ -59,7 +59,7 @@
             </v-card>
           </v-menu>
           <!-- Refresh Button -->
-          <v-btn icon variant="text" @click="refreshAll" :loading="isRefreshing">
+          <v-btn icon variant="tonal" color="primary" :aria-label="$t('ui.refresh')" @click="refreshAll" :loading="isRefreshing">
             <v-icon>mdi-refresh</v-icon>
           </v-btn>
         </div>
@@ -67,7 +67,7 @@
     </div>
 
     <!-- Today's Quick Stats -->
-    <v-row class="mb-6">
+    <v-row class="mb-6 today-stats">
       <v-col cols="12">
         <div class="section-title mb-3">
           <v-icon color="primary" class="me-2">mdi-clock-outline</v-icon>
@@ -132,16 +132,17 @@
     </v-row>
 
     <!-- Main KPI Cards -->
-    <v-row class="mb-6">
+    <v-row class="mb-6 overview-stats">
       <v-col cols="12">
         <div class="section-title mb-3">
           <v-icon color="primary" class="me-2">mdi-chart-box</v-icon>
-          {{ $t('dashboard.overview') }} - {{ formatDateRange(dateRange.from, dateRange.to) }}
+          {{ $t('dashboard.overview') }}
+          <span class="d-none d-md-inline ms-1">- {{ formatDateRange(dateRange.from, dateRange.to) }}</span>
         </div>
       </v-col>
       
       <!-- Patients KPI -->
-      <v-col cols="12" sm="6" lg="3">
+      <v-col cols="6" lg="3">
         <v-card class="kpi-card" :loading="loading.overview">
           <div class="kpi-header">
             <div class="kpi-icon bg-primary-light">
@@ -166,7 +167,7 @@
       </v-col>
 
       <!-- Bills KPI -->
-      <v-col cols="12" sm="6" lg="3">
+      <v-col cols="6" lg="3">
         <v-card class="kpi-card" :loading="loading.overview">
           <div class="kpi-header">
             <div class="kpi-icon bg-success-light">
@@ -182,7 +183,7 @@
       </v-col>
 
       <!-- Cases KPI -->
-      <v-col cols="12" sm="6" lg="3">
+      <v-col cols="6" lg="3">
         <v-card class="kpi-card" :loading="loading.overview">
           <div class="kpi-header">
             <div class="kpi-icon bg-warning-light">
@@ -208,7 +209,7 @@
       </v-col>
 
       <!-- Expenses KPI -->
-      <v-col cols="12" sm="6" lg="3">
+      <v-col cols="6" lg="3">
         <v-card class="kpi-card" :loading="loading.expensesSummary">
           <div class="kpi-header">
             <div class="kpi-icon bg-error-light">
@@ -1027,6 +1028,14 @@ onMounted(() => {
   font-weight: 500;
 }
 
+.dashboard-date-picker {
+  width: min(360px, calc(100vw - 32px));
+}
+
+.date-presets .v-btn {
+  min-height: 44px;
+}
+
 .section-title {
   display: flex;
   align-items: center;
@@ -1416,14 +1425,115 @@ onMounted(() => {
 }
 
 /* Responsive */
-@media (max-width: 960px) {
+@media (max-width: 959px) {
+  .dashboard-container {
+    padding: 12px !important;
+  }
+
+  .dashboard-header {
+    margin-bottom: 16px !important;
+  }
+
   .header-content {
     flex-direction: column;
     align-items: stretch;
   }
   
   .header-actions {
-    justify-content: flex-end;
+    width: 100%;
+  }
+
+  .date-range-btn {
+    flex: 1;
+    min-width: 0;
+    min-height: 44px;
+    border-radius: 12px;
+    background: rgb(var(--v-theme-surface));
+  }
+
+  .date-range-btn :deep(.v-btn__content) {
+    white-space: normal;
+  }
+
+  .dashboard-container > .v-row {
+    margin: -6px -6px 16px !important;
+  }
+
+  .dashboard-container > .v-row > [class*="v-col"] {
+    padding: 6px;
+    min-width: 0;
+  }
+
+  .section-title {
+    font-size: 0.875rem;
+    margin-bottom: 0 !important;
+  }
+
+  .kpi-card,
+  .profit-card,
+  .summary-card,
+  .actions-card {
+    padding: 14px;
+    box-shadow: none;
+  }
+
+  .kpi-header {
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .kpi-icon {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    border-radius: 8px;
+  }
+
+  .kpi-title {
+    font-size: 0.75rem;
+    letter-spacing: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .kpi-main-value {
+    font-size: clamp(1rem, 4vw, 1.5rem);
+    overflow-wrap: anywhere;
+  }
+
+  .kpi-breakdown-item,
+  .kpi-sub-value {
+    font-size: 0.75rem;
+    overflow-wrap: anywhere;
+  }
+
+  .profit-details {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .profit-breakdown-item {
+    flex-wrap: wrap;
+    gap: 4px 12px;
+  }
+
+  .chart-header {
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .chart-header .v-btn-toggle {
+    max-width: 100%;
+    height: auto;
+    min-height: 44px;
+  }
+
+  .chart-header .v-btn {
+    min-height: 44px;
+  }
+
+  .chart-body {
+    padding: 12px;
   }
   
   .kpi-body {
@@ -1432,18 +1542,45 @@ onMounted(() => {
   }
   
   .actions-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .action-btn {
+    min-width: 0;
+    min-height: 48px;
+    height: auto;
+    padding: 10px 8px;
+    font-size: 0.75rem;
+    letter-spacing: 0;
+  }
+
+  .action-btn :deep(.v-btn__content) {
+    white-space: normal;
   }
 }
 
-@media (max-width: 600px) {
+@media (max-width: 599px) {
   .quick-stat-card {
     flex-direction: column;
-    text-align: center;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .quick-stat-content {
+    width: 100%;
+  }
+
+  .quick-stat-label {
+    white-space: normal;
+    overflow: visible;
+    margin-top: 4px;
   }
   
   .quick-stat-value {
     font-size: 1.1rem;
+    overflow-wrap: anywhere;
   }
 }
 </style>

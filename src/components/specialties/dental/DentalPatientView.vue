@@ -1,9 +1,32 @@
 <template>
   <v-card elevation="2" rounded="lg" class="mb-4">
     <v-card-text class="pa-3 pa-sm-4">
+      <!-- Adult / Baby dentition switch -->
+      <div class="d-flex justify-center mb-3">
+        <v-btn-toggle
+          v-model="dentition"
+          mandatory
+          divided
+          density="comfortable"
+          rounded="lg"
+          color="primary"
+          variant="outlined"
+        >
+          <v-btn value="permanent" size="small">
+            <v-icon start size="18">mdi-tooth-outline</v-icon>
+            {{ $t('teeth.permanent') }}
+          </v-btn>
+          <v-btn value="primary" size="small">
+            <v-icon start size="18">mdi-baby-face-outline</v-icon>
+            {{ $t('teeth.baby') }}
+          </v-btn>
+        </v-btn-toggle>
+      </div>
+
       <!-- Teeth Chart - Mobile version for small screens -->
       <TeethChartMobile
         v-if="isMobile"
+        :dentition="dentition"
         :categories="categories"
         :patient-cases="patientCases"
         :patient-data="patientData"
@@ -16,6 +39,7 @@
       <!-- Teeth Chart - Desktop version for larger screens -->
       <TeethChart
         v-else
+        :dentition="dentition"
         :categories="categories"
         :patient-cases="patientCases"
         :patient-data="patientData"
@@ -57,7 +81,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import TeethChart from '@/components/teeth/TeethChart.vue'
 import TeethChartMobile from '@/components/teeth/TeethChartMobile.vue'
 import { useDisplay } from 'vuetify'
@@ -65,6 +89,9 @@ import { useI18n } from 'vue-i18n'
 
 const { mobile: isMobile } = useDisplay()
 const { t, locale } = useI18n()
+
+// 'permanent' = adult teeth (FDI 11-48), 'primary' = baby teeth (FDI 51-85)
+const dentition = ref('permanent')
 
 const props = defineProps({
   categories: {

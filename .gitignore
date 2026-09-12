@@ -1,6 +1,7 @@
 node_modules/
 dist
-public/
+public/*
+!public/booking.html
 
 # Capacitor native platforms (rebuild with npm run mobile:add:ios/android)
 ios/

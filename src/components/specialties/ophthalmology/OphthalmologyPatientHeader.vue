@@ -30,7 +30,7 @@
           <div class="d-flex flex-wrap ga-4 text-body-2 text-grey-darken-1">
             <span v-if="patient.phone" class="d-flex align-center ga-1">
               <v-icon size="16" color="primary">mdi-phone</v-icon>
-              <a :href="`tel:${patient.phone}`" class="text-decoration-none">{{ patient.phone }}</a>
+              <a :href="`tel:${patient.phone}`" class="text-decoration-none" dir="ltr">{{ patient.phone }}</a>
             </span>
             <span v-if="patient.birth_date" class="d-flex align-center ga-1">
               <v-icon size="16" color="primary">mdi-cake-variant</v-icon>

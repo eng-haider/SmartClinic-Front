@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#087f78" />
+  <title>حجز موعد | Book an Appointment</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <style>
+    :root { --brand:#087f78; --brand-dark:#06645f; --brand-light:#e9f5f2; --ink:#203c3a; --muted:#617773; --line:#e1eae6; --err:#b63838; --ok:#087f78; --radius:12px; }
+    * { box-sizing:border-box; }
+    html { background:#f4f7f5; }
+    body { margin:0; padding:max(24px, env(safe-area-inset-top)) 24px max(28px, env(safe-area-inset-bottom)); font-family:"Cairo", "Segoe UI", sans-serif; color:var(--ink); font-size:16px; line-height:1.65; -webkit-font-smoothing:antialiased; }
+    .page { max-width:1040px; margin:0 auto; display:grid; grid-template-columns:minmax(0, .85fr) minmax(0, 1.15fr); gap:28px; align-items:start; }
+    .welcome { grid-column:1 / -1; display:flex; align-items:center; justify-content:space-between; gap:16px; padding:0 0 20px; border-bottom:1px solid var(--line); margin-bottom:8px; }
+    .welcome-title { display:flex; align-items:center; gap:10px; font-size:15px; margin:0; color:var(--brand); font-weight:800; }
+    .welcome-mark { display:block; width:40px; height:40px; object-fit:contain; border-radius:10px; flex-shrink:0; }
+    .welcome-sub { margin:0; font-size:12px; color:var(--muted); }
+    .clinic-card { padding:26px 10px; }
+    .clinic-header { text-align:start; }
+    .clinic-logo { width:68px; height:68px; display:flex; align-items:center; justify-content:center; overflow:hidden; border:1px solid #cee5dc; border-radius:20px; background:#e3f0e9; color:var(--brand); margin-bottom:20px; }
+    .clinic-logo img { width:100%; height:100%; object-fit:contain; background:white; }
+    .clinic-name { font-size:clamp(24px, 2.6vw, 32px); line-height:1.6; margin:0; font-weight:800; overflow-wrap:anywhere; }
+    .clinic-doctor { margin:8px 0 0; font-weight:600; }
+    .clinic-specialty { display:inline-block; background:var(--brand-light); color:var(--brand-dark); padding:4px 12px; border-radius:30px; margin:12px 0 0; font-size:13px; }
+    .clinic-about { font-size:14px; color:var(--muted); margin:16px 0 0; }
+    .clinic-info { margin-top:28px; border-top:1px solid var(--line); padding-top:20px; }
+    .info-grid { display:grid; gap:8px; }
+    .info-card { display:flex; align-items:center; gap:12px; padding:10px 0; color:var(--ink); text-decoration:none; border-radius:10px; }
+    a.info-card:hover .info-value { color:var(--brand); text-decoration:underline; }
+    .info-icon { flex:0 0 38px; width:38px; height:38px; display:flex; align-items:center; justify-content:center; border-radius:12px; background:#e8efeb; color:var(--brand); }
+    .info-body { min-width:0; }
+    .info-label { display:block; color:var(--muted); font-size:12px; }
+    .info-value { display:block; font-size:14px; font-weight:600; overflow-wrap:anywhere; }
+    #clinicPhone, #clinicEmail { direction:ltr; text-align:start; unicode-bidi:isolate; }
+    .map-embed { margin-top:16px; border:1px solid var(--line); border-radius:14px; overflow:hidden; }
+    .map-embed .map-title { margin:0; padding:12px 16px; font-size:13px; color:var(--brand-dark); font-weight:700; }
+    .map-embed iframe { display:block; width:100%; height:190px; border:0; }
+    .maps-btn { display:flex; align-items:center; justify-content:center; gap:8px; min-height:46px; margin-top:12px; border:1px solid #ccded5; border-radius:12px; color:var(--brand-dark); text-decoration:none; font-size:13px; font-weight:700; }
+    .maps-btn:hover { background:var(--brand-light); }
+    #formWrap, .success-box { background:#fff; border:1px solid var(--line); border-radius:24px; padding:30px; box-shadow:0 12px 40px #243e3410; }
+    .form-eyebrow { display:flex; align-items:center; gap:7px; color:var(--brand); font-size:12px; font-weight:700; margin-bottom:10px; }
+    .form-eyebrow::before { content:""; width:7px; height:7px; border-radius:50%; background:var(--brand); }
+    .form-title { font-size:26px; font-weight:800; margin:0 0 4px; }
+    .form-subtitle { color:var(--muted); font-size:13px; margin:0 0 24px; }
+    .field { min-width:0; margin-bottom:18px; }
+    .field label { display:block; margin-bottom:7px; font-size:14px; font-weight:700; }
+    .opt { font-size:12px; font-weight:400; color:var(--muted); }
+    .row2 { display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); gap:14px; }
+    .control { display:block; width:100%; min-width:0; min-height:50px; padding:11px 14px; border:1px solid #d5e1db; border-radius:var(--radius); background:#fbfcfb; color:var(--ink); font:inherit; font-size:16px; transition:border-color .15s, box-shadow .15s; }
+    #phone { direction:ltr; text-align:right; }
+    input[type=date], input[type=time] { direction:rtl; appearance:none; }
+    textarea.control { min-height:80px; resize:vertical; }
+    .control::placeholder { color:#7c8c85; font-size:14px; }
+    .control:focus { outline:none; border-color:var(--brand); box-shadow:0 0 0 3px #087f781a; background:#fff; }
+    :where(a, button, summary):focus-visible { outline:3px solid var(--brand); outline-offset:4px; }
+    .control.is-invalid { border-color:var(--err); }
+    .field-error { display:none; color:var(--err); font-size:12px; margin-top:5px; }
+    .field-error.show { display:block; }
+    .submit-btn { display:flex; align-items:center; justify-content:center; gap:10px; width:100%; min-height:54px; border:0; border-radius:var(--radius); background:var(--brand); color:white; font:inherit; font-size:16px; font-weight:800; cursor:pointer; transition:background .15s; }
+    .submit-btn:hover { background:var(--brand-dark); }
+    .submit-btn:disabled { opacity:.65; cursor:wait; }
+    .trust { display:flex; align-items:center; justify-content:center; gap:6px; color:var(--muted); font-size:11px; margin-top:14px; text-align:center; }
+    .trust svg { flex-shrink:0; }
+    .alert { display:none; background:#fff0ef; color:#a12828; border:1px solid #f1cccc; border-radius:12px; padding:14px; margin-bottom:18px; font-size:14px; }
+    .alert.show { display:block; }
+    .success-box { text-align:center; padding:64px 30px; }
+    .check { color:var(--ok); }
+    .success-title { font-size:24px; margin:20px 0 10px; }
+    .success-text { color:var(--muted); font-size:15px; }
+    .ghost-btn { margin-top:20px; min-height:48px; padding:10px 24px; background:var(--brand-light); color:var(--brand-dark); border:1px solid #c8e1d9; border-radius:12px; font:inherit; font-weight:700; cursor:pointer; }
+    .powered { grid-column:1 / -1; text-align:center; font-size:12px; color:var(--muted); margin:0; }
+    .spinner { display:none; width:20px; height:20px; border:2px solid #ffffff70; border-top-color:white; border-radius:50%; animation:spin .7s linear infinite; }
+    .spinner.show { display:inline-block; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .hidden { display:none !important; }
+    @media (max-width:720px) {
+      body { padding:18px 16px 24px; }
+      .page { grid-template-columns:minmax(0, 1fr); gap:20px; max-width:520px; }
+      .welcome { order:0; padding-bottom:14px; margin:0; }
+      .welcome-sub { font-size:11px; }
+      .clinic-card { display:contents; }
+      .clinic-header { order:1; display:grid; grid-template-columns:52px minmax(0, 1fr); column-gap:14px; align-items:center; padding:2px 4px; }
+      .clinic-logo { width:52px; height:52px; border-radius:16px; margin:0; grid-row:1 / 3; }
+      .clinic-logo svg { width:28px; height:28px; }
+      .clinic-name { font-size:21px; line-height:1.6; }
+      .clinic-doctor, .clinic-specialty, .clinic-about { grid-column:2; margin-top:6px; }
+      #formWrap, .success-box, #noClinic { order:2; }
+      #formWrap, .success-box { padding:22px 20px; border-radius:20px; }
+      .form-title { font-size:23px; }
+      .clinic-info { order:3; margin:0; padding:16px 4px 0; }
+      .powered { order:4; }
+    }
+    @media (max-width:360px) { .row2 { grid-template-columns:minmax(0, 1fr); gap:0; } .welcome-sub { max-width:125px; } #formWrap { padding:20px 16px; } }
+    @media (prefers-reduced-motion:reduce) { *, *::before { animation:none !important; transition:none !important; scroll-behavior:auto !important; } }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <!-- ============ Welcome ============ -->
+    <div class="welcome">
+      <h2 class="welcome-title">
+        <img class="welcome-mark hidden" id="welcomeLogo" alt="شعار العيادة" />
+        <span id="clinicBrand" dir="auto">العيادة</span>
+      </h2>
+      <p class="welcome-sub" data-i18n="welcomeSub">رعاية أقرب، حجز أسهل</p>
+    </div>
+
+    <!-- ============ Clinic information ============ -->
+    <section class="clinic-card">
+      <header class="clinic-header">
+        <div class="clinic-logo" id="clinicLogo">
+        <svg viewBox="0 0 24 24" width="42" height="42" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M11 2h2a1 1 0 0 1 1 1v6h6a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-6v6a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-6H4a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1h6V3a1 1 0 0 1 1-1z"/>
+        </svg>
+      </div>
+      <h1 class="clinic-name" id="clinicName">العيادة</h1>
+      <p class="clinic-doctor hidden" id="clinicDoctor"></p>
+      <p class="clinic-specialty hidden" id="clinicSpecialty"></p>
+      <p class="clinic-about hidden" id="clinicAbout"></p>
+    </header>
+
+    <div class="clinic-info">
+      <div class="info-grid">
+        <a class="info-card hidden" id="phoneItem">
+          <span class="info-icon">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+          </span>
+          <span class="info-body">
+            <span class="info-label">الهاتف</span>
+            <span class="info-value" id="clinicPhone"></span>
+          </span>
+        </a>
+
+        <div class="info-card hidden" id="hoursItem">
+          <span class="info-icon">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>
+          </span>
+          <span class="info-body">
+            <span class="info-label">أوقات الدوام</span>
+            <span class="info-value" id="clinicHours"></span>
+          </span>
+        </div>
+
+        <a class="info-card hidden" id="emailItem">
+          <span class="info-icon">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 6-10 7L2 6"/></svg>
+          </span>
+          <span class="info-body">
+            <span class="info-label">البريد الإلكتروني</span>
+            <span class="info-value" id="clinicEmail"></span>
+          </span>
+        </a>
+
+        <a class="info-card span2 hidden" id="addressItem" target="_blank" rel="noopener">
+          <span class="info-icon">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          </span>
+          <span class="info-body">
+            <span class="info-label">العنوان</span>
+            <span class="info-value" id="clinicAddress"></span>
+          </span>
+        </a>
+      </div>
+
+      <div class="map-embed hidden" id="mapWrap">
+        <p class="map-title">موقع العيادة على الخريطة</p>
+        <iframe id="mapFrame" loading="eager" referrerpolicy="no-referrer-when-downgrade" title="الموقع على الخريطة"></iframe>
+      </div>
+
+      <a class="maps-btn hidden" id="mapsBtn" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+        <span data-i18n="mapsBtn">افتح في خرائط جوجل</span>
+      </a>
+    </div>
+    </section>
+
+    <!-- ============ Booking form ============ -->
+    <div id="noClinic" class="alert" role="alert">رابط غير صالح: لم يتم تحديد العيادة.</div>
+
+    <!-- success -->
+    <div id="successBox" class="success-box hidden" role="status" tabindex="-1">
+      <svg class="check" viewBox="0 0 24 24" width="76" height="76" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      <h2 class="success-title" data-i18n="successTitle">تم إرسال طلبك بنجاح</h2>
+      <p class="success-text" id="successMessage"></p>
+      <button type="button" class="ghost-btn" onclick="resetForm()" data-i18n="newRequest">حجز موعد آخر</button>
+    </div>
+
+    <!-- form -->
+    <div id="formWrap">
+      <div class="form-eyebrow">طلب حجز موعد</div>
+      <h2 class="form-title" data-i18n="formTitle">احجز موعدك</h2>
+      <p class="form-subtitle" data-i18n="formSubtitle">اختر الموعد المناسب لك، وسنتواصل معك لتأكيده.</p>
+
+      <div id="errorBox" class="alert" role="alert"></div>
+
+      <form id="bookingForm" novalidate>
+        <div class="field">
+          <label for="name" data-i18n="name">الاسم الكامل</label>
+          <input type="text" class="control" id="name" aria-describedby="nameError" maxlength="255" required
+                 autocomplete="name" data-i18n-ph="namePh" placeholder="اكتب اسمك الكامل" />
+          <div class="field-error" id="nameError" data-field="name"></div>
+        </div>
+
+        <div class="field">
+          <label for="phone" data-i18n="phone">رقم الهاتف</label>
+          <input type="tel" class="control" id="phone" aria-describedby="phoneError" maxlength="33" required
+                 inputmode="tel" autocomplete="tel" data-i18n-ph="phonePh" placeholder="07XX XXX XXXX" />
+          <div class="field-error" id="phoneError" data-field="phone"></div>
+        </div>
+
+        <div class="row2">
+          <div class="field">
+            <label for="preferred_date" data-i18n="preferredDate">التاريخ المفضل</label>
+            <input type="date" class="control" id="preferred_date" aria-describedby="preferred_dateError" required />
+            <div class="field-error" id="preferred_dateError" data-field="preferred_date"></div>
+          </div>
+          <div class="field">
+            <label for="preferred_time">
+              <span data-i18n="preferredTime">الوقت المفضل</span>
+              <span class="opt" data-i18n="optional">(اختياري)</span>
+            </label>
+            <input type="time" class="control" id="preferred_time" aria-describedby="preferred_timeError" />
+            <div class="field-error" id="preferred_timeError" data-field="preferred_time"></div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="note">
+            <span data-i18n="note">ملاحظات</span>
+            <span class="opt" data-i18n="optional">(اختياري)</span>
+          </label>
+          <textarea class="control" id="note" aria-describedby="noteError" rows="2" maxlength="1000"
+                    data-i18n-ph="notePh" placeholder="أي معلومات إضافية"></textarea>
+          <div class="field-error" id="noteError" data-field="note"></div>
+        </div>
+
+        <button type="submit" class="submit-btn" id="submitBtn">
+          <span class="spinner" id="spinner" role="status" aria-hidden="true"></span>
+          <span data-i18n="submit">إرسال طلب الحجز</span>
+        </button>
+
+        <div class="trust">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+          <span data-i18n="trust">بياناتك آمنة وتُستخدم لتأكيد الموعد فقط</span>
+        </div>
+      </form>
+    </div>
+
+    <p class="powered">حجز إلكتروني بواسطة <strong dir="ltr">SmartClinic</strong></p>
+  </div>
+
+  <script>
+    /* =====================================================================
+     * Configuration
+     * ---------------------------------------------------------------------
+     * URL parameters:
+     *   clinic    (required) clinic / tenant id  -> booking.html?clinic=1
+     *   name      (optional) clinic display name
+     *   doctor    (optional) doctor name
+     *   specialty (optional) clinic specialty
+     *   address   (optional) clinic address (also powers the Maps button)
+     *   phone     (optional) clinic phone
+     *   hours     (optional) working hours text
+     *   logo      (optional) absolute logo image URL
+     *   maps      (optional) explicit Google Maps URL (overrides address link)
+     * =================================================================== */
+    var API_BASE = 'https://api.smartclinic.software/api';
+
+    var params = new URLSearchParams(window.location.search);
+    var CLINIC_ID = params.get('clinic') || params.get('tenant') || '';
+
+    /* ---------------------- Arabic strings ----------------------------- */
+    var T = {
+      successFallback: 'تم إرسال طلب الحجز بنجاح. سنتواصل معك قريباً لتأكيد موعدك.',
+      missingClinic: 'رابط غير صالح: لم يتم تحديد العيادة.',
+      required: 'هذا الحقل مطلوب',
+      genericError: 'تعذّر إرسال الطلب. حاول مرة أخرى.'
+    };
+    function t(key) { return T[key]; }
+
+    function show(id) { document.getElementById(id).classList.remove('hidden'); }
+
+    /* ---------------------- Clinic header ------------------------------
+     * Seeded from the link's query parameters (instant, no network), then
+     * refreshed from the API so a clinic that changed its logo or name is
+     * shown correctly on links and QR codes shared earlier.
+     * ------------------------------------------------------------------ */
+    var clinic = {
+      name: params.get('name'),
+      doctor: params.get('doctor'),
+      specialty: params.get('specialty'),
+      about: params.get('about'),
+      address: params.get('address'),
+      phone: params.get('phone'),
+      email: params.get('email'),
+      hours: params.get('hours'),
+      logo: params.get('logo'),
+      maps: params.get('maps')
+    };
+
+    function renderClinic() {
+      var name = clinic.name;
+      var doctor = clinic.doctor;
+      var specialty = clinic.specialty;
+      var about = clinic.about;
+      var address = clinic.address;
+      var phone = clinic.phone;
+      var email = clinic.email;
+      var hours = clinic.hours;
+      var logo = clinic.logo;
+      var mapsUrl = clinic.maps;
+
+      if (name) {
+        document.getElementById('clinicName').textContent = name;
+        document.getElementById('clinicBrand').textContent = name;
+        document.title = name + ' — حجز موعد';
+      }
+
+      if (logo && /^https?:\/\//i.test(logo)) {
+        var welcomeLogo = document.getElementById('welcomeLogo');
+        welcomeLogo.onerror = function () { this.classList.add('hidden'); };
+        welcomeLogo.src = logo;
+        show('welcomeLogo');
+        document.getElementById('clinicLogo').innerHTML =
+          '<img src="' + encodeURI(logo) + '" alt="logo" />';
+      }
+      if (doctor) {
+        document.getElementById('clinicDoctor').textContent = doctor;
+        show('clinicDoctor');
+      }
+      if (specialty) {
+        document.getElementById('clinicSpecialty').textContent = specialty;
+        show('clinicSpecialty');
+      }
+      if (about) {
+        document.getElementById('clinicAbout').textContent = about;
+        show('clinicAbout');
+      }
+      if (phone) {
+        document.getElementById('clinicPhone').textContent = phone;
+        var p = document.getElementById('phoneItem');
+        p.href = 'tel:' + phone;
+        show('phoneItem');
+      }
+      if (email) {
+        document.getElementById('clinicEmail').textContent = email;
+        var em = document.getElementById('emailItem');
+        em.href = 'mailto:' + email;
+        show('emailItem');
+      }
+      if (hours) {
+        document.getElementById('clinicHours').textContent = hours;
+        show('hoursItem');
+      }
+      var mapsLink = '';
+      if (address) {
+        document.getElementById('clinicAddress').textContent = address;
+        mapsLink = (mapsUrl && /^https?:\/\//i.test(mapsUrl))
+          ? mapsUrl
+          : 'https://maps.google.com/?q=' + encodeURIComponent(address);
+        document.getElementById('addressItem').href = mapsLink;
+        show('addressItem');
+        // Embedded map (keyless Google Maps embed)
+        document.getElementById('mapFrame').src =
+          'https://maps.google.com/maps?q=' + encodeURIComponent(address) + '&z=15&output=embed';
+        show('mapWrap');
+      } else if (mapsUrl && /^https?:\/\//i.test(mapsUrl)) {
+        mapsLink = mapsUrl;
+      }
+      if (mapsLink) {
+        document.getElementById('mapsBtn').href = mapsLink;
+        show('mapsBtn');
+      }
+    }
+
+    /* ------------------------- Form handling --------------------------- */
+    function clearErrors() {
+      var eb = document.getElementById('errorBox');
+      eb.classList.remove('show'); eb.textContent = '';
+      document.querySelectorAll('.control').forEach(function (el) { el.classList.remove('is-invalid'); el.removeAttribute('aria-invalid'); });
+      document.querySelectorAll('.field-error').forEach(function (el) {
+        el.classList.remove('show'); el.textContent = '';
+      });
+    }
+    function showFieldError(field, message) {
+      var input = document.getElementById(field);
+      var feedback = document.querySelector('[data-field="' + field + '"]');
+      if (input) { input.classList.add('is-invalid'); input.setAttribute('aria-invalid', 'true'); }
+      if (feedback) { feedback.textContent = message; feedback.classList.add('show'); }
+    }
+    function resetForm() {
+      document.getElementById('bookingForm').reset();
+      document.getElementById('preferred_date').value = document.getElementById('preferred_date').min;
+      document.getElementById('formWrap').classList.remove('hidden');
+      document.getElementById('successBox').classList.add('hidden');
+      clearErrors();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    function setLoading(loading) {
+      document.getElementById('submitBtn').disabled = loading;
+      document.getElementById('spinner').classList.toggle('show', loading);
+      document.getElementById('bookingForm').setAttribute('aria-busy', String(loading));
+    }
+
+    document.getElementById('bookingForm').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      clearErrors();
+
+      if (!CLINIC_ID) {
+        var eb = document.getElementById('errorBox');
+        eb.textContent = t('missingClinic'); eb.classList.add('show');
+        return;
+      }
+
+      var payload = {
+        name: document.getElementById('name').value.trim(),
+        phone: document.getElementById('phone').value.trim(),
+        preferred_date: document.getElementById('preferred_date').value
+      };
+      var time = document.getElementById('preferred_time').value;
+      var note = document.getElementById('note').value.trim();
+      if (time) payload.preferred_time = time;
+      if (note) payload.note = note;
+
+      var ok = true;
+      ['name', 'phone', 'preferred_date'].forEach(function (f) {
+        if (!payload[f]) { showFieldError(f, t('required')); ok = false; }
+      });
+      if (payload.preferred_date && payload.preferred_date < document.getElementById('preferred_date').min) {
+        showFieldError('preferred_date', 'اختر تاريخ اليوم أو تاريخاً لاحقاً'); ok = false;
+      }
+      if (!ok) { document.querySelector('.is-invalid').focus(); return; }
+
+      setLoading(true);
+      try {
+        var res = await fetch(
+          API_BASE + '/tenant/public/booking-requests?clinic=' + encodeURIComponent(CLINIC_ID),
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'Accept-Language': 'ar',
+              'X-Tenant-ID': CLINIC_ID,
+              'X-Clinic-ID': CLINIC_ID
+            },
+            body: JSON.stringify(payload)
+          }
+        );
+        var data = await res.json().catch(function () { return {}; });
+
+        if (res.status === 201 || (res.ok && data.success)) {
+          var msg = data.message_ar || data.message || t('successFallback');
+          document.getElementById('successMessage').textContent = msg;
+          document.getElementById('formWrap').classList.add('hidden');
+          document.getElementById('successBox').classList.remove('hidden');
+          document.getElementById('successBox').focus();
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          return;
+        }
+        if (res.status === 422 && data.errors) {
+          Object.keys(data.errors).forEach(function (field) { showFieldError(field, data.errors[field][0]); });
+          return;
+        }
+        throw new Error(data.message || t('genericError'));
+      } catch (err) {
+        var box = document.getElementById('errorBox');
+        box.textContent = err.message || t('genericError');
+        box.classList.add('show');
+      } finally {
+        setLoading(false);
+      }
+    });
+
+    /* ------------- Live clinic branding (name + logo + contact) --------- */
+    function refreshClinicInfo() {
+      if (!CLINIC_ID) return;
+
+      var xhr = new XMLHttpRequest();
+      xhr.open('GET', API_BASE + '/tenant/public/clinic-info?clinic=' + encodeURIComponent(CLINIC_ID), true);
+      xhr.onload = function () {
+        if (xhr.status < 200 || xhr.status >= 300) return;
+        var res;
+        try { res = JSON.parse(xhr.responseText); } catch (e) { return; }
+        if (!res || !res.success || !res.data) return;
+
+        var d = res.data;
+        // Live values win; anything the API does not know keeps the link's value.
+        if (d.name) clinic.name = d.name;
+        if (d.logo) clinic.logo = d.logo;
+        if (d.phone) clinic.phone = d.phone;
+        if (d.email) clinic.email = d.email;
+        if (d.address) clinic.address = d.address;
+        renderClinic();
+      };
+      xhr.onerror = function () { /* keep whatever the link provided */ };
+      xhr.send();
+    }
+
+    /* --------------------------- Init ---------------------------------- */
+    (function init() {
+      var today = new Date();
+      var todayStr = today.getFullYear() + '-' +
+        String(today.getMonth() + 1).padStart(2, '0') + '-' +
+        String(today.getDate()).padStart(2, '0');
+      var preferredDateEl = document.getElementById('preferred_date');
+      preferredDateEl.min = todayStr;
+      preferredDateEl.value = todayStr;
+      renderClinic();
+      refreshClinicInfo();
+      if (!CLINIC_ID) {
+        document.getElementById('noClinic').classList.add('show');
+        document.getElementById('formWrap').classList.add('hidden');
+      }
+    })();
+  </script>
+</body>
+</html>

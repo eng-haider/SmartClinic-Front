@@ -116,6 +116,8 @@ const onDrop = (e) => {
   gap: 8px;
   margin-top: 10px;
   margin-bottom: 2px;
+  /* Label drops above the chips rather than forcing the row wider than a phone */
+  flex-wrap: wrap;
 }
 .nia-type-label {
   font-size: 11px;
@@ -123,8 +125,27 @@ const onDrop = (e) => {
   color: #94a3b8;
   white-space: nowrap;
 }
+/* A chip-group lays its six chips out on one non-wrapping line and reports that
+   full width (~286px) as its minimum. Nested inside every note card, that alone
+   dragged the notes panel out to 528px — wider than any phone. min-width:0 is not
+   enough on its own (a flex item's min-content contribution still follows its
+   content), so let the chips wrap onto a second line instead of scrolling
+   sideways — which also beats a hidden horizontal scroll on touch. */
 .nia-type-row :deep(.v-chip-group) {
   margin-top: -6px;
+  min-width: 0;
+  flex: 1 1 0;
+}
+/* The slide-group's scroll container sizes its content to max-content, so the
+   content needs a bounded width before flex-wrap has anything to wrap against —
+   and the container's own clipping has to go, or the last chip is cut mid-word. */
+.nia-type-row :deep(.v-slide-group__container) {
+  overflow: visible;
+}
+.nia-type-row :deep(.v-slide-group__content) {
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  row-gap: 4px;
 }
 .nia-type-row :deep(.v-chip) {
   font-size: 11px;

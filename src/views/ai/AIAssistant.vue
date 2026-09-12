@@ -3,7 +3,7 @@
     <!-- Page Header -->
     <div class="page-header mb-6">
       <div class="d-flex flex-wrap align-center justify-space-between ga-3">
-        <h1 class="text-h5 text-md-h4 font-weight-bold text-primary ma-0">
+        <h1 class="text-h5 text-md-h4 font-weight-bold text-primary ma-0 mobile-page-heading">
           <v-icon class="me-2">mdi-robot</v-icon>
           {{ $t('ai.title') }}
         </h1>

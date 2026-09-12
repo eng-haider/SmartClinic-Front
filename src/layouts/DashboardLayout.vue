@@ -1,5 +1,5 @@
 <template>
-  <v-app :class="{ 'flutter-app': isFlutterApp }">
+  <v-app :class="{ 'flutter-app': isFlutterApp, 'mobile-shell': isMobile && !isFlutterApp }">
     <!-- Permission Change Notification -->
     <v-snackbar
       v-model="showPermissionNotification"
@@ -28,17 +28,20 @@
     </v-snackbar>
 
     <!-- App Bar (shown on all screens, hidden in Flutter WebView) -->
-    <v-app-bar v-if="!isFlutterApp" color="primary" elevation="2">
-      <v-app-bar-nav-icon @click="drawer = !drawer" class="d-md-none"></v-app-bar-nav-icon>
+    <v-app-bar v-if="!isFlutterApp" color="primary" :height="isMobile ? 56 : 64" :elevation="isMobile ? 0 : 2">
+      <v-btn v-if="isMobile && !isDashboard" :icon="isRtl ? 'mdi-arrow-right' : 'mdi-arrow-left'"
+        :aria-label="t('ui.back')" @click="goBack" />
+      <v-app-bar-nav-icon v-else-if="isMobile" :aria-label="t('layout.menu')" @click="drawer = !drawer" />
       
-      <v-toolbar-title>
-        <v-img src="/logo-white.png" alt="SmartClinic" height="76" width="76" class="ms-1" />
+      <v-toolbar-title :class="{ 'mobile-page-title': isMobile }">
+        <h1 v-if="isMobile">{{ pageTitle }}</h1>
+        <v-img v-else src="/logo-white.png" alt="SmartClinic" height="76" width="76" class="ms-1" />
       </v-toolbar-title>
       
-      <v-spacer></v-spacer>
+      <v-spacer v-if="!isMobile"></v-spacer>
       
       <!-- Refresh Button -->
-      <v-btn icon variant="text" color="white" class="me-1" @click="reloadPage">
+      <v-btn v-if="!isMobile" icon variant="text" color="white" class="me-1" @click="reloadPage">
         <v-icon>mdi-refresh</v-icon>
         <v-tooltip activator="parent" location="bottom">تحديث الصفحة</v-tooltip>
       </v-btn>
@@ -47,12 +50,12 @@
       <NotificationBell class="me-1" />
 
       <!-- Language Switcher -->
-      <LanguageSwitcher class="me-2" />
+      <LanguageSwitcher v-if="!isMobile" class="me-2" />
       
       <!-- User Menu -->
       <v-menu>
         <template v-slot:activator="{ props }">
-          <v-btn icon v-bind="props">
+          <v-btn icon v-bind="props" :aria-label="userName">
             <v-avatar color="white" size="36">
               <span class="primary--text font-weight-bold">
                 {{ userInitials }}
@@ -71,6 +74,10 @@
             </v-list-item-subtitle>
           </v-list-item>
           <v-divider></v-divider>
+          <v-list-item v-if="isMobile">
+            <LanguageSwitcher />
+          </v-list-item>
+          <v-list-item v-if="isMobile" prepend-icon="mdi-refresh" :title="t('ui.refresh')" @click="reloadPage" />
           <v-list-item @click="handleLogout" prepend-icon="mdi-logout">
             <v-list-item-title>{{ t('layout.logout') }}</v-list-item-title>
           </v-list-item>
@@ -202,6 +209,9 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter, useRoute } from 'vue-router'
+import { useLocale } from 'vuetify'
+import { NAV_CONFIG } from '@/config/navigation'
+import { getMobileBackTarget } from '@/utils/mobileNavigation'
 import { useAuthStore } from '@/stores/authNew'
 import { usePermissions } from '@/composables/usePermissions'
 import { useBookingRequests } from '@/composables/useBookingRequests'
@@ -210,9 +220,10 @@ import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
 import NotificationBell from '@/components/NotificationBell.vue'
 import AiChatWidget from '@/components/AiChatWidget.vue'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const router = useRouter()
 const route = useRoute()
+const { isRtl } = useLocale()
 const authStore = useAuthStore()
 const { 
   filteredNavItems, 
@@ -228,6 +239,22 @@ const rail = ref(false)
 const isMobile = ref(false)
 const isTablet = ref(false)
 const aiChatRef = ref(null)
+
+const isDashboard = computed(() => ['Dashboard', 'DashboardAlt'].includes(route.name))
+const pageTitle = computed(() => {
+  if (route.name === 'PatientDetail' || route.name === 'OphthalmologyPatientDetail') return t('patients.patient_details')
+  if (route.name === 'CaseDetail') return t('cases.case_details')
+  if (route.name === 'Analytics') return t('dashboard.title')
+  const items = NAV_CONFIG.flatMap(item => [item, ...(item.children || [])])
+  const item = items.find(item => item.to === (isDashboard.value ? '/' : route.path))
+  return item?.title[locale.value] || item?.title.en || route.meta.title || t('layout.dashboard')
+})
+
+const goBack = () => {
+  const target = getMobileBackTarget(router, route)
+  if (target === null) router.back()
+  else router.push(target)
+}
 
 // Pending booking requests badge (shared count + polling)
 const { pendingCount: bookingPendingCount, refreshPendingCount } = useBookingRequests()
@@ -374,6 +401,29 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+.mobile-page-title {
+  min-width: 0;
+  margin-inline-start: 4px;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.mobile-page-title h1 {
+  font: inherit;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The app bar supplies the page title; page-level controls stay visible. */
+.mobile-shell :deep(.mobile-page-heading) {
+  display: none !important;
+}
+
+.mobile-shell :deep(.page-header) {
+  margin-bottom: 12px !important;
+}
+
 /* ==================== App Bar (Safe Area Support) ==================== */
 :deep(.v-toolbar) {
   padding-top: env(safe-area-inset-top, 0px);

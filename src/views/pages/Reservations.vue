@@ -4,7 +4,7 @@
     <div class="page-header mb-3">
       <div class="header-row">
         <!-- Title -->
-        <h1 class="header-title text-h5 text-md-h4 font-weight-bold text-primary ma-0">
+        <h1 class="header-title text-h5 text-md-h4 font-weight-bold text-primary ma-0 mobile-page-heading">
           {{ $t('reservations.title') }}
         </h1>
         

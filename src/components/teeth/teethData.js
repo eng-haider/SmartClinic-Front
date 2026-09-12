@@ -9,6 +9,11 @@
 // Top teeth numbers (upper jaw): 18-11 (right side from patient view) and 21-28 (left side)
 // Bottom teeth numbers (lower jaw): 48-41 (right) and 31-38 (left)
 
+import {
+  PRIMARY_LAST_POSITION,
+  toPrimaryToothNum
+} from './toothNotation'
+
 export const teethData = [
   // ============================================
   // UPPER JAW - RIGHT QUADRANT (teeth 18-11)
@@ -426,5 +431,35 @@ export const teethData = [
     ]
   }
 ]
+
+// ============================================
+// PRIMARY (BABY) DENTITION
+// ============================================
+// A child has 5 teeth per quadrant instead of 8, so the permanent molars
+// (positions 6, 7 and 8) simply do not exist in a baby mouth and are dropped.
+// The remaining teeth keep the same shapes and are renumbered to FDI primary
+// notation by shifting the quadrant by 4: 1x -> 5x, 2x -> 6x, 3x -> 7x, 4x -> 8x
+// (e.g. 11 -> 51, 45 -> 85), which keeps baby cases distinct from adult ones.
+
+// The primary numbering itself lives in ./toothNotation, which the views that
+// only need the numbers (reports, bills) can import without the SVG artwork.
+export {
+  PRIMARY_TOOTH_OFFSET,
+  PRIMARY_LAST_POSITION,
+  toPrimaryToothNum,
+  isBabyToothNumber,
+  formatToothNumber
+} from './toothNotation'
+
+export const babyTeethData = teethData
+  .filter(tooth => (tooth.tooth_num % 10) <= PRIMARY_LAST_POSITION)
+  .map(tooth => {
+    const primaryNum = toPrimaryToothNum(tooth.tooth_num)
+    return {
+      ...tooth,
+      id: `tooth-${primaryNum}`,
+      tooth_num: primaryNum
+    }
+  })
 
 export default teethData

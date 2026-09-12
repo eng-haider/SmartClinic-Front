@@ -30,27 +30,28 @@
           <!-- Header Card -->
           <v-card rounded="xl" class="mb-6" elevation="3">
             <v-card-text class="pa-6">
-              <!-- Clinic Info -->
-              <div class="d-flex align-center ga-4 mb-6">
-                <v-avatar color="primary" size="60">
-                  <v-icon size="32">mdi-hospital-building</v-icon>
+              <!-- Clinic Info - the clinic's own name and logo, never the product's -->
+              <div v-if="hasClinicInfo" class="d-flex align-center ga-4 mb-6">
+                <v-avatar :color="clinicLogo ? 'white' : 'primary'" size="60" class="clinic-logo">
+                  <v-img v-if="clinicLogo" :src="clinicLogo" :alt="clinicName" />
+                  <v-icon v-else size="32">mdi-hospital-building</v-icon>
                 </v-avatar>
                 <div>
-                  <h1 class="text-h5 font-weight-bold text-primary">
-                    {{ patientData.clinic?.name || 'Smart Clinic' }}
+                  <h1 v-if="clinicName" class="text-h5 font-weight-bold text-primary">
+                    {{ clinicName }}
                   </h1>
-                  <p v-if="patientData.clinic?.address" class="text-grey">
+                  <p v-if="clinic.address" class="text-grey">
                     <v-icon size="14">mdi-map-marker</v-icon>
-                    {{ patientData.clinic.address }}
+                    {{ clinic.address }}
                   </p>
-                  <p v-if="patientData.clinic?.phone" class="text-grey">
+                  <p v-if="clinic.phone" class="text-grey">
                     <v-icon size="14">mdi-phone</v-icon>
-                    {{ patientData.clinic.phone }}
+                    {{ clinic.phone }}
                   </p>
                 </div>
               </div>
 
-              <v-divider class="my-4" />
+              <v-divider v-if="hasClinicInfo" class="my-4" />
 
               <!-- Patient Info -->
               <div class="patient-info">
@@ -137,10 +138,21 @@
             </v-card-title>
             <v-card-text class="pa-4">
               <TeethChart
+                v-if="hasPermanentTeeth"
                 :patient-data="{ tooth_details: patientData.tooth_details }"
                 :show-color-picker="false"
                 :patient-cases="[]"
                 :categories="[]"
+                :notation="toothNotation"
+              />
+              <TeethChart
+                v-if="hasBabyTeeth"
+                dentition="primary"
+                :patient-data="{ tooth_details: patientData.tooth_details }"
+                :show-color-picker="false"
+                :patient-cases="[]"
+                :categories="[]"
+                :notation="toothNotation"
               />
               
               <!-- Color Legend -->
@@ -188,7 +200,7 @@
                   <v-list-item-title class="font-weight-medium">
                     {{ getCategoryName(caseItem.category) }}
                     <v-chip v-if="caseItem.tooth_num" size="x-small" class="ms-2">
-                      {{ $t('publicProfile.tooth') }} {{ caseItem.tooth_num }}
+                      {{ $t('publicProfile.tooth') }} {{ formatToothLabel(caseItem.tooth_num) }}
                     </v-chip>
                   </v-list-item-title>
                   <v-list-item-subtitle>
@@ -310,20 +322,35 @@ import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { patientService } from '@/services/patient.service'
 import { useAuthStore } from '@/stores/auth'
-import { useClinicSettings } from '@/composables/useClinicSettings'
+import { useClinicSettings, resolveLogoUrl } from '@/composables/useClinicSettings'
 import TeethChart from '@/components/teeth/TeethChart.vue'
+import { isBabyToothNumber, formatToothNumber } from '@/components/teeth/toothNotation'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const { t, locale } = useI18n()
-const { loadSettings, getSetting, toothConditionColors } = useClinicSettings()
+const { loadSettings, getSetting, toothConditionColors, babyTeethNotation } = useClinicSettings()
 
 const loading = ref(true)
 const error = ref(null)
 const patientData = ref(null)
 const imageDialog = ref(false)
 const selectedImage = ref(null)
+
+// Clinic branding. /clinic-settings needs a JWT, so an anonymous visitor can
+// only get this from the public patient payload itself.
+const clinic = computed(() => patientData.value?.clinic || {})
+const clinicName = computed(() => clinic.value.name || '')
+const clinicLogo = computed(() => resolveLogoUrl(clinic.value.logo))
+
+// Baby teeth labels ride along with the patient payload, since an anonymous
+// visitor cannot read /clinic-settings; a signed-in viewer falls back to it.
+const toothNotation = computed(() => clinic.value.baby_teeth_notation || babyTeethNotation.value)
+const formatToothLabel = (toothNum) => formatToothNumber(toothNum, toothNotation.value)
+const hasClinicInfo = computed(() =>
+  Boolean(clinicName.value || clinicLogo.value || clinic.value.address || clinic.value.phone)
+)
 
 // Use tooth colors from clinic settings composable (auto-updates)
 const toothColors = computed(() => {
@@ -358,6 +385,11 @@ const getColorName = (color) => {
   // Fallback to hex code if no match found
   return color
 }
+
+// Baby teeth use FDI 51-85, so a patient can have both charts worth of data
+const toothDetails = computed(() => patientData.value?.tooth_details || [])
+const hasBabyTeeth = computed(() => toothDetails.value.some(d => isBabyToothNumber(d.tooth_number)))
+const hasPermanentTeeth = computed(() => toothDetails.value.some(d => !isBabyToothNumber(d.tooth_number)))
 
 // Computed property for unique colors in tooth_details
 const uniqueColors = computed(() => {
@@ -457,6 +489,16 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+/* Keep a wide clinic logo readable inside the round avatar */
+.clinic-logo {
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.clinic-logo :deep(.v-img__img) {
+  object-fit: contain;
+  padding: 4px;
+}
+
 .public-patient-profile {
   min-height: 100vh;
   height: 100vh;
