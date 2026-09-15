@@ -19,6 +19,7 @@
     "close": "Close",
     "delete": "Delete",
     "edit": "Edit",
+    "view": "View",
     "update": "Update",
     "add": "Add",
     "search": "Search",
@@ -816,6 +817,7 @@
     "enterAmount": "Enter amount",
     "exceedsRemaining": "Amount is more than the remaining balance",
     "confirmPayment": "Confirm",
+    "payFullRemaining": "Tap the amount to pay the full balance",
     "no_unpaid_cases": "No unpaid cases available",
     "save_information": "Save information",
     "payment_date": "Payment date",
@@ -1114,7 +1116,9 @@
       "outstanding": "Outstanding",
       "pending": "Pending",
       "remaining": "Remaining",
-      "expenses": "Expenses"
+      "expenses": "Expenses",
+      "remaining_amounts": "Remaining Amounts",
+      "click_to_view": "Click to view remaining amounts"
     },
     "messages": {
       "created": "Bill created successfully",

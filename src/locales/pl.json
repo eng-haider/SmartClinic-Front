@@ -18,6 +18,7 @@
     "close": "Zamknij",
     "delete": "Usuń",
     "edit": "Edytuj",
+    "view": "Zobacz",
     "update": "Aktualizuj",
     "add": "Dodaj",
     "search": "Szukaj",
@@ -1106,6 +1107,8 @@
       "outstanding": "Zaległości",
       "pending": "Oczekujące",
       "remaining": "Pozostałe",
+      "remaining_amounts": "Pozostałe kwoty",
+      "click_to_view": "Kliknij, aby zobaczyć pozostałe kwoty",
       "expenses": "Wydatki"
     },
     "messages": {

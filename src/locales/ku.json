@@ -508,6 +508,7 @@
     "close": "داخستن",
     "delete": "سڕینەوە",
     "edit": "دەستکاری",
+    "view": "بینین",
     "update": "نوێکردنەوە",
     "add": "زیادکردن",
     "search": "گەڕان",
@@ -842,6 +843,8 @@
       "outstanding": "قەرزەکان",
       "pending": "چاوەڕوان",
       "remaining": "ماوە",
+      "remaining_amounts": "بڕە ماوەکان",
+      "click_to_view": "کلیک بکە بۆ بینینی بڕە ماوەکان",
       "expenses": "خەرجییەکان",
       "fullyPaid": "بە تەواوی پارەدراوە",
       "addBill": "زیادکردنی پارەدان",
@@ -851,6 +854,7 @@
       "enterAmount": "بڕەکە بنووسە",
       "exceedsRemaining": "بڕەکە لە ماوەکە زیاترە",
       "confirmPayment": "پشتڕاستکردنەوە",
+      "payFullRemaining": "کلیک لە بڕەکە بکە بۆ پارەدانی هەموو ماوەکە",
       "no_unpaid_cases": "هیچ کەیسێکی پارەنەدراو بەردەست نییە"
     },
     "messages": {

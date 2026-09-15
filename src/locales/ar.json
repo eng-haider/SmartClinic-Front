@@ -19,6 +19,7 @@
     "close": "إغلاق",
     "delete": "حذف",
     "edit": "تعديل",
+    "view": "عرض",
     "update": "تحديث",
     "add": "إضافة",
     "search": "بحث",
@@ -793,6 +794,7 @@
     "enterAmount": "أدخل المبلغ",
     "exceedsRemaining": "المبلغ أكبر من المتبقي",
     "confirmPayment": "تأكيد",
+    "payFullRemaining": "اضغط على المبلغ لدفع المتبقي كاملاً",
     "no_unpaid_cases": "لا توجد حالات غير مدفوعة",
     "save_information": "حفظ المعلومات",
     "payment_date": "تاريخ الدفع",
@@ -1129,7 +1131,9 @@
       "outstanding": "المستحقات",
       "pending": "معلقة",
       "remaining": "المتبقي",
-      "expenses": "المصروفات"
+      "expenses": "المصروفات",
+      "remaining_amounts": "المبالغ المتبقية",
+      "click_to_view": "اضغط لعرض المبالغ المتبقية"
     },
     "messages": {
       "created": "تم إنشاء الفاتورة بنجاح",

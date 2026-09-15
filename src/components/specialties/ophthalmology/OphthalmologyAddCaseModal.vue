@@ -86,6 +86,7 @@ import api from '@/services/api'
 import warehouseService from '@/services/warehouse.service'
 import OphthalmologyCaseForm from './OphthalmologyCaseForm.vue'
 import WarehouseItemsPicker from '@/components/WarehouseItemsPicker.vue'
+import { toDateInputValue } from '@/utils/dateInput'
 
 const { t, locale } = useI18n()
 
@@ -198,7 +199,7 @@ watch(isOpen, (newVal) => {
         category_id: props.editingCase.case_categores_id || props.editingCase.category?.id || null,
         amount: props.editingCase.price || props.editingCase.amount || 0,
         status: (statusId === 3 || statusId === '3') ? 'completed' : 'pending',
-        case_date: props.editingCase.case_date ? new Date(props.editingCase.case_date).toISOString().split('T')[0] : (props.editingCase.created_at ? new Date(props.editingCase.created_at).toISOString().split('T')[0] : ''),
+        case_date: toDateInputValue(props.editingCase.case_date || props.editingCase.created_at),
         notes: props.editingCase.notes || props.editingCase.description || '',
         warehouse_items: (props.editingCase.warehouse_items || []).map(i => ({
           warehouse_item_id: i.id ?? i.warehouse_item_id,

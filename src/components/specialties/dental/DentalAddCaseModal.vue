@@ -120,6 +120,7 @@ import { useAuthStore } from '@/stores/authNew'
 import { PERMISSIONS } from '@/constants/permissions'
 import DentalCaseForm from './DentalCaseForm.vue'
 import WarehouseItemsPicker from '@/components/WarehouseItemsPicker.vue'
+import { toDateInputValue } from '@/utils/dateInput'
 
 const { t, locale } = useI18n()
 const authStore = useAuthStore()
@@ -273,7 +274,7 @@ watch(isOpen, (newVal) => {
         description: props.editingCase.description || '',
         status: props.editingCase.status_id === 3 ? 'completed' : 'pending',
         price: props.editingCase.price || 0,
-        case_date: props.editingCase.case_date || '',
+        case_date: toDateInputValue(props.editingCase.case_date || props.editingCase.created_at),
         warehouse_items: (props.editingCase.warehouse_items || []).map(i => ({
           warehouse_item_id: i.id ?? i.warehouse_item_id,
           quantity: Number(i.quantity) || 1,

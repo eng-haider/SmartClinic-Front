@@ -72,7 +72,7 @@
               density="comfortable"
               hide-details
               clearable
-              @update:model-value="loadBills"
+              @update:model-value="applyDateFilters"
             />
           </v-col>
 
@@ -85,7 +85,7 @@
               variant="outlined"
               density="comfortable"
               hide-details
-              @update:model-value="loadBills"
+              @update:model-value="onPerPageChange"
             />
           </v-col>
 
@@ -161,9 +161,18 @@
         </v-card>
       </v-col>
 
-      <!-- Total Unpaid Price Card -->
+      <!-- Total Unpaid Price Card (click to list remaining amounts per patient) -->
       <v-col cols="12" sm="6" md="3">
-        <v-card class="stat-card" elevation="3" rounded="xl">
+        <v-card
+          class="stat-card stat-card--clickable"
+          :class="{ 'stat-card--active': showRemaining }"
+          elevation="3"
+          rounded="xl"
+          @click="toggleRemaining"
+        >
+          <v-tooltip activator="parent" location="top">
+            {{ showRemaining ? $t('bills.stats.all_bills') : $t('bills.stats.click_to_view') }}
+          </v-tooltip>
           <v-card-text class="pa-5">
             <div class="d-flex align-center justify-space-between">
               <div>
@@ -176,6 +185,9 @@
                 <div class="d-flex align-center mt-2">
                   <v-icon size="16" color="warning" class="me-1">mdi-cash-clock</v-icon>
                   <span class="text-caption text-warning">{{ $t('bills.stats.outstanding') || 'Outstanding Amount' }}</span>
+                  <v-icon size="14" color="warning" class="ms-1">
+                    {{ showRemaining ? 'mdi-eye-off-outline' : 'mdi-format-list-bulleted' }}
+                  </v-icon>
                 </div>
               </div>
               <v-avatar color="warning" size="56" variant="tonal">
@@ -212,8 +224,8 @@
       </v-col>
     </v-row>
 
-    <!-- Bills Table -->
-    <v-card elevation="2" rounded="xl">
+    <!-- Bills Table (hidden while the remaining-amounts view is open) -->
+    <v-card v-show="!showRemaining" elevation="2" rounded="xl">
       <!-- Loading State -->
       <v-progress-linear v-if="loading" indeterminate color="primary" />
 
@@ -363,6 +375,108 @@
           :total-visible="5"
           density="compact"
           @update:model-value="loadBills"
+        />
+      </div>
+    </v-card>
+
+    <!-- Remaining Amounts (per-patient balances, same date/doctor scope as the cards) -->
+    <v-card v-if="showRemaining" class="remaining-card" elevation="2" rounded="xl">
+      <v-progress-linear v-if="remainingLoading" indeterminate color="warning" />
+
+      <v-card-text class="pa-4">
+        <!-- Search -->
+        <v-text-field
+          v-model="remainingSearch"
+          :placeholder="$t('bills.workspace.search_patient')"
+          prepend-inner-icon="mdi-magnify"
+          variant="outlined"
+          density="compact"
+          hide-details
+          clearable
+          class="mb-3"
+          @update:model-value="debouncedRemainingSearch"
+        />
+
+        <v-alert v-if="remainingError" type="error" variant="tonal" density="compact" class="mb-3">
+          {{ remainingError }}
+        </v-alert>
+
+        <!-- Balances Table -->
+        <v-data-table-server
+          :items-per-page="perPage"
+          :page="remainingPage"
+          :headers="remainingHeaders"
+          :items="remainingPatients"
+          :items-length="remainingTotal"
+          :loading="remainingLoading"
+          class="remaining-table"
+          density="compact"
+          mobile-breakpoint="md"
+          hover
+          hide-default-footer
+          @click:row="(_, { item }) => openPatientFile(item)"
+        >
+          <!-- Patient -->
+          <template v-slot:item.patient="{ item }">
+            <div class="d-flex align-center ga-3 py-2">
+              <v-avatar :color="getAvatarColor(item.name)" size="36">
+                <span class="text-white font-weight-bold text-caption">{{ getInitials(item.name) }}</span>
+              </v-avatar>
+              <div>
+                <div class="font-weight-medium">{{ item.name || '-' }}</div>
+                <div class="text-caption text-grey" dir="ltr">{{ item.phone || '-' }}</div>
+              </div>
+            </div>
+          </template>
+
+          <!-- Cases count -->
+          <template v-slot:item.case_count="{ item }">
+            <v-chip size="small" color="purple" variant="tonal">{{ item.case_count }}</v-chip>
+          </template>
+
+          <!-- Remaining -->
+          <template v-slot:item.unpaid_amount="{ item }">
+            <span class="font-weight-bold text-warning">{{ formatCurrency(item.unpaid_amount) }}</span>
+          </template>
+
+          <!-- Open patient file -->
+          <template v-slot:item.actions="{ item }">
+            <v-btn
+              icon="mdi-account-arrow-right"
+              size="small"
+              variant="text"
+              color="info"
+              :title="$t('bills.workspace.open_patient')"
+              @click.stop="openPatientFile(item)"
+            />
+          </template>
+
+          <template v-slot:no-data>
+            <div class="text-center py-10">
+              <v-icon size="64" color="grey-lighten-2">mdi-cash-check</v-icon>
+              <p class="text-grey mt-3 mb-0">{{ $t('bills.workspace.empty_patients') }}</p>
+            </div>
+          </template>
+
+          <template v-slot:loading>
+            <v-skeleton-loader type="table-row@5" />
+          </template>
+        </v-data-table-server>
+      </v-card-text>
+
+      <!-- Pagination -->
+      <v-divider />
+      <div class="d-flex align-center justify-space-between pa-4">
+        <div class="text-caption text-grey">
+          {{ $t('bills.showing') }} {{ remainingPagination.from }}-{{ remainingPagination.to }}
+          {{ $t('bills.of') }} {{ remainingPagination.total }}
+        </div>
+        <v-pagination
+          v-model="remainingPage"
+          :length="remainingPagination.lastPage"
+          :total-visible="5"
+          density="compact"
+          @update:model-value="loadRemaining"
         />
       </div>
     </v-card>
@@ -575,12 +689,23 @@ function syncUrl() {
   if (filters.value.date_from) q.date_from = filters.value.date_from
   if (filters.value.date_to) q.date_to = filters.value.date_to
   if (filters.value.doctor_id) q.doctor_id = String(filters.value.doctor_id)
+  if (showRemaining.value) q.view = 'remaining'
   router.replace({ query: q })
 }
 
 // Dialogs
 const viewDialog = ref(false)
 const deleteDialog = ref(false)
+
+// Remaining amounts view (per-patient balances from /bills/patient-balances).
+// Replaces the bills table while open; shares the toolbar date/doctor/per-page filters.
+const showRemaining = ref(route.query.view === 'remaining')
+const remainingLoading = ref(false)
+const remainingError = ref('')
+const remainingSearch = ref('')
+const remainingPage = ref(1)
+const remainingTotal = ref(0)
+const remainingPatients = ref([])
 
 // Selected items
 const selectedBill = ref(null)
@@ -604,6 +729,20 @@ const paginationInfo = computed(() => ({
   to: Math.min(currentPage.value * perPage.value, totalBills.value),
   total: totalBills.value,
   lastPage: Math.ceil(totalBills.value / perPage.value) || 1
+}))
+
+const remainingHeaders = computed(() => [
+  { title: t('bills.patient'), key: 'patient', sortable: false },
+  { title: t('bills.workspace.case_count'), key: 'case_count', sortable: false, align: 'center' },
+  { title: t('bills.workspace.unpaid_amount'), key: 'unpaid_amount', sortable: false, align: 'end' },
+  { title: '', key: 'actions', sortable: false, align: 'center', width: '64px' }
+])
+
+const remainingPagination = computed(() => ({
+  from: remainingTotal.value ? ((remainingPage.value - 1) * perPage.value) + 1 : 0,
+  to: Math.min(remainingPage.value * perPage.value, remainingTotal.value),
+  total: remainingTotal.value,
+  lastPage: Math.ceil(remainingTotal.value / perPage.value) || 1
 }))
 
 // ==================== Methods ====================
@@ -675,13 +814,23 @@ const applyDateFilters = async () => {
   loading.value = true
   
   try {
-    // Load both bills and statistics with date filters
+    // Load bills, statistics and (when open) remaining amounts with the same filters
+    remainingPage.value = 1
     await Promise.all([
       loadBills(),
-      loadStatistics()
+      loadStatistics(),
+      showRemaining.value ? loadRemaining() : Promise.resolve()
     ])
   } finally {
     loading.value = false
+  }
+}
+
+const onPerPageChange = () => {
+  loadBills()
+  if (showRemaining.value) {
+    remainingPage.value = 1
+    loadRemaining()
   }
 }
 
@@ -715,6 +864,64 @@ const viewBill = (bill) => {
 const confirmDelete = (bill) => {
   billToDelete.value = bill
   deleteDialog.value = true
+}
+
+// Remaining Amounts View
+const loadRemaining = async () => {
+  remainingLoading.value = true
+  remainingError.value = ''
+
+  try {
+    const params = {
+      payment_status: 'unpaid',
+      sort: '-unpaid_amount',
+      page: remainingPage.value,
+      per_page: perPage.value
+    }
+
+    if (remainingSearch.value) {
+      params.search = remainingSearch.value
+    }
+
+    // Same scope as the statistics cards: doctor + cases created in the date range
+    if (filters.value.doctor_id) {
+      params.doctor_id = filters.value.doctor_id
+    }
+    if (filters.value.date_from) {
+      params.case_date_from = filters.value.date_from
+    }
+    if (filters.value.date_to) {
+      params.case_date_to = filters.value.date_to
+    }
+
+    const response = await billService.getPatientBalances(params)
+    remainingPatients.value = response.data || []
+    remainingTotal.value = response.pagination?.total || 0
+  } catch (err) {
+    console.error('Error loading remaining amounts:', err)
+    remainingError.value = t('errors.fetchFailed')
+  } finally {
+    remainingLoading.value = false
+  }
+}
+
+const toggleRemaining = () => {
+  showRemaining.value = !showRemaining.value
+  syncUrl()
+  if (showRemaining.value) {
+    remainingSearch.value = ''
+    remainingPage.value = 1
+    loadRemaining()
+  }
+}
+
+const debouncedRemainingSearch = debounce(() => {
+  remainingPage.value = 1
+  loadRemaining()
+}, 400)
+
+const openPatientFile = (patient) => {
+  router.push({ name: 'PatientDetail', params: { id: patient.id } })
 }
 
 const deleteBill = async () => {
@@ -791,6 +998,9 @@ onMounted(async () => {
   await loadDoctors()
   await loadStatistics()
   await loadBills()
+  if (showRemaining.value) {
+    await loadRemaining()
+  }
 })
 </script>
 
@@ -809,6 +1019,85 @@ onMounted(async () => {
 .stat-card:hover {
   transform: translateY(-4px);
   border-color: rgba(var(--v-theme-primary), 0.2);
+}
+
+.stat-card--clickable {
+  cursor: pointer;
+}
+
+.stat-card--clickable:hover {
+  border-color: rgba(var(--v-theme-warning), 0.4);
+}
+
+.stat-card--active {
+  border-color: rgb(var(--v-theme-warning));
+  box-shadow: 0 0 0 3px rgba(var(--v-theme-warning), 0.2) !important;
+}
+
+.remaining-card {
+  border: 1px solid rgba(var(--v-theme-warning), 0.3);
+}
+
+.remaining-table :deep(tbody tr) {
+  cursor: pointer;
+}
+
+.remaining-table :deep(tbody tr:hover) {
+  background-color: rgba(var(--v-theme-warning), 0.06) !important;
+}
+
+/* Phone/tablet card view: the header only holds a "Sort by" select nobody needs
+   here, and cells need more room and a larger font for simple use. */
+:deep(.v-data-table-headers--mobile) {
+  display: none !important;
+}
+/* Separate rule: a browser without :has() must not drop the fallback above. */
+:deep(.v-data-table thead:has(.v-data-table-headers--mobile)) {
+  display: none !important;
+}
+
+:deep(.v-data-table__tr--mobile) {
+  display: block !important;
+  margin: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  border-radius: 12px !important;
+  background: rgb(var(--v-theme-surface));
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+
+.remaining-table :deep(.v-data-table__tr--mobile) {
+  border-color: rgba(var(--v-theme-warning), 0.35) !important;
+}
+
+:deep(.v-data-table__tr--mobile .v-data-table__td) {
+  display: flex !important;
+  flex-wrap: wrap;
+  justify-content: space-between !important;
+  align-items: center !important;
+  row-gap: 8px;
+  padding: 12px 14px !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06) !important;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+:deep(.v-data-table__tr--mobile .v-data-table__td:last-child) {
+  border-bottom: none !important;
+}
+
+:deep(.v-data-table__tr--mobile .v-data-table__td-title) {
+  font-weight: 700;
+  color: #37474f;
+  font-size: 15px;
+  min-width: 96px;
+}
+
+:deep(.v-data-table__tr--mobile .v-data-table__td-value) {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 15px;
+  text-align: end;
 }
 
 .toolbar-card {

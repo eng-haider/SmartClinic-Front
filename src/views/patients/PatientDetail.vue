@@ -302,6 +302,7 @@
             density="compact"
             mobile-breakpoint="sm"
             :hide-default-footer="true"
+            :cell-props="({ column }) => ({ class: `${column.key}-cell` })"
             class="elevation-0 rounded-lg cases-data-table"
           >
             <!-- Tooth number -->
@@ -348,7 +349,54 @@
 
             <!-- Paid -->
             <template #item.paid="{ item }">
-              <div class="d-flex flex-wrap align-center ga-1">
+              <!-- Phone: chips, then a clear "add payment" button; the amount form opens
+                   inline inside the card (no floating popover). -->
+              <div v-if="isPhone" class="paid-cell-phone">
+                <div class="d-flex flex-wrap align-center ga-1 paid-chips-phone">
+                  <v-chip
+                    v-for="bill in (item.bills || [])"
+                    :key="bill.id"
+                    size="small"
+                    color="success"
+                    variant="flat"
+                  >
+                    <v-icon start size="12">mdi-cash-check</v-icon>
+                    {{ formatNumberWithCommas(bill.price || 0) }}
+                  </v-chip>
+                  <span v-if="!(item.bills || []).length" class="text-grey text-caption">لاتوجد</span>
+                </div>
+
+                <template v-if="canCreateBill && hasPrice(item) && getCaseRemainingAmount(item) > 0">
+                  <v-btn
+                    v-if="!(quickBill.open && quickBill.caseId === item.id)"
+                    block
+                    variant="tonal"
+                    color="success"
+                    prepend-icon="mdi-cash-plus"
+                    class="quick-bill-phone-btn mt-2"
+                    @click.stop="openQuickBill(item)"
+                  >
+                    {{ $t('patients.addPayment') || 'إضافة دفعة' }}
+                  </v-btn>
+                  <div v-else class="quick-bill-inline mt-2">
+                    <div class="quick-bill-header">
+                      <v-icon color="success" size="22">mdi-cash-plus</v-icon>
+                      <span class="quick-bill-title">{{ $t('patients.addPayment') || 'إضافة دفعة' }}</span>
+                    </div>
+                    <CaseQuickBillForm
+                      v-model="quickBill.price"
+                      :remaining="quickBillRemaining"
+                      :loading="quickBillLoading"
+                      large
+                      class="pa-3"
+                      @submit="submitQuickBill"
+                      @cancel="quickBill.open = false"
+                    />
+                  </div>
+                </template>
+              </div>
+
+              <div v-else class="d-flex flex-wrap align-center ga-1">
                 <v-chip
                   v-for="bill in (item.bills || [])"
                   :key="bill.id"
@@ -384,49 +432,14 @@
                       <v-icon color="success" size="22">mdi-cash-plus</v-icon>
                       <span class="quick-bill-title">{{ $t('patients.addPayment') || 'إضافة دفعة' }}</span>
                     </div>
-
-                    <div class="pa-4 pt-3">
-                      <!-- Remaining summary -->
-                      <div class="quick-bill-remaining">
-                        <span class="text-caption text-grey">{{ $t('patients.remainingToPay') || $t('patients.remaining') }}</span>
-                        <span class="quick-bill-remaining-value">{{ formatNumberWithCommas(quickBillRemaining) }} IQD</span>
-                      </div>
-
-                      <v-text-field
-                        :model-value="quickBill.price ? formatNumberWithCommas(quickBill.price) : ''"
-                        @update:model-value="quickBill.price = parseFormattedNumber($event)"
-                        @keyup.enter="submitQuickBill"
-                        :label="$t('patients.paymentAmount') || 'المبلغ المدفوع'"
-                        :placeholder="$t('patients.enterAmount') || 'أدخل المبلغ'"
-                        type="text"
-                        inputmode="numeric"
-                        variant="outlined"
-                        density="comfortable"
-                        prepend-inner-icon="mdi-cash"
-                        suffix="IQD"
-                        :error="quickBill.price > quickBillRemaining"
-                        :error-messages="quickBill.price > quickBillRemaining ? ($t('patients.exceedsRemaining') || 'المبلغ أكبر من المتبقي') : []"
-                        autofocus
-                        class="mt-1 mb-2"
-                      />
-
-                      <div class="d-flex ga-2">
-                        <v-btn variant="text" size="small" class="flex-grow-1" @click="quickBill.open = false">
-                          {{ $t('common.cancel') }}
-                        </v-btn>
-                        <v-btn
-                          color="primary"
-                          size="small"
-                          class="flex-grow-1"
-                          :loading="quickBillLoading"
-                          :disabled="!quickBill.price || quickBill.price > quickBillRemaining"
-                          @click="submitQuickBill"
-                        >
-                          <v-icon start size="16">mdi-check</v-icon>
-                          {{ $t('patients.confirmPayment') || 'تأكيد' }}
-                        </v-btn>
-                      </div>
-                    </div>
+                    <CaseQuickBillForm
+                      v-model="quickBill.price"
+                      :remaining="quickBillRemaining"
+                      :loading="quickBillLoading"
+                      class="pa-4 pt-3"
+                      @submit="submitQuickBill"
+                      @cancel="quickBill.open = false"
+                    />
                   </v-card>
                 </v-menu>
               </div>
@@ -490,8 +503,8 @@
                     v-model="noteInputs[item.id]"
                     placeholder="ملاحظات الحالة الرئيسية..."
                     variant="outlined"
-                    density="compact"
-                    rows="1"
+                    :density="isPhone ? 'comfortable' : 'compact'"
+                    :rows="isPhone ? 3 : 1"
                     auto-grow
                     hide-details
                     class="notes-textarea flex-grow-1"
@@ -532,7 +545,23 @@
 
             <!-- Actions -->
             <template #item.actions="{ item }">
-              <div class="d-inline-flex ga-0">
+              <!-- Phone: big labelled buttons filling the card (no tooltips on touch) -->
+              <div v-if="isPhone" class="case-actions-phone">
+                <v-btn variant="tonal" color="indigo" prepend-icon="mdi-robot-happy-outline" @click.stop="analyzeCaseWithAi(item)">
+                  {{ $t('ai.insightTitle') }}
+                </v-btn>
+                <v-btn variant="tonal" color="info" prepend-icon="mdi-eye-outline" @click.stop="openCaseDrawer(item)">
+                  {{ $t('common.view') || 'View' }}
+                </v-btn>
+                <v-btn v-if="canEditCase" variant="tonal" color="primary" prepend-icon="mdi-pencil-outline" @click.stop="editCase(item)">
+                  {{ $t('common.edit') || 'Edit' }}
+                </v-btn>
+                <v-btn variant="tonal" color="error" prepend-icon="mdi-delete-outline" @click.stop="deleteCase(item)">
+                  {{ $t('common.delete') || 'Delete' }}
+                </v-btn>
+              </div>
+
+              <div v-else class="d-inline-flex ga-0">
                 <v-tooltip :text="$t('ai.analyzeCase')" location="top">
                   <template #activator="{ props: tp }">
                     <v-btn v-bind="tp" icon variant="text" size="x-small" class="ai-case-btn" @click.stop="analyzeCaseWithAi(item)">
@@ -1221,6 +1250,7 @@ import ImageLightbox from '@/components/ImageLightbox.vue'
 import CaseNoteCard from '@/components/patients/CaseNoteCard.vue'
 import NoteImageAttachments from '@/components/patients/NoteImageAttachments.vue'
 import OrthoMetaBadges from '@/components/patients/OrthoMetaBadges.vue'
+import CaseQuickBillForm from '@/components/patients/CaseQuickBillForm.vue'
 import aiService from '@/services/ai.service'
 import { formatXrayAnalysis } from '@/utils/aiFormat'
 import { extractImageFiles, isSupportedImage, makeImageKey } from '@/utils/imageFiles'
@@ -1239,7 +1269,8 @@ const route = useRoute()
 const router = useRouter()
 const { t, locale } = useI18n()
 const authStore = useAuthStore()
-const { mobile: isMobile } = useDisplay()
+// `xs` (< 600px) matches the cases table's mobile-breakpoint="sm" card view.
+const { mobile: isMobile, xs: isPhone } = useDisplay()
 
 // Permissions
 const { hasPermissionFor, hasPermission, hasAnyPermission } = usePermissions()
@@ -1858,18 +1889,29 @@ const statusOptions = computed(() => [
 ])
 
 // Case Table Headers (unified for all specialties)
-const caseHeaders = computed(() => [
-  { title: t('patients.toothNumber'), key: 'tooth_num',  sortable: true },
-  { title: t('patients.category'),    key: 'category',   sortable: false },
-  { title: t('common.doctor'),        key: 'doctor',     sortable: false },
-  { title: t('cases.price'),          key: 'price',      sortable: true },
-  { title: t('patients.paidBills') || 'المدفوع', key: 'paid', sortable: false },
-  { title: t('patients.remaining'),   key: 'remaining',  sortable: false },
-  { title: t('patients.status'),      key: 'status',     sortable: false },
-  { title: t('common.date'),          key: 'case_date',  sortable: true },
-  { title: 'الملاحظات',              key: 'notes',      sortable: false, align: 'center' },
-  { title: t('common.actions'),       key: 'actions',    sortable: false, align: 'center' },
-])
+const caseHeaders = computed(() => {
+  const headers = [
+    { title: t('patients.toothNumber'), key: 'tooth_num',  sortable: true },
+    { title: t('patients.category'),    key: 'category',   sortable: false },
+    { title: t('common.doctor'),        key: 'doctor',     sortable: false },
+    { title: t('cases.price'),          key: 'price',      sortable: true },
+    { title: t('patients.paidBills') || 'المدفوع', key: 'paid', sortable: false },
+    { title: t('patients.remaining'),   key: 'remaining',  sortable: false },
+    { title: t('patients.status'),      key: 'status',     sortable: false },
+    { title: t('common.date'),          key: 'case_date',  sortable: true },
+    { title: 'الملاحظات',              key: 'notes',      sortable: false, align: 'center' },
+    { title: t('common.actions'),       key: 'actions',    sortable: false, align: 'center' },
+  ]
+
+  // Phone card view stacks the cells in header order: show the date right under the doctor.
+  if (isPhone.value) {
+    const dateIndex = headers.findIndex(h => h.key === 'case_date')
+    const [date] = headers.splice(dateIndex, 1)
+    headers.splice(headers.findIndex(h => h.key === 'doctor') + 1, 0, date)
+  }
+
+  return headers
+})
 
 const getCaseStatusId = (item) => {
   if (item.status && typeof item.status === 'object' && item.status.id) return item.status.id
@@ -3274,19 +3316,20 @@ const setDefaultTab = () => {
   font-weight: 700;
   color: #1e293b;
 }
-.quick-bill-remaining {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 12px;
-  margin-bottom: 12px;
-  background: #f8fafc;
-  border-radius: 8px;
+/* Phone: the payment form lives inside the case card */
+.quick-bill-inline {
+  width: 100%;
+  border: 1px solid rgba(76, 175, 80, 0.35);
+  border-radius: 12px;
+  background: #fff;
+  overflow: hidden;
 }
-.quick-bill-remaining-value {
+.quick-bill-phone-btn {
+  height: 46px;
+  border-radius: 12px;
   font-size: 14px;
   font-weight: 700;
-  color: rgb(var(--v-theme-warning));
+  letter-spacing: 0;
 }
 
 /* Price inline display */
@@ -3590,34 +3633,138 @@ const setDefaultTab = () => {
 }
 
 /* Vuetify 3 Mobile Card View (screens ≤ 600px) */
+
+/* On phones the table header only holds a "Sort by" select, which our users never
+   need — drop the whole header (the teal bar with it). */
+:deep(.v-data-table-headers--mobile) {
+  display: none !important;
+}
+/* Separate rule: a browser without :has() must not drop the fallback above. */
+:deep(.v-data-table thead:has(.v-data-table-headers--mobile)) {
+  display: none !important;
+}
+
 :deep(.v-data-table__tr--mobile) {
   border: 1px solid rgba(0,0,0,0.08) !important;
-  border-radius: 8px !important;
-  margin-bottom: 8px !important;
+  border-radius: 12px !important;
+  margin-bottom: 24px !important;
   display: block !important;
   background: #fff;
   box-shadow: 0 1px 4px rgba(0,0,0,0.06) !important;
   overflow: hidden;
 }
 
+/* Roomy, readable cells: bigger font and more vertical padding than the desktop
+   table. Wide content (notes, payment chips) wraps under its label instead of
+   squeezing it. */
 :deep(.v-data-table__tr--mobile .v-data-table__td) {
   display: flex !important;
+  flex-wrap: wrap;
   justify-content: space-between !important;
   align-items: center !important;
-  padding: 6px 12px !important;
-  border-bottom: 1px solid rgba(0,0,0,0.05) !important;
-  font-size: 13px;
+  row-gap: 8px;
+  padding: 12px 14px !important;
+  border-bottom: 1px solid rgba(0,0,0,0.06) !important;
+  font-size: 15px;
+  line-height: 1.5;
 }
 
 :deep(.v-data-table__tr--mobile .v-data-table__td:last-child) {
   border-bottom: none !important;
 }
 
-:deep(.v-data-table__tr--mobile .v-data-table-column-title) {
-  font-weight: 600;
-  color: #616161;
+:deep(.v-data-table__tr--mobile .v-data-table__td-title) {
+  font-weight: 700;
+  color: #37474f;
+  font-size: 15px;
+  min-width: 96px;
+}
+
+:deep(.v-data-table__tr--mobile .v-data-table__td-value) {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 15px;
+  text-align: end;
+}
+
+/* Paid on phones: label on its own line, chips + add-payment button below it at full width */
+:deep(.v-data-table__tr--mobile .paid-cell .v-data-table__td-value) {
+  flex-basis: 100%;
+  width: 100%;
+  text-align: start;
+}
+.paid-cell-phone {
+  width: 100%;
+}
+/* Paid chips sit at the end side (left in RTL), like every other cell value on phone */
+.paid-chips-phone {
+  justify-content: flex-end;
+}
+
+:deep(.v-data-table__tr--mobile .notes-container) {
+  width: 100%;
+  max-width: none !important;
+  min-width: 0 !important;
+}
+
+/* Notes on phones: no "الملاحظات" label — the textarea and its + button take the
+   whole card width. */
+:deep(.v-data-table__tr--mobile .notes-cell .v-data-table__td-title) {
+  display: none;
+}
+:deep(.v-data-table__tr--mobile .notes-cell .v-data-table__td-value) {
+  flex-basis: 100%;
+  width: 100%;
+  text-align: start;
+}
+:deep(.v-data-table__tr--mobile .notes-cell .notes-textarea textarea) {
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+/* Actions on phones: no "الإجراءات" label — one row of equal-width buttons with
+   the icon stacked above a short label (like a mobile action bar), easy to tap. */
+:deep(.v-data-table__tr--mobile .actions-cell .v-data-table__td-title) {
+  display: none;
+}
+:deep(.v-data-table__tr--mobile .actions-cell .v-data-table__td-value) {
+  flex-basis: 100%;
+  width: 100%;
+}
+.case-actions-phone {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 8px;
+  width: 100%;
+}
+.case-actions-phone :deep(.v-btn) {
+  width: 100%;
+  height: 60px;
+  padding-inline: 4px;
+  border-radius: 12px;
+  /* Stack the prepend icon over the text instead of side by side */
+  grid-template-areas: "prepend" "content";
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  row-gap: 4px;
   font-size: 12px;
-  min-width: 90px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  line-height: 1.2;
+}
+.case-actions-phone :deep(.v-btn__prepend) {
+  margin-inline: 0;
+}
+.case-actions-phone :deep(.v-btn__prepend .v-icon) {
+  font-size: 22px;
+}
+.case-actions-phone :deep(.v-btn__content) {
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Mobile Header - Keep Original Behavior */
