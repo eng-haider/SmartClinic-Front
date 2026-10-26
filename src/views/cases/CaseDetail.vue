@@ -1,5 +1,5 @@
 <template>
-  <div class="case-detail-page">
+  <div class="case-detail-page app-page">
     <!-- Loading State -->
     <div v-if="loading" class="d-flex justify-center align-center" style="min-height: 400px;">
       <v-progress-circular indeterminate color="primary" size="64" />
@@ -427,9 +427,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.case-detail-page {
-  padding: 24px;
-}
 
 .info-item {
   display: flex;
@@ -441,14 +438,9 @@ onMounted(() => {
 }
 
 /* RTL Support */
-[dir="rtl"] .case-detail-page {
+[dir="rtl"] .case-detail-page  {
   text-align: right;
 }
 
 /* Responsive */
-@media (max-width: 960px) {
-  .case-detail-page {
-    padding: 16px;
-  }
-}
 </style>

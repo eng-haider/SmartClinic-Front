@@ -1,5 +1,5 @@
 <template>
-  <div class="secretaries-page">
+  <div class="secretaries-page app-page">
     <!-- Page Header -->
     <div class="page-header mb-6">
       <div class="d-flex flex-wrap align-center justify-space-between ga-4">
@@ -596,7 +596,7 @@ import { useI18n } from 'vue-i18n'
 import SecretaryService from '@/services/secretary.service'
 
 // ==================== Composables ====================
-const { t } = useI18n()
+const { t, te } = useI18n()
 
 // ==================== State ====================
 const secretaries = ref([])
@@ -734,9 +734,12 @@ async function loadAvailablePermissions() {
       Object.keys(apiGroupedPermissions).forEach(category => {
         translatedPermissions[category] = {}
         Object.keys(apiGroupedPermissions[category]).forEach(permission => {
-          // Translate the permission label using i18n
-          const translationKey = `secretaries.permissions.${permission}`
-          translatedPermissions[category][permission] = t(translationKey)
+          // Translated label when there is one, else the API's readable name
+          // ('view-clinic-cases' -> 'View Clinic Cases').
+          const translationKey = `secretaries.permission_labels.${permission}`
+          translatedPermissions[category][permission] = te(translationKey)
+            ? t(translationKey)
+            : apiGroupedPermissions[category][permission]
         })
       })
       
@@ -988,11 +991,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.secretaries-page {
-  padding: 24px;
-  max-width: 1600px;
-  margin: 0 auto;
-}
 
 .toolbar-card {
   background: linear-gradient(135deg, #f5f7fa 0%, #ffffff 100%);
@@ -1003,14 +1001,9 @@ onMounted(() => {
 }
 
 /* RTL Support */
-[dir="rtl"] .secretaries-page {
+[dir="rtl"] .secretaries-page  {
   text-align: right;
 }
 
 /* Responsive */
-@media (max-width: 960px) {
-  .secretaries-page {
-    padding: 16px;
-  }
-}
 </style>

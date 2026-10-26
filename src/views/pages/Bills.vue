@@ -1,5 +1,5 @@
 <template>
-  <div class="bills-page">
+  <div class="bills-page app-page">
     <!-- Page Header -->
     <div class="page-header mb-6 mobile-page-heading">
       <div class="d-flex flex-wrap align-center justify-space-between ga-4">
@@ -57,8 +57,6 @@
               @update:model-value="applyDateFilters"
             />
           </v-col>
-
-
 
           <!-- Doctor Filter -->
           <v-col cols="12" sm="6" md="2">
@@ -298,7 +296,6 @@
         <template v-slot:item.price="{ item }">
           <span class="font-weight-bold text-primary">{{ formatCurrency(item.price) }}</span>
         </template>
-
 
         <!-- Doctor -->
         <template v-slot:item.doctor="{ item }">
@@ -722,8 +719,6 @@ const headers = computed(() => [
   { title: t('common.actions'), key: 'actions', sortable: false, align: 'center', width: '150px' }
 ])
 
-
-
 const paginationInfo = computed(() => ({
   from: ((currentPage.value - 1) * perPage.value) + 1,
   to: Math.min(currentPage.value * perPage.value, totalBills.value),
@@ -942,7 +937,6 @@ const deleteBill = async () => {
   }
 }
 
-
 // Helper Methods
 const formatCurrency = (amount) => {
   const value = (amount || 0) 
@@ -1005,11 +999,6 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.bills-page {
-  padding: 24px;
-  max-width: 1600px;
-  margin: 0 auto;
-}
 
 .stat-card {
   transition: all 0.3s ease;
@@ -1112,9 +1101,4 @@ onMounted(async () => {
   background-color: rgba(var(--v-theme-primary), 0.04) !important;
 }
 
-@media (max-width: 960px) {
-  .bills-page {
-    padding: 16px;
-  }
-}
 </style>

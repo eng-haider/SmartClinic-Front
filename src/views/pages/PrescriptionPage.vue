@@ -1,5 +1,5 @@
 <template>
-  <v-container fluid class="rx-page pa-4 pa-md-6">
+  <v-container fluid class="rx-page app-page">
     <!-- ═══════════ Page Header ═══════════ -->
     <div class="rx-page__header mb-5">
       <div class="d-flex align-center justify-space-between flex-wrap gap-3">
@@ -195,8 +195,8 @@
       </v-card-actions>
     </v-card>
 
-    <!-- ═══════════ Create/Edit Dialog ═══════════ -->
-    <v-dialog v-model="rxDialog" max-width="1000" persistent scrollable>
+    <!-- ═══════════ Write / Edit Dialog ═══════════ -->
+    <v-dialog v-model="rxDialog" max-width="1100" persistent scrollable>
       <v-card rounded="xl" class="rx-page__dialog">
         <v-card-title class="d-flex align-center justify-space-between pa-4 rx-page__dialog-header">
           <div class="d-flex align-center gap-2">
@@ -208,103 +208,101 @@
           <v-btn icon="mdi-close" variant="text" color="white" @click="closeDialog" />
         </v-card-title>
 
-        <v-card-text class="pa-6">
-          <v-form ref="rxFormRef" v-model="formValid">
-            <!-- Patient -->
-            <v-alert v-if="rxForm.patientInfo" type="info" variant="tonal" density="compact" class="mb-4">
-              <div class="d-flex align-center gap-2">
-                <v-icon>mdi-account</v-icon>
-                <span class="font-weight-medium">{{ rxForm.patientInfo.name }}</span>
-                <span v-if="rxForm.patientInfo.phone" class="text-caption">• {{ rxForm.patientInfo.phone }}</span>
-              </div>
-            </v-alert>
+        <v-card-text class="pa-5">
+          <v-row>
+            <!-- ── Write ── -->
+            <v-col cols="12" md="7">
+              <v-form ref="rxFormRef" v-model="formValid">
+                <v-alert v-if="rxForm.patientInfo" type="info" variant="tonal" density="compact" class="mb-3">
+                  <div class="d-flex align-center gap-2">
+                    <v-icon>mdi-account</v-icon>
+                    <span class="font-weight-medium">{{ rxForm.patientInfo.name }}</span>
+                    <span v-if="rxForm.patientInfo.phone" class="text-caption">• {{ rxForm.patientInfo.phone }}</span>
+                  </div>
+                </v-alert>
 
-            <v-autocomplete
-              v-if="!rxForm.patientInfo"
-              v-model="rxForm.patient"
-              v-model:search="patientSearch"
-              :items="patientOptions"
-              :label="$t('rx.select_patient')"
-              :loading="searchingPatients"
-              item-title="name"
-              item-value="id"
-              return-object
-              variant="outlined"
-              density="comfortable"
-              prepend-inner-icon="mdi-account-search"
-              :rules="[rules.required]"
-              class="mb-4"
-              clearable
-              no-filter
-            >
-              <template #item="{ props: itemProps, item }">
-                <v-list-item v-bind="itemProps">
-                  <template #prepend>
-                    <v-avatar color="primary" size="36" variant="tonal">
-                      <span class="text-primary text-caption">{{ getInitials(item.raw.name) }}</span>
-                    </v-avatar>
+                <v-autocomplete
+                  v-if="!rxForm.patientInfo"
+                  v-model="rxForm.patient"
+                  v-model:search="patientSearch"
+                  :items="patientOptions"
+                  :label="$t('rx.select_patient')"
+                  :loading="searchingPatients"
+                  item-title="name"
+                  item-value="id"
+                  return-object
+                  variant="outlined"
+                  density="compact"
+                  prepend-inner-icon="mdi-account-search"
+                  :rules="[rules.required]"
+                  class="mb-3"
+                  clearable
+                  no-filter
+                >
+                  <template #item="{ props: itemProps, item }">
+                    <v-list-item v-bind="itemProps">
+                      <template #prepend>
+                        <v-avatar color="primary" size="36" variant="tonal">
+                          <span class="text-primary text-caption">{{ getInitials(item.raw.name) }}</span>
+                        </v-avatar>
+                      </template>
+                      <template #subtitle>
+                        <span dir="ltr">{{ item.raw.phone }}</span>
+                      </template>
+                    </v-list-item>
                   </template>
-                  <template #subtitle>
-                    <span dir="ltr">{{ item.raw.phone }}</span>
+                  <template #no-data>
+                    <v-list-item>
+                      <v-list-item-title>
+                        {{ patientSearch?.length >= 3 ? $t('rx.no_patients_found') : $t('rx.type_to_search') }}
+                      </v-list-item-title>
+                    </v-list-item>
                   </template>
-                </v-list-item>
-              </template>
-              <template #no-data>
-                <v-list-item>
-                  <v-list-item-title>
-                    {{ patientSearch?.length >= 3 ? $t('rx.no_patients_found') : $t('rx.type_to_search') }}
-                  </v-list-item-title>
-                </v-list-item>
-              </template>
-            </v-autocomplete>
+                </v-autocomplete>
 
-            <!-- Doctor -->
-            <v-select
-              v-model="rxForm.doctors_id"
-              :items="doctors"
-              :label="$t('rx.select_doctor')"
-              item-title="name"
-              item-value="id"
-              variant="outlined"
-              density="comfortable"
-              prepend-inner-icon="mdi-doctor"
-              :rules="[rules.required]"
-              class="mb-4"
-            />
+                <v-select
+                  v-model="rxForm.doctors_id"
+                  :items="doctors"
+                  :label="$t('rx.select_doctor')"
+                  item-title="name"
+                  item-value="id"
+                  variant="outlined"
+                  density="compact"
+                  prepend-inner-icon="mdi-doctor"
+                  :rules="[rules.required]"
+                  class="mb-4"
+                />
 
-            <!-- Notes -->
-            <v-textarea
-              v-model="rxForm.notes"
-              :label="$t('rx.prescription_notes')"
-              :placeholder="$t('rx.notes_placeholder')"
-              variant="outlined"
-              density="comfortable"
-              rows="2"
-              auto-grow
-              class="mb-4"
-              prepend-inner-icon="mdi-note-text"
-            />
+                <RxLinesEditor v-model="rxForm.lines" :placeholder="$t('rx.paper.line_placeholder')" />
 
-            <v-divider class="mb-4" />
+                <v-textarea
+                  v-model="rxForm.notes"
+                  :label="$t('rx.prescription_notes')"
+                  :placeholder="$t('rx.notes_placeholder')"
+                  variant="outlined"
+                  density="compact"
+                  rows="2"
+                  auto-grow
+                  class="mt-4"
+                />
+              </v-form>
+            </v-col>
 
-            <!-- Medication Form -->
-            <MedicationForm
-              :edit-item="editingMedication"
-              :edit-index="editingMedIndex"
-              class="mb-4"
-              @add="addMedication"
-              @update="updateMedication"
-              @cancel-edit="cancelMedEdit"
-            />
-
-            <!-- Medication Table -->
-            <MedicationTable
-              :medications="rxForm.recipe_items"
-              editable
-              @edit="startMedEdit"
-              @remove="removeMedication"
-            />
-          </v-form>
+            <!-- ── Paper ── -->
+            <v-col cols="12" md="5">
+              <RxPaper
+                :template="rxTemplate"
+                :patient="formPatient"
+                :doctor-name="formDoctorName"
+                :lines="rxForm.lines"
+                :notes="rxForm.notes"
+                :date="today"
+                class="rx-page__paper-mini"
+                @open-template="templateDialog = true"
+                @error="(m) => showSnackbar(m, 'error')"
+              />
+            </v-col>
+          </v-row>
         </v-card-text>
 
         <v-divider />
@@ -315,7 +313,7 @@
             color="primary"
             variant="elevated"
             :loading="saving"
-            :disabled="!formValid || !rxForm.recipe_items.length"
+            :disabled="!formValid || !writtenLines.length"
             prepend-icon="mdi-content-save"
             @click="handleSave"
           >
@@ -326,7 +324,7 @@
     </v-dialog>
 
     <!-- ═══════════ Preview Dialog ═══════════ -->
-    <v-dialog v-model="previewDialog" max-width="900" scrollable>
+    <v-dialog v-model="previewDialog" max-width="720" scrollable>
       <v-card rounded="xl">
         <v-card-title class="d-flex align-center justify-space-between pa-4 rx-page__dialog-header">
           <div class="d-flex align-center gap-2">
@@ -335,96 +333,25 @@
           </div>
           <v-btn icon="mdi-close" variant="text" color="white" @click="previewDialog = false" />
         </v-card-title>
-        <v-card-text class="pa-6">
-          <RxPreview
-            ref="rxPreviewRef"
-            :prescription="previewPrescription"
+        <v-card-text class="pa-5">
+          <RxPaper
+            ref="rxPaperRef"
+            :template="rxTemplate"
             :patient="previewPatient"
-            :medications="previewMedications"
-            :settings="rxPrintSettings"
-            @open-settings="openPrintSettings"
+            :doctor-name="previewDoctorName"
+            :lines="previewLines"
+            :notes="previewRecipe?.notes || ''"
+            :date="formatDate(previewRecipe?.created_at)"
+            @open-template="templateDialog = true"
+            @error="(m) => showSnackbar(m, 'error')"
           />
         </v-card-text>
       </v-card>
     </v-dialog>
 
-    <!-- ═══════════ Print Settings Dialog ═══════════ -->
-    <v-dialog v-model="settingsDialog" max-width="600" persistent scrollable>
-      <v-card rounded="xl">
-        <v-card-title class="d-flex align-center justify-space-between pa-4 rx-page__dialog-header">
-          <div class="d-flex align-center gap-2">
-            <v-icon color="white">mdi-cog</v-icon>
-            <span class="text-white">{{ $t('rx.print_settings') }}</span>
-          </div>
-          <v-btn icon="mdi-close" variant="text" color="white" @click="settingsDialog = false" />
-        </v-card-title>
-        <v-card-text class="pa-6">
-          <v-row dense>
-            <!-- Logo Upload -->
-            <v-col cols="12">
-              <div class="text-subtitle-2 mb-2">{{ $t('rx.clinic_logo') }}</div>
-              <div class="d-flex align-center gap-4">
-                <v-avatar size="72" :color="rxPrintSettings.logo ? 'transparent' : 'primary'" rounded="lg" class="border">
-                  <v-img v-if="rxPrintSettings.logo" :src="rxPrintSettings.logo" cover />
-                  <v-icon v-else size="36" color="white">mdi-hospital-building</v-icon>
-                </v-avatar>
-                <div>
-                  <v-btn size="small" variant="tonal" color="primary" prepend-icon="mdi-upload" @click="triggerLogoUpload">
-                    {{ $t('rx.upload_logo') }}
-                  </v-btn>
-                  <v-btn v-if="rxPrintSettings.logo" size="small" variant="text" color="error" class="ms-2" @click="rxPrintSettings.logo = ''">
-                    {{ $t('common.delete') }}
-                  </v-btn>
-                  <input ref="logoInputRef" type="file" accept="image/*" hidden @change="onLogoUpload" />
-                </div>
-              </div>
-            </v-col>
+    <!-- ═══════════ Paper Template ═══════════ -->
+    <RxTemplateDialog v-model="templateDialog" />
 
-            <v-col cols="12" class="mt-4">
-              <v-text-field v-model="rxPrintSettings.clinicName" :label="$t('rx.clinic_name')" variant="outlined" density="compact" prepend-inner-icon="mdi-hospital-building" />
-            </v-col>
-            <v-col cols="12" md="6">
-              <v-text-field v-model="rxPrintSettings.doctorName" :label="$t('rx.doctor_name')" variant="outlined" density="compact" prepend-inner-icon="mdi-doctor" />
-            </v-col>
-            <v-col cols="12" md="6">
-              <v-text-field v-model="rxPrintSettings.specialty" :label="$t('rx.specialty')" variant="outlined" density="compact" prepend-inner-icon="mdi-stethoscope" />
-            </v-col>
-            <v-col cols="12">
-              <v-text-field v-model="rxPrintSettings.address" :label="$t('rx.address')" variant="outlined" density="compact" prepend-inner-icon="mdi-map-marker" />
-            </v-col>
-            <v-col cols="12" md="6">
-              <v-text-field v-model="rxPrintSettings.phone" :label="$t('rx.phone')" variant="outlined" density="compact" prepend-inner-icon="mdi-phone" dir="ltr" />
-            </v-col>
-            <v-col cols="12" md="6">
-              <div class="text-subtitle-2 mb-2">{{ $t('rx.primary_color') }}</div>
-              <div class="d-flex gap-2 flex-wrap">
-                <v-avatar
-                  v-for="color in colorOptions"
-                  :key="color"
-                  size="32"
-                  :color="color"
-                  class="cursor-pointer rx-page__color-swatch"
-                  :class="{ 'rx-page__color-swatch--active': rxPrintSettings.primaryColor === color }"
-                  @click="rxPrintSettings.primaryColor = color"
-                >
-                  <v-icon v-if="rxPrintSettings.primaryColor === color" color="white" size="16">mdi-check</v-icon>
-                </v-avatar>
-              </div>
-            </v-col>
-            <v-col cols="12">
-              <v-textarea v-model="rxPrintSettings.disclaimer" :label="$t('rx.disclaimer_text')" variant="outlined" density="compact" rows="2" auto-grow prepend-inner-icon="mdi-text-box" />
-            </v-col>
-          </v-row>
-        </v-card-text>
-        <v-divider />
-        <v-card-actions class="pa-4">
-          <v-btn variant="text" color="error" @click="resetPrintSettings">{{ $t('rx.reset_defaults') }}</v-btn>
-          <v-spacer />
-          <v-btn variant="text" @click="settingsDialog = false">{{ $t('common.cancel') }}</v-btn>
-          <v-btn variant="elevated" color="primary" @click="savePrintSettings">{{ $t('common.save') }}</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
 
     <!-- ═══════════ Delete Confirmation ═══════════ -->
     <v-dialog v-model="deleteDialog" max-width="400">
@@ -456,16 +383,16 @@ import { useAuthStore } from '@/stores/auth'
 import RecipeService from '@/services/recipe.service'
 import MedicationService from '@/services/medication.service'
 import api from '@/services/api'
-import { MedicationTable, MedicationForm, RxPreview } from '@/components/prescription'
+import { RxLinesEditor, RxPaper, RxTemplateDialog } from '@/components/prescription'
 import { useClinicSettings } from '@/composables/useClinicSettings'
+import { useRxTemplate } from '@/composables/useRxTemplate'
+import { linesFromItems, itemsFromLines, filledLines } from '@/utils/rxLines'
 
 const { t, locale } = useI18n()
 const authStore = useAuthStore()
 
-const { clinicInfo: sharedClinic, loadSettings: loadClinicSettings } = useClinicSettings()
-
-const SETTINGS_KEY = 'rx_print_settings'
-const colorOptions = ['#17638D', '#1976d2', '#0d47a1', '#00695c', '#2e7d32', '#4527a0', '#37474f', '#000000']
+const { loadSettings: loadClinicSettings } = useClinicSettings()
+const { resolved: rxTemplate } = useRxTemplate()
 
 // ─── State ───
 const loading = ref(false)
@@ -487,7 +414,7 @@ const totalPages = computed(() => Math.ceil(totalItems.value / itemsPerPage.valu
 // Dialogs
 const rxDialog = ref(false)
 const previewDialog = ref(false)
-const settingsDialog = ref(false)
+const templateDialog = ref(false)
 const deleteDialog = ref(false)
 
 // Form
@@ -502,13 +429,11 @@ const defaultRxForm = () => ({
   patientInfo: null,
   doctors_id: null,
   notes: '',
-  recipe_items: []
+  lines: ['']
 })
 const rxForm = ref(defaultRxForm())
 
-// Medication edit state
-const editingMedication = ref(null)
-const editingMedIndex = ref(-1)
+const writtenLines = computed(() => filledLines(rxForm.value.lines))
 
 // Patient search
 const patientSearch = ref('')
@@ -516,40 +441,21 @@ const patientOptions = ref([])
 const searchingPatients = ref(false)
 
 // Preview
-const rxPreviewRef = ref(null)
+const rxPaperRef = ref(null)
 const previewRecipe = ref(null)
-const previewPrescription = computed(() => ({
-  notes: previewRecipe.value?.notes || '',
-  date: previewRecipe.value?.created_at || '',
-  caseId: previewRecipe.value?.id
-}))
 const previewPatient = computed(() => ({
   name: previewRecipe.value?.patient?.name || '',
   age: previewRecipe.value?.patient?.age || '',
-  gender: previewRecipe.value?.patient?.gender || '',
   phone: previewRecipe.value?.patient?.phone || ''
 }))
-const previewMedications = computed(() => {
-  const items = previewRecipe.value?.recipe_items || previewRecipe.value?.recipeItems || []
-  return Array.isArray(items) ? items : []
-})
+const previewDoctorName = computed(() => previewRecipe.value?.doctor?.name || '')
+const previewLines = computed(() =>
+  linesFromItems(previewRecipe.value?.recipe_items || previewRecipe.value?.recipeItems)
+)
 
 // Delete
 const recipeToDelete = ref(null)
 const deleting = ref(false)
-
-// Print Settings
-const rxPrintSettings = ref({
-  logo: '',
-  clinicName: '',
-  doctorName: '',
-  specialty: '',
-  phone: '',
-  address: '',
-  primaryColor: '#17638D',
-  disclaimer: ''
-})
-const logoInputRef = ref(null)
 
 // Snackbar
 const snackbar = ref({ show: false, message: '', color: 'success' })
@@ -578,6 +484,19 @@ const formatDate = (dateStr) => {
     year: 'numeric', month: 'short', day: 'numeric'
   })
 }
+
+const today = computed(() =>
+  new Date().toLocaleDateString(locale.value === 'ar' ? 'ar-IQ' : 'en-GB')
+)
+
+const formPatient = computed(() => {
+  const p = rxForm.value.patientInfo || rxForm.value.patient || {}
+  return { name: p.name || '', age: p.age || '', phone: p.phone || '' }
+})
+
+const formDoctorName = computed(() =>
+  doctors.value.find(d => d.id === rxForm.value.doctors_id)?.name || ''
+)
 
 const showSnackbar = (message, color = 'success') => {
   snackbar.value = { show: true, message, color }
@@ -641,50 +560,26 @@ const openAddDialog = () => {
   editingRecipeId.value = null
   rxForm.value = defaultRxForm()
   rxForm.value.doctors_id = authStore.user?.id || null
-  editingMedication.value = null
-  editingMedIndex.value = -1
   rxDialog.value = true
 }
 
 const editRecipe = async (recipe) => {
   isEditing.value = true
   editingRecipeId.value = recipe.id
+
+  let full = recipe
   try {
     const response = await RecipeService.getById(recipe.id)
-    const full = response.data?.data || response.data || response
-    const items = full.recipe_items || full.recipeItems || []
-    rxForm.value = {
-      patient: null,
-      patientInfo: full.patient,
-      doctors_id: full.doctors_id || full.doctor?.id,
-      notes: full.notes || '',
-      recipe_items: items.map(i => ({
-        medication_name: i.medication_name,
-        dosage: i.dosage || '',
-        form: i.form || '',
-        frequency: i.frequency || '',
-        duration: i.duration || '',
-        instructions: i.instructions || ''
-      }))
-    }
-  } catch {
-    rxForm.value = {
-      patient: null,
-      patientInfo: recipe.patient,
-      doctors_id: recipe.doctors_id || recipe.doctor?.id,
-      notes: recipe.notes || '',
-      recipe_items: (recipe.recipe_items || recipe.recipeItems || []).map(i => ({
-        medication_name: i.medication_name,
-        dosage: i.dosage || '',
-        form: i.form || '',
-        frequency: i.frequency || '',
-        duration: i.duration || '',
-        instructions: i.instructions || ''
-      }))
-    }
+    full = response.data?.data || response.data || response
+  } catch { /* fall back to the row we already have */ }
+
+  rxForm.value = {
+    patient: null,
+    patientInfo: full.patient,
+    doctors_id: full.doctors_id || full.doctor?.id,
+    notes: full.notes || '',
+    lines: linesFromItems(full.recipe_items || full.recipeItems)
   }
-  editingMedication.value = null
-  editingMedIndex.value = -1
   rxDialog.value = true
 }
 
@@ -693,9 +588,22 @@ const closeDialog = () => {
   rxForm.value = defaultRxForm()
 }
 
+/**
+ * Lines are free text, so only the opening word is a drug name worth keeping in
+ * the library. Anything carrying a digit is a dose, not a name.
+ */
+const saveNewMedications = async (lines) => {
+  const names = [...new Set(
+    lines
+      .map(line => line.trim().split(/\s+/)[0])
+      .filter(name => name.length >= 3 && !/\d/.test(name))
+  )]
+  await Promise.allSettled(names.map(name => MedicationService.create(name)))
+}
+
 const handleSave = async () => {
   const { valid } = await rxFormRef.value.validate()
-  if (!valid || !rxForm.value.recipe_items.length) return
+  if (!valid || !writtenLines.value.length) return
 
   saving.value = true
   try {
@@ -703,14 +611,7 @@ const handleSave = async () => {
       patient_id: rxForm.value.patientInfo?.id || rxForm.value.patient?.id,
       doctors_id: rxForm.value.doctors_id,
       notes: rxForm.value.notes,
-      recipe_items: rxForm.value.recipe_items.map(m => ({
-        medication_name: m.medication_name,
-        dosage: m.dosage,
-        form: m.form,
-        frequency: m.frequency,
-        duration: m.duration,
-        instructions: m.instructions
-      }))
+      recipe_items: itemsFromLines(rxForm.value.lines)
     }
 
     if (isEditing.value && editingRecipeId.value) {
@@ -719,12 +620,7 @@ const handleSave = async () => {
       await RecipeService.create(payload)
     }
 
-    // Silently save new medication names to library
-    for (const item of rxForm.value.recipe_items) {
-      if (item.medication_name) {
-        try { await MedicationService.create(item.medication_name) } catch { /* ignore duplicates */ }
-      }
-    }
+    await saveNewMedications(writtenLines.value)
 
     showSnackbar(t('rx.saved_success'))
     closeDialog()
@@ -736,33 +632,8 @@ const handleSave = async () => {
   }
 }
 
-// ─── Medication CRUD ───
-const addMedication = (med) => {
-  rxForm.value.recipe_items.push({ ...med })
-}
-
-const updateMedication = (index, med) => {
-  rxForm.value.recipe_items[index] = { ...med }
-  editingMedication.value = null
-  editingMedIndex.value = -1
-}
-
-const removeMedication = (index) => {
-  rxForm.value.recipe_items.splice(index, 1)
-}
-
-const startMedEdit = (index) => {
-  editingMedication.value = { ...rxForm.value.recipe_items[index] }
-  editingMedIndex.value = index
-}
-
-const cancelMedEdit = () => {
-  editingMedication.value = null
-  editingMedIndex.value = -1
-}
-
 // ─── Preview & Print ───
-const openPreview = async (recipe) => {
+const loadForPreview = async (recipe) => {
   try {
     const response = await RecipeService.getById(recipe.id)
     const full = response.data?.data || response.data || response
@@ -773,20 +644,13 @@ const openPreview = async (recipe) => {
   }
   previewDialog.value = true
 }
+
+const openPreview = (recipe) => loadForPreview(recipe)
 
 const directPrint = async (recipe) => {
-  try {
-    const response = await RecipeService.getById(recipe.id)
-    const full = response.data?.data || response.data || response
-    if (!full.recipe_items && full.recipeItems) full.recipe_items = full.recipeItems
-    previewRecipe.value = full
-  } catch {
-    previewRecipe.value = recipe
-  }
-  previewDialog.value = true
-  setTimeout(() => {
-    rxPreviewRef.value?.printRx()
-  }, 300)
+  await loadForPreview(recipe)
+  // The sheet has to be laid out before the print window can copy it.
+  setTimeout(() => rxPaperRef.value?.print(), 300)
 }
 
 // ─── Delete ───
@@ -810,66 +674,16 @@ const deleteRecipe = async () => {
   }
 }
 
-// ─── Print Settings ───
-const loadPrintSettings = () => {
-  try {
-    const stored = localStorage.getItem(SETTINGS_KEY)
-    if (stored) Object.assign(rxPrintSettings.value, JSON.parse(stored))
-  } catch { /* ignore */ }
-
-  // Fill any blank field from the clinic settings (logo included) so a fresh
-  // browser prints the real clinic identity without touching this dialog.
-  const clinic = sharedClinic.value
-  if (!rxPrintSettings.value.clinicName) rxPrintSettings.value.clinicName = clinic.name || ''
-  if (!rxPrintSettings.value.phone) rxPrintSettings.value.phone = clinic.phone || ''
-  if (!rxPrintSettings.value.address) rxPrintSettings.value.address = clinic.address || ''
-  if (!rxPrintSettings.value.logo) rxPrintSettings.value.logo = clinic.logo || ''
-}
-
-const openPrintSettings = () => { settingsDialog.value = true }
-
-const savePrintSettings = () => {
-  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(rxPrintSettings.value)) } catch { /* ignore */ }
-  settingsDialog.value = false
-}
-
-const resetPrintSettings = () => {
-  rxPrintSettings.value = {
-    logo: '', clinicName: '', doctorName: '', specialty: '',
-    phone: '', address: '', primaryColor: '#17638D', disclaimer: ''
-  }
-  localStorage.removeItem(SETTINGS_KEY)
-}
-
-const triggerLogoUpload = () => { logoInputRef.value?.click() }
-
-const onLogoUpload = (event) => {
-  const file = event.target.files?.[0]
-  if (!file) return
-  if (file.size > 2 * 1024 * 1024) {
-    showSnackbar(t('rx.logo_too_large'), 'error')
-    return
-  }
-  const reader = new FileReader()
-  reader.onload = (e) => { rxPrintSettings.value.logo = e.target.result }
-  reader.readAsDataURL(file)
-}
-
 // ─── Lifecycle ───
 onMounted(async () => {
   fetchRecipes()
   fetchDoctors()
-  // Clinic settings first - loadPrintSettings() copies the logo/name out of them.
+  // Clinic settings back the paper template's blank fields.
   await loadClinicSettings()
-  loadPrintSettings()
 })
 </script>
 
 <style scoped>
-.rx-page {
-  max-width: 1400px;
-  margin: 0 auto;
-}
 
 .rx-page__title {
   font-size: 1.6rem;

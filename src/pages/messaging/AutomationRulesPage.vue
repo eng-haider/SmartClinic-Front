@@ -1,5 +1,5 @@
 <template>
-  <v-container fluid class="py-6">
+  <v-container fluid class="app-page">
     <v-card>
       <v-card-title class="d-flex justify-space-between align-center">
         <span class="text-h6">قواعد الأتمتة</span>

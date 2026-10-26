@@ -1,5 +1,5 @@
 <template>
-  <v-container fluid class="patient-detail-page pa-4" style="font-family: 'Cairo', sans-serif;">
+  <v-container fluid class="patient-detail-page app-page" style="font-family: 'Cairo', sans-serif;">
     <!-- Loading State -->
     <div v-if="loading" class="d-flex justify-center align-center" style="min-height: 400px">
       <v-progress-circular indeterminate color="primary" size="64" />
@@ -52,12 +52,34 @@
                   <a :href="`tel:${patient.phone}`" class="text-decoration-none" dir="ltr">
                     {{ patient.phone }}
                   </a>
+                  <v-btn
+                    icon
+                    size="x-small"
+                    variant="text"
+                    color="green-darken-1"
+                    class="whatsapp-btn"
+                    @click="openWhatsAppChat(patient.phone)"
+                  >
+                    <v-icon size="20">mdi-whatsapp</v-icon>
+                    <v-tooltip activator="parent" location="bottom">{{ $t('reservations.whatsapp') }}</v-tooltip>
+                  </v-btn>
                 </div>
                 <div class="info-item" v-if="patient.phone2">
                   <v-icon size="18" color="primary">mdi-phone-plus</v-icon>
                   <a :href="`tel:${patient.phone2}`" class="text-decoration-none" dir="ltr">
                     {{ patient.phone2 }}
                   </a>
+                  <v-btn
+                    icon
+                    size="x-small"
+                    variant="text"
+                    color="green-darken-1"
+                    class="whatsapp-btn"
+                    @click="openWhatsAppChat(patient.phone2)"
+                  >
+                    <v-icon size="20">mdi-whatsapp</v-icon>
+                    <v-tooltip activator="parent" location="bottom">{{ $t('reservations.whatsapp') }}</v-tooltip>
+                  </v-btn>
                 </div>
                 <div class="info-item" v-if="patient.email">
                   <v-icon size="18" color="primary">mdi-email</v-icon>
@@ -200,7 +222,7 @@
 
       <!-- Specialty Patient View (e.g. Teeth Chart) -->
       <component
-        v-if="canViewCases && specialtyViews[authStore.specialty]"
+        v-if="canViewSpecialtyChart && specialtyViews[authStore.specialty]"
         :is="specialtyViews[authStore.specialty]"
         :categories="categories"
         :patient-cases="patientCases"
@@ -223,6 +245,7 @@
         </v-card-title>
         <v-divider />
         <v-card-text class="pa-4">
+          <!-- Auto-saved: a pause in typing (or leaving the field) persists the note. -->
           <v-textarea
             v-model="patientNote"
             :placeholder="$t('patients.general_note_hint')"
@@ -233,19 +256,28 @@
             :readonly="!canEditPatient"
             prepend-inner-icon="mdi-pencil-outline"
             color="primary"
+            @blur="flushPatientNoteSave"
           />
-        </v-card-text>
-        <v-card-actions v-if="canEditPatient" class="px-4 pb-4 pt-0 justify-end">
-          <v-btn
-            color="primary"
-            variant="elevated"
-            :loading="savingPatientNote"
-            prepend-icon="mdi-content-save"
-            @click="savePatientNote"
+          <div
+            v-if="canEditPatient"
+            class="d-flex align-center justify-end ga-1 mt-2 text-caption"
+            :class="noteSaveStatus === 'error' ? 'text-error' : 'text-medium-emphasis'"
+            style="min-height: 20px;"
           >
-            {{ $t('common.save') }}
-          </v-btn>
-        </v-card-actions>
+            <template v-if="noteSaveStatus === 'saving'">
+              <v-progress-circular indeterminate size="14" width="2" />
+              {{ $t('loading.saving') }}...
+            </template>
+            <template v-else-if="noteSaveStatus === 'saved'">
+              <v-icon size="16" color="success">mdi-check-circle-outline</v-icon>
+              {{ $t('common.saved') }}
+            </template>
+            <template v-else-if="noteSaveStatus === 'error'">
+              <v-icon size="16">mdi-alert-circle-outline</v-icon>
+              {{ $t('errors.saveFailed') }}
+            </template>
+          </div>
+        </v-card-text>
       </v-card>
 
       <!-- Cases Section -->
@@ -286,7 +318,23 @@
               >
                 {{ $t('ai.analyzePatient') }}
               </v-btn>
-              <v-btn color="primary" prepend-icon="mdi-plus" @click="openAddCaseModal">
+              <!-- Mobile: Icon only -->
+              <v-tooltip :text="$t('cases.add_case')" location="top">
+                <template #activator="{ props }">
+                  <v-btn
+                    v-bind="props"
+                    color="primary"
+                    icon
+                    size="small"
+                    class="d-sm-none"
+                    @click="openAddCaseModal"
+                  >
+                    <v-icon>mdi-plus</v-icon>
+                  </v-btn>
+                </template>
+              </v-tooltip>
+              <!-- Desktop: Full button with text -->
+              <v-btn color="primary" prepend-icon="mdi-plus" class="d-none d-sm-inline-flex" @click="openAddCaseModal">
                 {{ $t('cases.add_case') || 'إضافة حالة' }}
               </v-btn>
             </div>
@@ -633,6 +681,7 @@
                       </div>
                       <NoteImageAttachments
                         :images="getOrthoForm(item.id).images"
+                        :disabled="!canCreateImage"
                         v-model:selected-type="getOrthoForm(item.id).imageType"
                         add-label="أضف صورة (JPG, PNG, WEBP)"
                         @add-files="({ files, type }) => addPendingImages(item.id, files, type)"
@@ -710,7 +759,7 @@
       </v-card>
 
               <!-- Case Photos Section -->
-      <v-card v-if="canViewCases" elevation="2" rounded="lg" class="mb-4">
+      <v-card v-if="canViewCases && canViewImages" elevation="2" rounded="lg" class="mb-4">
         <v-card-text class="pa-3 pa-sm-4">
               <div class="d-flex justify-space-between align-center mb-3">
                 <h4 class="text-subtitle-1 font-weight-bold">
@@ -724,6 +773,7 @@
 
                 <!-- Drop Zone -->
                 <div
+                  v-if="canCreateImage"
                   class="drop-zone"
                   :class="{ 'drop-zone-active': isDragging }"
                   @dragover.prevent="isDragging = true"
@@ -787,6 +837,18 @@
                         </template>
                         <div class="photo-overlay">
                           <v-btn
+                            v-if="isDentalClinic && canEditImage"
+                            icon
+                            size="x-small"
+                            color="primary"
+                            variant="flat"
+                            :title="$t('patients.toothNumber')"
+                            @click.stop="openPhotoToothDialog(photo)"
+                          >
+                            <v-icon size="16">mdi-tooth-outline</v-icon>
+                          </v-btn>
+                          <v-btn
+                            v-if="canDeleteImage"
                             icon
                             size="x-small"
                             color="error"
@@ -796,6 +858,16 @@
                             <v-icon size="16">mdi-delete</v-icon>
                           </v-btn>
                         </div>
+                        <v-chip
+                          v-if="isDentalClinic && photo.tooth_num"
+                          class="photo-tooth-chip"
+                          size="x-small"
+                          color="info"
+                          variant="flat"
+                        >
+                          <v-icon start size="10">mdi-tooth</v-icon>
+                          {{ formatToothLabel(photo.tooth_num) }}
+                        </v-chip>
                       </v-img>
                       <v-card-text class="pa-1 text-center text-caption">
                         {{ formatDate(photo.created_at) }}
@@ -1075,6 +1147,18 @@
         <v-toolbar color="transparent" flat>
           <v-toolbar-title>{{ $t('patients.casePhoto') || 'Case Photo' }}</v-toolbar-title>
           <v-spacer />
+          <v-chip
+            v-if="isDentalClinic && selectedCasePhoto"
+            :color="selectedCasePhoto.tooth_num ? 'info' : undefined"
+            :variant="selectedCasePhoto.tooth_num ? 'flat' : 'outlined'"
+            size="small"
+            class="me-2"
+            @click="openPhotoToothDialog(selectedCasePhoto)"
+          >
+            <v-icon start size="14">mdi-tooth</v-icon>
+            {{ selectedCasePhoto.tooth_num ? formatToothLabel(selectedCasePhoto.tooth_num) : $t('patients.toothNumber') }}
+            <v-icon end size="14">mdi-pencil</v-icon>
+          </v-chip>
           <v-btn icon @click="casePhotoViewerDialog = false">
             <v-icon>mdi-close</v-icon>
           </v-btn>
@@ -1087,6 +1171,35 @@
             contain
           />
         </v-card-text>
+      </v-card>
+    </v-dialog>
+
+    <!-- Case Photo Tooth Number Dialog -->
+    <v-dialog v-model="photoToothDialog.show" max-width="360">
+      <v-card>
+        <v-card-title>{{ $t('patients.toothNumber') }}</v-card-title>
+        <v-card-text>
+          <v-text-field
+            v-model="photoToothDialog.value"
+            :label="$t('patients.toothNumber')"
+            prepend-inner-icon="mdi-tooth"
+            variant="outlined"
+            density="comfortable"
+            autofocus
+            clearable
+            hide-details
+            @keyup.enter="savePhotoToothNumber"
+          />
+        </v-card-text>
+        <v-card-actions class="pa-4 pt-0">
+          <v-spacer />
+          <v-btn variant="text" :disabled="photoToothDialog.saving" @click="photoToothDialog.show = false">
+            {{ $t('common.cancel') }}
+          </v-btn>
+          <v-btn color="primary" variant="elevated" :loading="photoToothDialog.saving" @click="savePhotoToothNumber">
+            {{ $t('common.save') }}
+          </v-btn>
+        </v-card-actions>
       </v-card>
     </v-dialog>
 
@@ -1232,7 +1345,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
@@ -1264,6 +1377,7 @@ import { usePermissions } from '@/composables/usePermissions'
 import { PERMISSIONS } from '@/constants/permissions'
 import { addCaseModals, specialtyViews, getSmartPatientCaseColumns } from '@/config/specialties'
 import { useClinicSettings } from '@/composables/useClinicSettings'
+import { useWhatsAppSender } from '@/composables/useWhatsAppSender'
 
 const route = useRoute()
 const router = useRouter()
@@ -1273,10 +1387,27 @@ const authStore = useAuthStore()
 const { mobile: isMobile, xs: isPhone } = useDisplay()
 
 // Permissions
-const { hasPermissionFor, hasPermission, hasAnyPermission } = usePermissions()
+const { hasPermissionFor, hasPermission, hasAnyPermission, isDoctor, isClinicSuperDoctor, isSuperAdmin } = usePermissions()
 
 // Permission computed refs for template
-const canViewCases = computed(() => hasPermissionFor('case'))
+// Exact names: the 'case' keyword also matched 'notify-new-cases', so a billing-only
+// secretary who gets new-case notifications saw the cases. Billing does not need this:
+// the bills section loads the patient's cases on its own.
+const canViewCases = computed(() => hasAnyPermission([
+  PERMISSIONS.VIEW_CLINIC_CASES,
+  PERMISSIONS.CREATE_CASE,
+  PERMISSIONS.EDIT_CASE,
+  PERMISSIONS.DELETE_CASE
+]))
+const canViewImages = computed(() => hasPermission(PERMISSIONS.VIEW_IMAGES))
+const canCreateImage = computed(() => hasPermission(PERMISSIONS.CREATE_IMAGE))
+const canEditImage = computed(() => hasPermission(PERMISSIONS.EDIT_IMAGE))
+const canDeleteImage = computed(() => hasPermission(PERMISSIONS.DELETE_IMAGE))
+// Teeth chart is role-based: doctors and clinic admins only. Secretaries may be
+// granted case permissions but should not get the chart.
+const canViewSpecialtyChart = computed(() =>
+  isDoctor.value || isClinicSuperDoctor.value || isSuperAdmin.value
+)
 const canViewBills = computed(() => {
   // Check for any bill-related permission
   return hasPermissionFor('bill') || hasAnyPermission([
@@ -1291,6 +1422,13 @@ const canViewBills = computed(() => {
 })
 const canViewRecipes = computed(() => hasPermissionFor('recipe'))
 const canEditPatient = computed(() => hasPermission(PERMISSIONS.EDIT_PATIENT))
+
+// Open a WhatsApp chat with the patient (Iraq number formatting handled by the composable).
+const { formatPhoneNumber: formatWhatsAppNumber, openWhatsApp } = useWhatsAppSender()
+const openWhatsAppChat = (phone) => {
+  const number = formatWhatsAppNumber(phone)
+  if (number) openWhatsApp(number)
+}
 const canCreateReservation = computed(() => hasPermission(PERMISSIONS.CREATE_RESERVATION))
 const canCreateCase = computed(() => hasPermission(PERMISSIONS.CREATE_CASE))
 const canEditCase = computed(() => hasPermission(PERMISSIONS.EDIT_CASE))
@@ -1318,8 +1456,8 @@ const error = ref(null)
 const patient = ref(null)
 const patientNote = ref('')
 const savingPatientNote = ref(false)
+const noteSaveStatus = ref('idle') // idle | saving | saved | error
 const patientCases = ref([])
-const patientImages = ref([])
 const categories = ref([])
 const activeTab = ref('teeth')
 const caseSearch = ref('')
@@ -1755,6 +1893,8 @@ const onNoteDrop = (event, caseId) => {
   if (files.length) addPendingImages(caseId, files)
 }
 const onNotePaste = (event, caseId) => {
+  // Pasted text still goes through; pasted images need create-image
+  if (!canCreateImage.value) return
   const files = extractImageFiles(event.clipboardData)
   if (files.length) addPendingImages(caseId, files)
 }
@@ -1851,8 +1991,6 @@ const onCaseSaved = async () => {
   await fetchPatientCases()
 }
 
-
-
 // Inline additions & bills
 const selectedToothNum = ref(null)
 const preselectedCategory = ref(null)
@@ -1874,6 +2012,8 @@ const isDragging = ref(false)
 const uploadingCasePhoto = ref(false)
 const casePhotoViewerDialog = ref(false)
 const selectedCasePhoto = ref(null)
+const photoToothDialog = ref({ show: false, photo: null, value: '', saving: false })
+const isDentalClinic = computed(() => authStore.specialty === 'dental')
 
 // Snackbar
 const snackbar = ref({
@@ -2014,23 +2154,66 @@ const fetchPatient = async () => {
 
 const savePatientNote = async () => {
   if (!patient.value) return
+  // A save is already in flight; run again once it finishes so the latest
+  // text always ends up persisted.
+  if (savingPatientNote.value) {
+    noteSaveQueued = true
+    return
+  }
+  const note = patientNote.value
+  // Same fallback order as the loader, so the value set on load never triggers a save.
+  if (note === (patient.value.notes || patient.value.note || '')) return
+
   savingPatientNote.value = true
+  noteSaveStatus.value = 'saving'
   try {
     await api.put(`/patients/${patient.value.id}`, {
       ...patient.value,
-      note: patientNote.value,
-      notes: patientNote.value
+      note,
+      notes: note
     })
-    patient.value.note = patientNote.value
-    patient.value.notes = patientNote.value
-    showSnackbar(t('patients.note_saved'), 'success')
+    patient.value.note = note
+    patient.value.notes = note
+    noteSaveStatus.value = 'saved'
+    clearTimeout(noteStatusTimer)
+    noteStatusTimer = setTimeout(() => {
+      if (noteSaveStatus.value === 'saved') noteSaveStatus.value = 'idle'
+    }, 2500)
   } catch (err) {
     console.error('Error saving patient note:', err)
-    showSnackbar(err.response?.data?.message || t('errors.saveFailed'), 'error')
+    noteSaveStatus.value = 'error'
   } finally {
     savingPatientNote.value = false
+    if (noteSaveQueued) {
+      noteSaveQueued = false
+      savePatientNote()
+    }
   }
 }
+
+// Auto-save: wait for a pause in typing rather than hitting the API per keystroke.
+const NOTE_AUTOSAVE_DELAY = 1000
+let noteSaveTimer = null
+let noteStatusTimer = null
+let noteSaveQueued = false
+
+const flushPatientNoteSave = () => {
+  clearTimeout(noteSaveTimer)
+  noteSaveTimer = null
+  savePatientNote()
+}
+
+watch(patientNote, () => {
+  if (!canEditPatient.value || !patient.value) return
+  clearTimeout(noteSaveTimer)
+  noteSaveTimer = setTimeout(flushPatientNoteSave, NOTE_AUTOSAVE_DELAY)
+})
+
+// Leaving the page mid-pause must not drop the last edit.
+onBeforeUnmount(() => {
+  if (noteSaveTimer) flushPatientNoteSave()
+  clearTimeout(noteStatusTimer)
+})
 
 const fetchPatientCases = async () => {
   try {
@@ -2051,7 +2234,9 @@ const fetchPatientCases = async () => {
       if (!caseItem.case_date && caseItem.created_at) {
         caseItem.case_date = caseItem.created_at
       }
-      if (caseItem.id) {
+      // Billing-only users (secretary without case access) still get the list for
+      // the bill form, but notes and photos only show inside the Cases section.
+      if (caseItem.id && canViewCases.value) {
         await Promise.all([fetchCaseNotes(caseItem.id), fetchCaseImages(caseItem.id)])
       }
     }
@@ -2079,20 +2264,6 @@ const unpaidCases = computed(() => {
   console.log('Total cases:', patientCases.value.length, 'Unpaid cases:', filtered.length)
   return filtered
 })
-
-const fetchPatientImages = async () => {
-  try {
-    const id = route.params.id
-    const response = await api.get(`/patient-images`, {
-      params: {
-        'filter[patient_id]': id
-      }
-    })
-    patientImages.value = response.data.data || response.data || []
-  } catch (err) {
-    console.error('Error fetching images:', err)
-  }
-}
 
 const fetchCategories = async () => {
   try {
@@ -2177,7 +2348,6 @@ const getCategoryColor = (categoryId) => {
   const colors = ['primary', 'success', 'warning', 'info', 'error', 'secondary']
   return colors[categoryId % colors.length]
 }
-
 
 // Patient Actions
 const editPatient = () => {
@@ -2601,8 +2771,6 @@ const saveCaseBackground = (item) => {
   }, 600)
 }
 
-
-
 // Helper function to get status_id from various status formats
 const getStatusId = (item) => {
   // If status is an object with id property
@@ -2808,7 +2976,6 @@ const playCashRegisterSound = () => {
   }
 }
 
-
 const billDateDialog = ref(false)
 const billDateBill = ref(null)
 const billDateValue = ref('')
@@ -2927,6 +3094,10 @@ const getCaseNotesCount = (caseId) => {
 const caseImages = reactive({}) // { [caseId]: [image, ...] }
 
 const fetchCaseImages = async (caseId) => {
+  if (!canViewImages.value) {
+    caseImages[caseId] = []
+    return
+  }
   try {
     const res = await api.get('/images/by-imageable', {
       params: { imageable_type: 'Case', imageable_id: caseId }
@@ -3111,6 +3282,11 @@ const uploadImage = () => {
 
 // Case Photos
 const fetchCasePhotos = async () => {
+  // The API refuses without view-images, and the section is hidden anyway
+  if (!canViewCases.value || !canViewImages.value) {
+    casePhotos.value = []
+    return
+  }
   try {
     const id = route.params.id
     const response = await api.get(`/images/by-imageable`, {
@@ -3233,6 +3409,29 @@ const viewCasePhoto = (photo) => {
   casePhotoViewerDialog.value = true
 }
 
+// Tag a photo with the tooth it shows (e.g. an X-ray of #36)
+const openPhotoToothDialog = (photo) => {
+  photoToothDialog.value = { show: true, photo, value: photo.tooth_num || '', saving: false }
+}
+
+const savePhotoToothNumber = async () => {
+  const { photo, value } = photoToothDialog.value
+  if (!photo || photoToothDialog.value.saving) return
+  const toothNum = String(value ?? '').trim() || null
+  try {
+    photoToothDialog.value.saving = true
+    await api.put(`/images/${photo.id}`, { tooth_num: toothNum })
+    photo.tooth_num = toothNum
+    photoToothDialog.value.show = false
+    showSnackbar(t('messages.toothNumberUpdated'), 'success')
+  } catch (err) {
+    console.error('Error updating photo tooth number:', err)
+    showSnackbar(err.response?.data?.message || t('errors.saveFailed'), 'error')
+  } finally {
+    photoToothDialog.value.saving = false
+  }
+}
+
 const deleteCasePhoto = async (photo) => {
   try {
     await api.delete(`/images/${photo.id}`)
@@ -3254,7 +3453,6 @@ watch(() => route.params.id, (newId) => {
   if (newId) {
     fetchPatient()
     fetchPatientCases()
-    fetchPatientImages()
     fetchPatientBills()
     fetchCasePhotos()
     fetchPatientRecipes()
@@ -3265,7 +3463,6 @@ watch(() => route.params.id, (newId) => {
 onMounted(() => {
   fetchPatient()
   fetchPatientCases()
-  fetchPatientImages()
   fetchCategories()
   fetchPatientBills()
   fetchCasePhotos()
@@ -3294,10 +3491,6 @@ const setDefaultTab = () => {
 </script>
 
 <style scoped>
-.patient-detail-page {
-  max-width: 1400px;
-  margin: 0 auto;
-}
 
 /* Quick add-payment popover */
 .quick-bill-card {
@@ -3530,6 +3723,10 @@ const setDefaultTab = () => {
   gap: 8px;
   color: #616161;
   font-size: 14px;
+}
+
+.info-item .whatsapp-btn {
+  margin: -6px 0; /* icon button is taller than the text line */
 }
 
 .patient-actions {
@@ -3829,8 +4026,16 @@ const setDefaultTab = () => {
   position: absolute;
   top: 4px;
   right: 4px;
+  display: flex;
+  gap: 4px;
   opacity: 0;
   transition: opacity 0.2s ease;
+}
+
+.case-photo-card .photo-tooth-chip {
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
 }
 
 .case-photo-card:hover .photo-overlay {
@@ -3880,5 +4085,20 @@ const setDefaultTab = () => {
 
 :deep(.v-list-item--active) {
   background-color: rgba(var(--v-theme-primary), 0.12) !important;
+}
+
+/* Phones: flat cards. Vuetify's elevation classes and the stat-card hover
+   both use !important, so this needs it too. Background and surface are the
+   same colour in this theme, so a hairline border keeps the card edges. */
+@media (max-width: 600px) {
+  .patient-detail-page :deep(.v-card) {
+    box-shadow: none !important;
+  }
+  .patient-detail-page :deep(.v-card:not(.v-card--variant-text):not(.v-card--variant-outlined)) {
+    border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  }
+  .patient-detail-page :deep(.v-card:hover) {
+    transform: none;
+  }
 }
 </style>

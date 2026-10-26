@@ -2,6 +2,7 @@
   <div class="exam-reports-section">
     <!-- Upload Area -->
     <div
+      v-if="canUpload"
       class="drop-zone"
       :class="{ 'drop-zone--active': isDragging, 'drop-zone--loading': uploading }"
       @dragover.prevent="isDragging = true"
@@ -63,7 +64,7 @@
             <p class="text-caption font-weight-medium text-truncate mb-0">{{ report.type || report.alt_text || 'صورة' }}</p>
             <p class="text-caption text-grey" style="font-size:10px">{{ formatDate(report.uploadedAt || report.created_at) }}</p>
           </v-card-text>
-          <div class="report-thumb-actions">
+          <div v-if="canRemove" class="report-thumb-actions">
             <v-btn icon size="x-small" color="error" variant="flat" @click.stop="$emit('remove', report.id)">
               <v-icon size="14">mdi-delete</v-icon>
             </v-btn>
@@ -126,6 +127,9 @@ const props = defineProps({
   uploading:  { type: Boolean, default: false    },
   isAnalyzing:{ type: Boolean, default: false    },
   aiDone:     { type: Boolean, default: false    },
+  // create-image / delete-image
+  canUpload:  { type: Boolean, default: true     },
+  canRemove:  { type: Boolean, default: true     },
 })
 
 const emit = defineEmits(['upload', 'remove', 'reanalyze', 'analyze'])

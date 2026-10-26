@@ -1,5 +1,5 @@
 <template>
-  <v-container fluid class="recipes-page pa-4" style="font-family: 'Cairo', sans-serif;">
+  <v-container fluid class="recipes-page app-page" style="font-family: 'Cairo', sans-serif;">
     <!-- Page Header -->
     <div class="page-header mb-4">
       <div class="d-flex align-center justify-space-between flex-wrap gap-3">
@@ -677,10 +677,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.recipes-page {
-  max-width: 1400px;
-  margin: 0 auto;
-}
 
 .recipe-card {
   cursor: pointer;

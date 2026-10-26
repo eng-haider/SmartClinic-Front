@@ -44,7 +44,7 @@ export async function buildWorkbook({ sheets, rtl = true }) {
   workbook.created = new Date()
   const usedNames = new Set()
 
-  sheets.forEach(({ name, columns, rows = [] }, index) => {
+  sheets.forEach(({ name, columns, rows = [], totalsRow }, index) => {
     if (!Array.isArray(columns) || columns.length === 0) {
       throw new Error('Each worksheet must have at least one column.')
     }
@@ -76,6 +76,25 @@ export async function buildWorkbook({ sheets, rtl = true }) {
         if (row.number % 2 === 0) {
           cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } }
         }
+      })
+    }
+
+    // Optional bold totals row, appended after the data (accountants expect
+    // a visually distinct sum line at the bottom of an exported report).
+    if (totalsRow) {
+      const row = sheet.addRow(columns.map(({ key }) => cellValue(totalsRow[key])))
+      row.eachCell({ includeEmpty: true }, (cell, columnIndex) => {
+        cell.font = { name: 'Arial', bold: true, size: 11, color: { argb: 'FF0F172A' } }
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } }
+        cell.alignment = {
+          vertical: 'middle',
+          horizontal: typeof cell.value === 'number' ? 'right' : rtl ? 'right' : 'left',
+          readingOrder: rtl ? 'rtl' : 'ltr',
+        }
+        const column = columns[columnIndex - 1]
+        if (typeof cell.value === 'string') cell.numFmt = '@'
+        else if (column.format) cell.numFmt = column.format
+        else if (typeof cell.value === 'number') cell.numFmt = '#,##0.##'
       })
     }
 

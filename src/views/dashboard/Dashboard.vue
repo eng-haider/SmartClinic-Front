@@ -1,5 +1,5 @@
 <template>
-  <v-container fluid class="dashboard-container pa-4 pa-md-6">
+  <v-container fluid class="dashboard-container app-page" :class="{ 'numbers-hidden': numbersHidden }">
     <!-- Header with Date Range -->
     <div class="dashboard-header mb-6">
       <div class="header-content">
@@ -58,6 +58,18 @@
               </v-card-actions>
             </v-card>
           </v-menu>
+          <!-- Show/Hide Numbers (only when the clinic hides dashboard numbers) -->
+          <v-btn
+            v-if="hideNumbersEnabled"
+            icon
+            variant="tonal"
+            color="primary"
+            :aria-label="numbersHidden ? $t('dashboard.show_numbers') : $t('dashboard.hide_numbers')"
+            :title="numbersHidden ? $t('dashboard.show_numbers') : $t('dashboard.hide_numbers')"
+            @click="numbersRevealed = !numbersRevealed"
+          >
+            <v-icon>{{ numbersHidden ? 'mdi-eye-outline' : 'mdi-eye-off-outline' }}</v-icon>
+          </v-btn>
           <!-- Refresh Button -->
           <v-btn icon variant="tonal" color="primary" :aria-label="$t('ui.refresh')" @click="refreshAll" :loading="isRefreshing">
             <v-icon>mdi-refresh</v-icon>
@@ -237,16 +249,16 @@
     <!-- Profit/Loss Summary -->
     <v-row class="mb-6">
       <v-col cols="12" md="4">
-        <v-card class="profit-card" :class="{ 'profit': profitLoss?.is_profit, 'loss': !profitLoss?.is_profit }" :loading="loading.profitLoss">
+        <v-card class="profit-card" :class="{ 'profit': !numbersHidden && profitLoss?.is_profit, 'loss': !numbersHidden && !profitLoss?.is_profit }" :loading="loading.profitLoss">
           <div class="profit-card-content">
             <div class="profit-icon">
-              <v-icon size="32" :color="profitLoss?.is_profit ? 'success' : 'error'">
-                {{ profitLoss?.is_profit ? 'mdi-trending-up' : 'mdi-trending-down' }}
+              <v-icon size="32" :color="numbersHidden ? 'grey' : (profitLoss?.is_profit ? 'success' : 'error')">
+                {{ numbersHidden ? 'mdi-eye-off-outline' : (profitLoss?.is_profit ? 'mdi-trending-up' : 'mdi-trending-down') }}
               </v-icon>
             </div>
             <div class="profit-details">
               <div class="profit-label">{{ $t('dashboard.profit_loss') }}</div>
-              <div class="profit-value" :class="{ 'text-success': profitValue >= 0, 'text-error': profitValue < 0 }">
+              <div class="profit-value" :class="{ 'text-success': !numbersHidden && profitValue >= 0, 'text-error': !numbersHidden && profitValue < 0 }">
                 {{ profitValueFormatted }}
               </div>
               <div class="profit-margin">
@@ -617,6 +629,13 @@ const loading = reactive({
 
 const isRefreshing = ref(false)
 
+// Clinic setting hide_dashboard_numbers, sent with GET /dashboard/today. It is
+// null until that response arrives, so the numbers never flash before it does.
+const MASKED_VALUE = '••••'
+const hideNumbersEnabled = ref(null)
+const numbersRevealed = ref(false)
+const numbersHidden = computed(() => hideNumbersEnabled.value !== false && !numbersRevealed.value)
+
 // Data States
 const overview = ref(null)
 const todayStats = ref({
@@ -666,6 +685,7 @@ const profitValue = computed(() => {
 })
 
 const profitValueFormatted = computed(() => {
+  if (numbersHidden.value) return MASKED_VALUE
   const value = profitValue.value
   const sign = value >= 0 ? '+' : '-'
   return `${sign}${formatCurrency(Math.abs(value))}`
@@ -690,11 +710,13 @@ function formatDate(date) {
 }
 
 function formatNumber(value) {
+  if (numbersHidden.value) return MASKED_VALUE
   if (value === null || value === undefined) return '0'
   return new Intl.NumberFormat('en-US').format(value)
 }
 
 function formatCurrency(value) {
+  if (numbersHidden.value) return MASKED_VALUE
   if (value === null || value === undefined) return '0 IQD'
   return new Intl.NumberFormat('en-US', {
     minimumFractionDigits: 0,
@@ -703,6 +725,7 @@ function formatCurrency(value) {
 }
 
 function formatPercent(value) {
+  if (numbersHidden.value) return MASKED_VALUE
   if (value === null || value === undefined) return '0%'
   return new Intl.NumberFormat('en-US', {
     minimumFractionDigits: 1,
@@ -803,8 +826,11 @@ async function fetchToday() {
   try {
     const response = await reportsService.dashboard.getToday()
     todayStats.value = response.data || response || todayStats.value
+    hideNumbersEnabled.value = Boolean(response?.display?.hide_numbers)
   } catch (e) {
     console.error('Failed to fetch today:', e)
+    // Unknown setting: fall back to showing the numbers, as before the setting existed.
+    if (hideNumbersEnabled.value === null) hideNumbersEnabled.value = false
   } finally {
     loading.today = false
   }
@@ -1000,9 +1026,13 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.dashboard-container {
-  background: #f8fafc;
-  min-height: 100vh;
+
+/* hide_dashboard_numbers: the charts draw their own values, so blur them and
+   block their tooltips while the numbers are hidden. */
+.numbers-hidden .chart-body {
+  filter: blur(8px);
+  pointer-events: none;
+  user-select: none;
 }
 
 .dashboard-header {
@@ -1426,9 +1456,6 @@ onMounted(() => {
 
 /* Responsive */
 @media (max-width: 959px) {
-  .dashboard-container {
-    padding: 12px !important;
-  }
 
   .dashboard-header {
     margin-bottom: 16px !important;

@@ -2,6 +2,7 @@ node_modules/
 dist
 public/*
 !public/booking.html
+!public/push-sw.js
 
 # Capacitor native platforms (rebuild with npm run mobile:add:ios/android)
 ios/

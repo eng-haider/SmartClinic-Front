@@ -8,6 +8,7 @@
 
 import { defineStore } from 'pinia'
 import apiClient from '@/services/api'
+import pushService from '@/services/push.service'
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
@@ -71,6 +72,9 @@ export const useAuthStore = defineStore('auth', {
      * تسجيل الخروج
      */
     async logout() {
+      // Stop browser pushes for this user while the token is still valid
+      await pushService.unsubscribeCurrentUser()
+
       try {
         await apiClient.post('/auth/logout')
       } catch (error) {

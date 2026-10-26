@@ -1,5 +1,5 @@
 <template>
-  <div class="booking-requests-page pa-4">
+  <div class="booking-requests-page app-page">
     <!-- Page Header -->
     <div class="page-header mb-4">
       <div class="d-flex flex-wrap align-center justify-space-between gap-3">
@@ -638,8 +638,8 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
 import QRCode from 'qrcode'
@@ -653,6 +653,7 @@ import { formatWhatsAppPhone, prepareWhatsAppMessage } from '@/utils/whatsapp'
 
 const { t, locale } = useI18n()
 const router = useRouter()
+const route = useRoute()
 // Below md the table is swapped for a card list (same breakpoint the patients table uses).
 const { smAndDown: isMobile } = useDisplay()
 const { pendingCount, refreshPendingCount } = useBookingRequests()
@@ -870,6 +871,26 @@ function openDetails(item) {
   detailsDialog.show = true
 }
 
+// Deep link from a notification (/booking-requests/:id): fetch the request,
+// switch to the tab that contains it, then open its details dialog.
+async function openRequestFromRoute(id) {
+  if (!id) return
+  try {
+    const res = await bookingRequestService.get(id)
+    const item = res?.data
+    if (!item) return
+    if (item.status && item.status !== activeTab.value) {
+      activeTab.value = item.status
+      page.value = 1
+      loadRequests()
+    }
+    openDetails(item)
+  } catch (err) {
+    console.warn('Failed to open booking request from route', err)
+    notify(err?.response?.data?.message || t('bookingRequests.loadError'), 'error')
+  }
+}
+
 // Open a WhatsApp chat with the requester (Iraq number formatting handled by the composable).
 function openWhatsAppChat(item) {
   const phone = formatPhoneNumber(item?.phone)
@@ -1023,17 +1044,18 @@ function formatDateTime(value) {
   return date.toLocaleString(intlLocale, { dateStyle: 'medium', timeStyle: 'short' })
 }
 
+// The page stays mounted when only the :id changes (e.g. clicking another
+// notification while already here), so react to the param rather than mount.
+watch(() => route.params.id, (id) => openRequestFromRoute(id))
+
 onMounted(() => {
   loadRequests()
   refreshPendingCount()
+  openRequestFromRoute(route.params.id)
 })
 </script>
 
 <style scoped>
-.booking-requests-page {
-  max-width: 1400px;
-  margin: 0 auto;
-}
 
 .gap-2 { gap: 8px; }
 .gap-3 { gap: 12px; }
@@ -1071,9 +1093,6 @@ onMounted(() => {
 }
 
 @media (max-width: 600px) {
-  .booking-requests-page {
-    padding: 12px !important;
-  }
 
   /* Give the share/refresh row its own line so the title keeps full width. */
   .booking-requests-page__actions {

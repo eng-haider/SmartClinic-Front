@@ -140,13 +140,15 @@
        
 
           <!-- D. IMAGES & REPORTS -->
-          <div class="images-section">
+          <div v-if="canViewImages" class="images-section">
             <div class="section-title">
               <span class="section-dot" style="background:#1565C0"></span>الصور والتقارير
               <v-chip v-if="localReports.length" size="x-small" color="info" variant="flat" class="ms-2">{{ localReports.length }}</v-chip>
             </div>
             <OphthalmologyExamReportsSection
               :reports="localReports"
+              :can-upload="canCreateImage"
+              :can-remove="canDeleteImage"
               :uploading="uploadingPhoto"
               :is-analyzing="caseItem.aiStatus === 'analyzing'"
               :ai-done="!!caseItem.aiStatus && caseItem.aiStatus !== 'analyzing'"
@@ -453,6 +455,8 @@ import OphthalmologyDoctorReviewSection from './OphthalmologyDoctorReviewSection
 import RecipeDialog                     from '@/components/RecipeDialog.vue'
 import { billService } from '@/services/bill.service'
 import api from '@/services/api'
+import { usePermissions } from '@/composables/usePermissions'
+import { PERMISSIONS } from '@/constants/permissions'
 
 const props = defineProps({
   caseItem:   { type: Object, required: true },
@@ -477,8 +481,13 @@ const uploadingPhoto = ref(false)
 const uploadError    = ref(null)
 const imagesFetched  = ref(false)
 
+const { hasPermission } = usePermissions()
+const canViewImages  = computed(() => hasPermission(PERMISSIONS.VIEW_IMAGES))
+const canCreateImage = computed(() => hasPermission(PERMISSIONS.CREATE_IMAGE))
+const canDeleteImage = computed(() => hasPermission(PERMISSIONS.DELETE_IMAGE))
+
 const fetchImages = async () => {
-  if (imagesFetched.value || !props.caseItem.id) return
+  if (imagesFetched.value || !props.caseItem.id || !canViewImages.value) return
   imagesFetched.value = true
   try {
     const res = await api.get('/images/by-imageable', {

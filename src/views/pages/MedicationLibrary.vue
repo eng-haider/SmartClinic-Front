@@ -1,5 +1,5 @@
 <template>
-  <div class="medications-page" dir="rtl">
+  <div class="medications-page app-page" dir="rtl">
 
     <!-- Header -->
     <div class="d-flex align-center justify-space-between mb-6">
@@ -243,7 +243,7 @@ onMounted(() => fetchMedications())
 </script>
 
 <style scoped>
-.medications-page { max-width: 720px; margin: 0 auto; padding: 24px; }
+
 .med-row { transition: background 0.15s; }
 .med-row:hover { background: rgba(var(--v-theme-primary), 0.04); }
 </style>

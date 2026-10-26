@@ -54,12 +54,15 @@ const formattedValue = computed(() => {
   if (isNaN(num)) return props.value
   
   if (props.format === 'currency') {
-    return new Intl.NumberFormat('ar-IQ').format(num) + ' ' + props.currency
+    // en-US: Western digits with thousands separators, regardless of UI
+    // language — accountants/clinic numbers must never render as
+    // Arabic-Indic digits (١٢٣...).
+    return new Intl.NumberFormat('en-US').format(num) + ' ' + props.currency
   }
   if (props.format === 'percentage') {
     return num.toFixed(1) + '%'
   }
-  return new Intl.NumberFormat('ar-IQ').format(num)
+  return new Intl.NumberFormat('en-US').format(num)
 })
 
 const trendColor = computed(() => {

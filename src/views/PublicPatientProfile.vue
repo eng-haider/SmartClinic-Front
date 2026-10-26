@@ -1,581 +1,191 @@
 <template>
-  <div class="public-patient-profile">
-    <!-- Loading State -->
-    <v-container v-if="loading" class="fill-height">
-      <v-row align="center" justify="center">
-        <v-col cols="12" class="text-center">
-          <v-progress-circular indeterminate color="primary" size="64" />
-          <p class="mt-4 text-h6">{{ $t('common.loading') }}</p>
-        </v-col>
-      </v-row>
-    </v-container>
+  <div class="public-experience" :dir="isRtl ? 'rtl' : 'ltr'" :style="brandTokens">
+    <PatientPortalHeader
+      :clinic-name="clinic.name"
+      :logo="clinicLogo"
+      :whatsapp="clinicWhatsApp"
+      :locale="activeLocale"
+      :labels="labels"
+      @toggle-language="toggleLanguage"
+    />
 
-    <!-- Error State -->
-    <v-container v-else-if="error">
-      <v-row justify="center">
-        <v-col cols="12" md="6">
-          <v-card rounded="xl" class="pa-8 text-center">
-            <v-icon size="80" color="error">mdi-alert-circle</v-icon>
-            <h2 class="text-h5 mt-4">{{ $t('publicProfile.notFound') }}</h2>
-            <p class="text-grey mt-2">{{ error }}</p>
-          </v-card>
-        </v-col>
-      </v-row>
-    </v-container>
+    <PatientPortalSkeleton v-if="loading" :slow="slowNetwork" :labels="labels" />
 
-    <!-- Patient Profile Content -->
-    <v-container v-else class="py-8">
-      <v-row justify="center">
-        <v-col cols="12" lg="10" xl="8">
-          <!-- Header Card -->
-          <v-card rounded="xl" class="mb-6" elevation="3">
-            <v-card-text class="pa-6">
-              <!-- Clinic Info - the clinic's own name and logo, never the product's -->
-              <div v-if="hasClinicInfo" class="d-flex align-center ga-4 mb-6">
-                <v-avatar :color="clinicLogo ? 'white' : 'primary'" size="60" class="clinic-logo">
-                  <v-img v-if="clinicLogo" :src="clinicLogo" :alt="clinicName" />
-                  <v-icon v-else size="32">mdi-hospital-building</v-icon>
-                </v-avatar>
-                <div>
-                  <h1 v-if="clinicName" class="text-h5 font-weight-bold text-primary">
-                    {{ clinicName }}
-                  </h1>
-                  <p v-if="clinic.address" class="text-grey">
-                    <v-icon size="14">mdi-map-marker</v-icon>
-                    {{ clinic.address }}
-                  </p>
-                  <p v-if="clinic.phone" class="text-grey">
-                    <v-icon size="14">mdi-phone</v-icon>
-                    {{ clinic.phone }}
-                  </p>
-                </div>
-              </div>
+    <main v-else-if="portal" class="public-patient-main public-shell">
+      <div class="public-greeting">
+        <p class="public-eyebrow">{{ greeting }}</p>
+        <h1>{{ labels.hello }}, {{ firstName }}</h1>
+        <p>{{ labels.latestInfo }}</p>
+      </div>
 
-              <v-divider v-if="hasClinicInfo" class="my-4" />
+      <p v-if="slowNetwork" class="public-notice"><v-icon size="18">mdi-wifi-strength-1-alert</v-icon>{{ labels.slowNetwork }}</p>
 
-              <!-- Patient Info -->
-              <div class="patient-info">
-                <v-row>
-                  <v-col cols="12" md="6">
-                    <div class="info-item">
-                      <v-icon color="primary" class="me-2">mdi-account</v-icon>
-                      <span class="text-h6 font-weight-medium">{{ patientData.name }}</span>
-                    </div>
-                  </v-col>
-                  <v-col cols="6" md="3">
-                    <div class="info-item">
-                      <span class="text-caption text-grey">{{ $t('publicProfile.age') }}</span>
-                      <span class="text-body-1">{{ patientData.age }} {{ $t('publicProfile.years') }}</span>
-                    </div>
-                  </v-col>
-                  <v-col cols="6" md="3">
-                    <div class="info-item">
-                      <span class="text-caption text-grey">{{ $t('publicProfile.gender') }}</span>
-                      <v-chip size="small" :color="patientData.sex === 1 ? 'blue' : 'pink'">
-                        {{ patientData.sex_label }}
-                      </v-chip>
-                    </div>
-                  </v-col>
-                </v-row>
+      <div class="public-grid public-grid--patient">
+        <div class="public-stack">
+          <PatientAppointmentCard
+            :appointment="portal.next_appointment"
+            :locale="activeLocale"
+            :labels="labels"
+            :book-url="clinic.enable_online_booking && clinic.public_website_path ? `${clinic.public_website_path}#booking` : ''"
+            @calendar="addAppointmentCalendar"
+            @show-details="appointmentDialog = true"
+          />
 
-                <v-row v-if="patientData.systemic_conditions" class="mt-2">
-                  <v-col cols="12">
-                    <v-alert type="info" variant="tonal" density="compact">
-                      <strong>{{ $t('publicProfile.systemicConditions') }}:</strong>
-                      {{ patientData.systemic_conditions }}
-                    </v-alert>
-                  </v-col>
-                </v-row>
-              </div>
-            </v-card-text>
-          </v-card>
+          <nav class="public-quick-actions" :aria-label="labels.quickActions">
+            <a href="#appointments" class="public-quick-action"><v-icon size="22">mdi-calendar-outline</v-icon><span>{{ labels.appointments }}</span></a>
+            <a href="#treatment" class="public-quick-action"><v-icon size="22">mdi-stethoscope</v-icon><span>{{ labels.treatment }}</span></a>
+            <a href="#payments" class="public-quick-action"><v-icon size="22">mdi-credit-card-outline</v-icon><span>{{ labels.payments }}</span></a>
+            <a href="#more" class="public-quick-action"><v-icon size="22">mdi-file-document-outline</v-icon><span>{{ labels.prescription }}</span></a>
+          </nav>
 
-          <!-- Stats Cards -->
-          <v-row class="mb-6">
-            <v-col cols="6" md="3">
-              <v-card rounded="lg" color="primary" variant="tonal">
-                <v-card-text class="text-center pa-4">
-                  <v-icon size="32" color="primary">mdi-clipboard-text</v-icon>
-                  <div class="text-h5 font-weight-bold mt-2">{{ patientData.cases_count || 0 }}</div>
-                  <div class="text-caption">{{ $t('publicProfile.totalCases') }}</div>
-                </v-card-text>
-              </v-card>
-            </v-col>
-            <v-col cols="6" md="3">
-              <v-card rounded="lg" color="success" variant="tonal">
-                <v-card-text class="text-center pa-4">
-                  <v-icon size="32" color="success">mdi-image</v-icon>
-                  <div class="text-h5 font-weight-bold mt-2">{{ patientData.images_count || 0 }}</div>
-                  <div class="text-caption">{{ $t('publicProfile.images') }}</div>
-                </v-card-text>
-              </v-card>
-            </v-col>
-            <v-col cols="6" md="3">
-              <v-card rounded="lg" color="info" variant="tonal">
-                <v-card-text class="text-center pa-4">
-                  <v-icon size="32" color="info">mdi-calendar</v-icon>
-                  <div class="text-h5 font-weight-bold mt-2">{{ patientData.upcoming_reservations?.length || 0 }}</div>
-                  <div class="text-caption">{{ $t('publicProfile.appointments') }}</div>
-                </v-card-text>
-              </v-card>
-            </v-col>
-            <v-col cols="6" md="3">
-              <v-card rounded="lg" color="purple" variant="tonal">
-                <v-card-text class="text-center pa-4">
-                  <v-icon size="32" color="purple">mdi-account-clock</v-icon>
-                  <div class="text-caption font-weight-bold mt-2">{{ $t('publicProfile.memberSince') }}</div>
-                  <div class="text-body-2">{{ formatDate(patientData.member_since) }}</div>
-                </v-card-text>
-              </v-card>
-            </v-col>
-          </v-row>
+          <PatientTreatmentSection
+            :treatment="portal.current_treatment"
+            :timeline="portal.treatment_timeline"
+            :locale="activeLocale"
+            :labels="labels"
+            @show-details="treatmentDialog = true"
+          />
 
-          <!-- Teeth Chart -->
-          <v-card v-if="patientData.tooth_details && patientData.tooth_details.length > 0" rounded="xl" class="mb-6" elevation="2">
-            <v-card-title class="bg-purple pa-4">
-              <v-icon class="me-2">mdi-tooth</v-icon>
-              {{ $t('publicProfile.dentalChart') }}
-            </v-card-title>
-            <v-card-text class="pa-4">
-              <TeethChart
-                v-if="hasPermanentTeeth"
-                :patient-data="{ tooth_details: patientData.tooth_details }"
-                :show-color-picker="false"
-                :patient-cases="[]"
-                :categories="[]"
-                :notation="toothNotation"
-              />
-              <TeethChart
-                v-if="hasBabyTeeth"
-                dentition="primary"
-                :patient-data="{ tooth_details: patientData.tooth_details }"
-                :show-color-picker="false"
-                :patient-cases="[]"
-                :categories="[]"
-                :notation="toothNotation"
-              />
-              
-              <!-- Color Legend -->
-              <div class="color-legend mt-4">
-                <div class="legend-title text-subtitle-2 mb-2">
-                  <v-icon size="18" class="me-1">mdi-palette</v-icon>
-                  {{ $t('publicProfile.colorLegend') }}
-                </div>
-                <div class="colors-grid">
-                  <div 
-                    v-for="color in uniqueColors" 
-                    :key="color.color"
-                    class="color-item"
-                  >
-                    <span 
-                      class="color-dot" 
-                      :style="{ backgroundColor: color.color }"
-                    ></span>
-                    <span class="color-name">{{ color.name }}</span>
-                    <span class="color-count">({{ color.count }})</span>
-                  </div>
-                </div>
-              </div>
-            </v-card-text>
-          </v-card>
+          <PatientCasePhotos
+            v-if="hasCasePhotos"
+            :photos="portal.photos"
+            :timeline="portal.treatment_timeline"
+            :locale="activeLocale"
+            :labels="labels"
+          />
+        </div>
 
-          <!-- Medical Cases -->
-          <v-card rounded="xl" class="mb-6" elevation="2">
-            <v-card-title class="bg-primary pa-4">
-              <v-icon class="me-2">mdi-clipboard-text</v-icon>
-              {{ $t('publicProfile.medicalCases') }}
-            </v-card-title>
-            <v-card-text class="pa-0">
-              <v-list v-if="patientData.cases && patientData.cases.length > 0">
-                <v-list-item
-                  v-for="(caseItem, index) in patientData.cases"
-                  :key="caseItem.id"
-                  :class="{ 'bg-grey-lighten-4': index % 2 === 0 }"
-                >
-                  <template v-slot:prepend>
-                    <v-avatar :color="caseItem.status?.color || 'grey'">
-                      <v-icon color="white">mdi-tooth</v-icon>
-                    </v-avatar>
-                  </template>
-                  <v-list-item-title class="font-weight-medium">
-                    {{ getCategoryName(caseItem.category) }}
-                    <v-chip v-if="caseItem.tooth_num" size="x-small" class="ms-2">
-                      {{ $t('publicProfile.tooth') }} {{ formatToothLabel(caseItem.tooth_num) }}
-                    </v-chip>
-                  </v-list-item-title>
-                  <v-list-item-subtitle>
-                    {{ caseItem.notes || $t('publicProfile.noNotes') }}
-                  </v-list-item-subtitle>
-                  <template v-slot:append>
-                    <div class="text-end">
-                      <v-chip
-                        :color="caseItem.status?.color || 'grey'"
-                        size="small"
-                        variant="tonal"
-                      >
-                        {{ getStatusName(caseItem.status) }}
-                      </v-chip>
-                      <div class="text-caption text-grey mt-1">
-                        {{ formatDate(caseItem.created_at) }}
-                      </div>
-                    </div>
-                  </template>
-                </v-list-item>
-              </v-list>
-              <div v-else class="pa-8 text-center text-grey">
-                <v-icon size="48">mdi-clipboard-text-off</v-icon>
-                <p class="mt-2">{{ $t('publicProfile.noCases') }}</p>
-              </div>
-            </v-card-text>
-          </v-card>
+        <aside class="public-stack">
+          <PatientFinanceSection
+            :summary="portal.financial_summary"
+            :payments="portal.payment_history"
+            :locale="activeLocale"
+            :labels="labels"
+          />
+          <PatientSharedItems :labels="labels" />
+          <section v-if="hasContactActions" class="public-card public-card-pad patient-help" aria-labelledby="help-title">
+            <div class="public-card-heading"><div><p class="public-section-kicker">{{ labels.needHelp }}</p><h2 id="help-title">{{ labels.contactClinic }}</h2></div><v-icon color="var(--clinic-primary)">mdi-help-circle-outline</v-icon></div>
+            <div class="help-actions">
+              <a v-if="clinicWhatsApp" class="public-button public-button--primary" :href="clinicWhatsApp" target="_blank" rel="noopener noreferrer"><v-icon size="18">mdi-whatsapp</v-icon>{{ labels.whatsapp }}</a>
+              <a v-if="clinicPhone" class="public-button public-button--line" :href="clinicPhone"><v-icon size="18">mdi-phone-outline</v-icon>{{ labels.call }}</a>
+              <a v-if="clinicMaps" class="public-button public-button--line" :href="clinicMaps" target="_blank" rel="noopener noreferrer"><v-icon size="18">mdi-map-marker-outline</v-icon>{{ labels.directions }}</a>
+            </div>
+          </section>
+        </aside>
+      </div>
+    </main>
 
-          <!-- Medical Images -->
-          <v-card v-if="patientData.images && patientData.images.length > 0" rounded="xl" class="mb-6" elevation="2">
-            <v-card-title class="bg-success pa-4">
-              <v-icon class="me-2">mdi-image</v-icon>
-              {{ $t('publicProfile.medicalImages') }}
-            </v-card-title>
-            <v-card-text class="pa-4">
-              <v-row>
-                <v-col
-                  v-for="image in patientData.images"
-                  :key="image.id"
-                  cols="6"
-                  md="4"
-                  lg="3"
-                >
-                  <v-card rounded="lg" @click="viewImage(image)">
-                    <v-img
-                      :src="image.url"
-                      :alt="image.alt_text || 'Medical image'"
-                      aspect-ratio="1"
-                      cover
-                      class="cursor-pointer"
-                    >
-                      <template v-slot:placeholder>
-                        <div class="d-flex align-center justify-center fill-height">
-                          <v-progress-circular indeterminate color="primary" />
-                        </div>
-                      </template>
-                    </v-img>
-                    <v-card-subtitle class="text-caption pa-2">
-                      {{ formatDate(image.created_at) }}
-                    </v-card-subtitle>
-                  </v-card>
-                </v-col>
-              </v-row>
-            </v-card-text>
-          </v-card>
+    <main v-else class="public-shell public-error-state">
+      <section class="public-card public-error-card" role="alert">
+        <span class="public-empty-icon" style="margin:auto"><v-icon>mdi-shield-alert-outline</v-icon></span>
+        <h1>{{ labels.linkUnavailable }}</h1>
+        <p>{{ labels.linkUnavailableHint }}</p>
+        <button class="public-button public-button--primary" type="button" @click="fetchPortal">{{ labels.tryAgain }}</button>
+      </section>
+    </main>
 
-          <!-- Upcoming Appointments -->
-          <v-card v-if="patientData.upcoming_reservations && patientData.upcoming_reservations.length > 0" rounded="xl" elevation="2">
-            <v-card-title class="bg-info pa-4">
-              <v-icon class="me-2">mdi-calendar-clock</v-icon>
-              {{ $t('publicProfile.upcomingAppointments') }}
-            </v-card-title>
-            <v-card-text class="pa-0">
-              <v-list>
-                <v-list-item
-                  v-for="reservation in patientData.upcoming_reservations"
-                  :key="reservation.id"
-                >
-                  <template v-slot:prepend>
-                    <v-avatar color="info">
-                      <v-icon color="white">mdi-calendar</v-icon>
-                    </v-avatar>
-                  </template>
-                  <v-list-item-title>
-                    {{ formatDate(reservation.date) }} - {{ reservation.time }}
-                  </v-list-item-title>
-                  <v-list-item-subtitle>
-                    {{ reservation.notes || $t('publicProfile.noNotes') }}
-                  </v-list-item-subtitle>
-                  <template v-slot:append>
-                    <v-chip color="info" size="small">
-                      {{ reservation.status }}
-                    </v-chip>
-                  </template>
-                </v-list-item>
-              </v-list>
-            </v-card-text>
-          </v-card>
-        </v-col>
-      </v-row>
-    </v-container>
+    <v-dialog v-model="appointmentDialog" max-width="460" aria-labelledby="appointment-dialog-title">
+      <section class="public-card public-card-pad" v-if="portal?.next_appointment">
+        <div class="public-card-heading"><h2 id="appointment-dialog-title">{{ labels.appointmentDetails }}</h2><button class="public-icon-button" type="button" :aria-label="labels.close" @click="appointmentDialog = false"><v-icon>mdi-close</v-icon></button></div>
+        <p class="appointment-date">{{ formatDate(portal.next_appointment.date, activeLocale, { weekday: 'long' }) }}</p>
+        <p class="appointment-time" dir="ltr">{{ formatTime(portal.next_appointment.time, activeLocale) }}</p>
+        <p v-if="portal.next_appointment.doctor" class="treatment-subline">{{ portal.next_appointment.doctor }}</p>
+        <button class="public-button public-button--soft" type="button" style="margin-top:16px" @click="addAppointmentCalendar"><v-icon size="18">mdi-calendar-plus-outline</v-icon>{{ labels.addCalendar }}</button>
+      </section>
+    </v-dialog>
 
-    <!-- Image Viewer Dialog -->
-    <v-dialog v-model="imageDialog" max-width="800">
-      <v-card v-if="selectedImage" rounded="xl">
-        <v-card-title class="d-flex justify-space-between align-center">
-          {{ selectedImage.alt_text || $t('publicProfile.medicalImage') }}
-          <v-btn icon="mdi-close" variant="text" @click="imageDialog = false" />
-        </v-card-title>
-        <v-card-text class="pa-0">
-          <v-img :src="selectedImage.url" />
-        </v-card-text>
-      </v-card>
+    <v-dialog v-model="treatmentDialog" max-width="560" aria-labelledby="treatment-dialog-title">
+      <section class="public-card public-card-pad">
+        <div class="public-card-heading"><h2 id="treatment-dialog-title">{{ labels.treatmentTimeline }}</h2><button class="public-icon-button" type="button" :aria-label="labels.close" @click="treatmentDialog = false"><v-icon>mdi-close</v-icon></button></div>
+        <PatientTreatmentSection :treatment="portal?.current_treatment" :timeline="portal?.treatment_timeline" :locale="activeLocale" :labels="labels" />
+      </section>
     </v-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
 import { patientService } from '@/services/patient.service'
-import { useAuthStore } from '@/stores/auth'
-import { useClinicSettings, resolveLogoUrl } from '@/composables/useClinicSettings'
-import TeethChart from '@/components/teeth/TeethChart.vue'
-import { isBabyToothNumber, formatToothNumber } from '@/components/teeth/toothNotation'
+import PatientPortalHeader from '@/components/public/PatientPortalHeader.vue'
+import PatientPortalSkeleton from '@/components/public/PatientPortalSkeleton.vue'
+import PatientAppointmentCard from '@/components/public/PatientAppointmentCard.vue'
+import PatientTreatmentSection from '@/components/public/PatientTreatmentSection.vue'
+import PatientCasePhotos from '@/components/public/PatientCasePhotos.vue'
+import PatientFinanceSection from '@/components/public/PatientFinanceSection.vue'
+import PatientSharedItems from '@/components/public/PatientSharedItems.vue'
+import { clinicBrandTokens, downloadCalendar, formatPublicDate as formatDate, formatPublicTime as formatTime, mapsHref, phoneHref, whatsappHref } from '@/utils/publicExperience'
+import { resolveLogoUrl } from '@/composables/useClinicSettings'
+import { usePublicPageMeta } from '@/composables/usePublicPageMeta'
 
 const route = useRoute()
-const router = useRouter()
-const authStore = useAuthStore()
-const { t, locale } = useI18n()
-const { loadSettings, getSetting, toothConditionColors, babyTeethNotation } = useClinicSettings()
-
+const { locale } = useI18n()
 const loading = ref(true)
-const error = ref(null)
-const patientData = ref(null)
-const imageDialog = ref(false)
-const selectedImage = ref(null)
+const portal = ref(null)
+const slowNetwork = ref(false)
+const appointmentDialog = ref(false)
+const treatmentDialog = ref(false)
+let slowTimer
 
-// Clinic branding. /clinic-settings needs a JWT, so an anonymous visitor can
-// only get this from the public patient payload itself.
-const clinic = computed(() => patientData.value?.clinic || {})
-const clinicName = computed(() => clinic.value.name || '')
+const activeLocale = computed(() => ['ar', 'en'].includes(locale.value) ? locale.value : 'en')
+const isRtl = computed(() => activeLocale.value === 'ar')
+const clinic = computed(() => portal.value?.clinic || {})
 const clinicLogo = computed(() => resolveLogoUrl(clinic.value.logo))
-
-// Baby teeth labels ride along with the patient payload, since an anonymous
-// visitor cannot read /clinic-settings; a signed-in viewer falls back to it.
-const toothNotation = computed(() => clinic.value.baby_teeth_notation || babyTeethNotation.value)
-const formatToothLabel = (toothNum) => formatToothNumber(toothNum, toothNotation.value)
-const hasClinicInfo = computed(() =>
-  Boolean(clinicName.value || clinicLogo.value || clinic.value.address || clinic.value.phone)
-)
-
-// Use tooth colors from clinic settings composable (auto-updates)
-const toothColors = computed(() => {
-  if (toothConditionColors.value && toothConditionColors.value.length > 0) {
-    return toothConditionColors.value
-  }
-  // Fallback to default colors
-  return [
-    { id: 'healthy', name: 'Healthy', color: '#FFFFFF' },
-    { id: 'cavity', name: 'Cavity', color: '#FF6B6B' },
-    { id: 'filling', name: 'Filling', color: '#4ECDC4' },
-    { id: 'crown', name: 'Crown', color: '#FFD93D' },
-    { id: 'missing', name: 'Missing', color: '#95A5A6' }
-  ]
+const brandTokens = computed(() => clinicBrandTokens(clinic.value.theme_color))
+const firstName = computed(() => String(portal.value?.name || '').trim().split(/\s+/)[0] || labels.value.patient)
+const clinicPhone = computed(() => phoneHref(clinic.value.phone))
+const clinicWhatsApp = computed(() => whatsappHref(clinic.value.whatsapp || (clinic.value.enable_whatsapp ? clinic.value.phone : '')))
+const clinicMaps = computed(() => mapsHref(clinic.value.location || clinic.value.address))
+const hasCasePhotos = computed(() => Boolean(portal.value?.photos?.length) || (portal.value?.treatment_timeline || []).some((item) => item.images?.length))
+const hasContactActions = computed(() => Boolean(clinicPhone.value || clinicWhatsApp.value || clinicMaps.value))
+const greeting = computed(() => {
+  const hour = new Date().getHours()
+  if (activeLocale.value === 'ar') return hour < 12 ? 'صباح الخير' : hour < 18 ? 'مساء الخير' : 'مساء الخير'
+  return hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
 })
 
-// Color name mapping - will be populated from clinic settings
-const getColorName = (color) => {
-  if (!color) return 'Unknown'
-  
-  const normalizedColor = color.toLowerCase()
-  
-  // Find matching color from clinic settings
-  const matchingColor = toothColors.value.find(tc => 
-    tc.color.toLowerCase() === normalizedColor
-  )
-  
-  if (matchingColor) {
-    return matchingColor.name
-  }
-  
-  // Fallback to hex code if no match found
-  return color
+const copy = {
+  en: { portal: 'Patient portal', changeLanguage: 'Change language', contact: 'Contact', hello: 'Hello', patient: 'there', latestInfo: 'Here is your latest clinic information.', slowNetwork: 'This is taking a little longer than usual. Your information is still loading.', quickActions: 'Quick actions', appointments: 'Appointments', treatment: 'Treatment', payments: 'Payments', prescription: 'Prescription', yourSchedule: 'Your schedule', nextAppointment: 'Next appointment', viewDetails: 'View details', addCalendar: 'Add to calendar', noAppointment: 'No upcoming appointments.', bookAppointment: 'Book appointment', treatmentPlan: 'Treatment plan', currentTreatment: 'Current treatment', treatmentTimeline: 'Treatment timeline', tooth: 'Tooth', clinicTeam: 'Clinic team', started: 'Started', noTreatment: 'No active treatment right now.', finance: 'Your account', treatmentTotal: 'Treatment total', paid: 'Paid', remaining: 'Remaining', paymentHistory: 'Payment history', noPayments: 'No payments recorded yet.', noBalance: 'No remaining balance.', yourRecords: 'Your records', prescriptionsDocuments: 'Prescriptions & documents', noSharedItems: 'No prescriptions or documents have been shared yet.', sharedItemsHint: 'When your clinic shares an item, it will appear here.', needHelp: 'Need help?', contactClinic: 'Contact clinic', whatsapp: 'WhatsApp', call: 'Call clinic', directions: 'Directions', linkUnavailable: 'This link is unavailable', linkUnavailableHint: 'It may have expired or been turned off. Please contact the clinic for a new link.', tryAgain: 'Try again', appointmentDetails: 'Appointment details', close: 'Close', treatmentPhotos: 'Treatment photos', casePhotos: 'Case photos', openPhoto: 'Open photo', previousPhoto: 'Previous', nextPhoto: 'Next', photoUnavailable: "This photo couldn't load. Refresh the page and try again.", photoTypes: { before: 'Before', after: 'After', xray: 'X-ray', treatment: 'Treatment', prescription: 'Prescription' } },
+  ar: { portal: 'بوابة المريض', changeLanguage: 'تغيير اللغة', contact: 'تواصل', hello: 'مرحباً', patient: 'بك', latestInfo: 'إليك أحدث معلوماتك من العيادة.', slowNetwork: 'يستغرق الأمر وقتاً أطول من المعتاد. ما زالت معلوماتك قيد التحميل.', quickActions: 'إجراءات سريعة', appointments: 'المواعيد', treatment: 'العلاج', payments: 'المدفوعات', prescription: 'الوصفة', yourSchedule: 'مواعيدك', nextAppointment: 'موعدك القادم', viewDetails: 'عرض التفاصيل', addCalendar: 'إضافة للتقويم', noAppointment: 'لا توجد مواعيد قادمة.', bookAppointment: 'احجز موعداً', treatmentPlan: 'خطة العلاج', currentTreatment: 'العلاج الحالي', treatmentTimeline: 'سجل العلاج', tooth: 'سن', clinicTeam: 'فريق العيادة', started: 'بدأ في', noTreatment: 'لا يوجد علاج نشط حالياً.', finance: 'حسابك', treatmentTotal: 'إجمالي العلاج', paid: 'المدفوع', remaining: 'المتبقي', paymentHistory: 'سجل الدفعات', noPayments: 'لا توجد دفعات مسجلة بعد.', noBalance: 'لا يوجد مبلغ متبقٍ.', yourRecords: 'سجلاتك', prescriptionsDocuments: 'الوصفات والمستندات', noSharedItems: 'لم تتم مشاركة وصفات أو مستندات بعد.', sharedItemsHint: 'عندما تشارك العيادة عنصراً، سيظهر هنا.', needHelp: 'هل تحتاج مساعدة؟', contactClinic: 'تواصل مع العيادة', whatsapp: 'واتساب', call: 'اتصل بالعيادة', directions: 'الاتجاهات', linkUnavailable: 'هذا الرابط غير متاح', linkUnavailableHint: 'ربما انتهت صلاحيته أو تم إيقافه. يرجى التواصل مع العيادة للحصول على رابط جديد.', tryAgain: 'أعد المحاولة', appointmentDetails: 'تفاصيل الموعد', close: 'إغلاق', treatmentPhotos: 'صور العلاج', casePhotos: 'صور الحالة', openPhoto: 'فتح الصورة', previousPhoto: 'السابقة', nextPhoto: 'التالية', photoUnavailable: 'تعذّر تحميل الصورة. حدّث الصفحة وحاول مرة أخرى.', photoTypes: { before: 'قبل', after: 'بعد', xray: 'أشعة', treatment: 'علاج', prescription: 'وصفة' } },
+}
+const labels = computed(() => copy[activeLocale.value])
+
+const title = computed(() => clinic.value.name ? `${clinic.value.name} | ${labels.value.portal}` : labels.value.portal)
+usePublicPageMeta({ title, noindex: true })
+
+function toggleLanguage() {
+  locale.value = activeLocale.value === 'ar' ? 'en' : 'ar'
+  localStorage.setItem('locale', locale.value)
+  document.documentElement.lang = locale.value
+  document.documentElement.dir = locale.value === 'ar' ? 'rtl' : 'ltr'
 }
 
-// Baby teeth use FDI 51-85, so a patient can have both charts worth of data
-const toothDetails = computed(() => patientData.value?.tooth_details || [])
-const hasBabyTeeth = computed(() => toothDetails.value.some(d => isBabyToothNumber(d.tooth_number)))
-const hasPermanentTeeth = computed(() => toothDetails.value.some(d => !isBabyToothNumber(d.tooth_number)))
+function addAppointmentCalendar() {
+  const appointment = portal.value?.next_appointment
+  if (!appointment) return
+  downloadCalendar({ title: clinic.value.name || labels.value.nextAppointment, date: appointment.date, time: appointment.time, description: appointment.doctor || '', location: clinic.value.address || '' })
+}
 
-// Computed property for unique colors in tooth_details
-const uniqueColors = computed(() => {
-  if (!patientData.value?.tooth_details?.length) return []
-  
-  const colorMap = new Map()
-  
-  patientData.value.tooth_details.forEach(detail => {
-    const color = detail.color?.toLowerCase()
-    if (color) {
-      if (colorMap.has(color)) {
-        colorMap.set(color, colorMap.get(color) + 1)
-      } else {
-        colorMap.set(color, 1)
-      }
-    }
-  })
-  
-  return Array.from(colorMap.entries()).map(([color, count]) => ({
-    color,
-    count,
-    name: getColorName(color)
-  }))
-})
-
-const fetchPatientProfile = async () => {
-  const token = route.params.token
-  const clinicId = route.query.clinic
-
-  if (!token) {
-    error.value = t('publicProfile.invalidToken')
-    loading.value = false
-    return
-  }
-
+async function fetchPortal() {
+  const token = String(route.params.token || '')
+  loading.value = true
+  portal.value = null
+  slowNetwork.value = false
+  clearTimeout(slowTimer)
+  slowTimer = setTimeout(() => { slowNetwork.value = true }, 1500)
   try {
-    // Pass clinic ID as query parameter if available
-    const response = await patientService.getPublicPatientByToken(token, clinicId)
-    patientData.value = response.data || response
-    console.log('Patient data:', patientData.value)
-    
-    // Smart redirect for authenticated doctors
-    // If user is logged in, redirect to internal patient page
-    if (authStore.isAuthenticated && patientData.value?.id) {
-      router.replace({ 
-        name: 'PatientDetail', 
-        params: { id: patientData.value.id } 
-      })
-      return
-    }
-  } catch (err) {
-    console.error('Failed to fetch patient profile:', err)
-    error.value = t('publicProfile.fetchError')
-  } finally {
-    loading.value = false
-  }
-}
-
-const getCategoryName = (category) => {
-  if (!category) return '-'
-  if (locale.value === 'ar' && category.name_ar) return category.name_ar
-  if (locale.value === 'ku' && category.name_ku) return category.name_ku
-  return category.name || category.name_en || '-'
-}
-
-const getStatusName = (status) => {
-  if (!status) return '-'
-  if (locale.value === 'ar' && status.name_ar) return status.name_ar
-  if (locale.value === 'ku' && status.name_ku) return status.name_ku
-  return status.name_en || status.name || '-'
-}
-
-const formatDate = (dateStr) => {
-  if (!dateStr) return '-'
-  try {
-    const date = new Date(dateStr)
-    return date.toLocaleDateString(locale.value === 'ar' ? 'ar-IQ' : 'en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    })
+    const response = await patientService.getPublicPatientByToken(token, route.query.clinic)
+    portal.value = response?.data || null
   } catch {
-    return dateStr
+    portal.value = null
+  } finally {
+    clearTimeout(slowTimer)
+    loading.value = false
   }
 }
 
-const viewImage = (image) => {
-  selectedImage.value = image
-  imageDialog.value = true
-}
-
-onMounted(async () => {
-  // Load clinic settings to get tooth colors
-  await loadSettings()
-  await fetchPatientProfile()
-})
+onMounted(fetchPortal)
+onBeforeUnmount(() => clearTimeout(slowTimer))
+watch(() => route.params.token, (token, previous) => { if (token && token !== previous) fetchPortal() })
 </script>
-
-<style scoped>
-/* Keep a wide clinic logo readable inside the round avatar */
-.clinic-logo {
-  border: 1px solid rgba(0, 0, 0, 0.08);
-}
-
-.clinic-logo :deep(.v-img__img) {
-  object-fit: contain;
-  padding: 4px;
-}
-
-.public-patient-profile {
-  min-height: 100vh;
-  height: 100vh;
-  overflow-y: auto;
-  overflow-x: hidden;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-}
-
-.info-item {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.cursor-pointer {
-  cursor: pointer;
-}
-
-/* Color Legend Styles */
-.color-legend {
-  border-top: 1px solid rgba(0, 0, 0, 0.12);
-  padding-top: 16px;
-}
-
-.legend-title {
-  color: rgba(0, 0, 0, 0.7);
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-}
-
-.colors-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.color-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  background: rgba(0, 0, 0, 0.04);
-  border-radius: 16px;
-  font-size: 0.875rem;
-}
-
-.color-dot {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  border: 2px solid rgba(0, 0, 0, 0.12);
-  flex-shrink: 0;
-}
-
-.color-name {
-  font-weight: 500;
-}
-
-.color-count {
-  color: rgba(0, 0, 0, 0.5);
-  font-size: 0.75rem;
-}
-
-/* Make teeth chart read-only */
-.public-patient-profile :deep(.teeth-chart) {
-  pointer-events: none;
-  user-select: none;
-}
-
-.public-patient-profile :deep(.tooth-number) {
-  cursor: default !important;
-}
-
-.public-patient-profile :deep(.tooth-path) {
-  cursor: default !important;
-}
-</style>

@@ -275,7 +275,7 @@ const imagePreview = ref(null)
 // Suggested prompts
 const suggestedPrompts = [
   { icon: '📅', text: 'ما هي مواعيد اليوم؟' },
-  { icon: '💰', text: 'أظهر المرضى الذين لديهم مدفوعات مفقودة' },
+  { icon: '💰', text: 'أظهر المراجعين الذين لديهم مدفوعات مفقودة' },
   { icon: '📋', text: 'كم عدد الحالات الجارية؟' },
   { icon: '📊', text: 'أعطني ملخص إيرادات اليوم' }
 ]

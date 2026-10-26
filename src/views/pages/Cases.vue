@@ -1,5 +1,5 @@
 <template>
-  <div class="cases-page">
+  <div class="cases-page app-page">
     <!-- Page Header -->
     <div class="page-header mb-5 mobile-page-heading">
       <div class="d-flex flex-wrap align-center justify-space-between ga-4">
@@ -139,7 +139,11 @@
           </v-chip>
 
           <!-- Currency -->
-          <span v-else-if="col.type === 'currency'" class="font-weight-medium">
+          <span
+            v-else-if="col.type === 'currency'"
+            class="font-weight-medium"
+            :class="col.color ? `text-${resolveColor(item, col)}` : ''"
+          >
             {{ formatCurrency(cellValue(item, col), col.suffix) }}
           </span>
 
@@ -171,6 +175,19 @@
               <v-icon>mdi-eye</v-icon>
               <v-tooltip activator="parent" location="top">
                 {{ $t('common.view') || 'View' }}
+              </v-tooltip>
+            </v-btn>
+            <v-btn
+              icon
+              size="small"
+              variant="text"
+              color="success"
+              :disabled="!item.patient?.phone"
+              @click.stop="openWhatsAppDialog(item)"
+            >
+              <v-icon>mdi-whatsapp</v-icon>
+              <v-tooltip activator="parent" location="top">
+                {{ $t('patients.send_whatsapp') }}
               </v-tooltip>
             </v-btn>
           </div>
@@ -229,6 +246,13 @@
       @view-full="goToCase"
       @edit="goToCase"
     />
+
+    <!-- WhatsApp message (suggested templates) for the case's patient -->
+    <WhatsAppMessageDialog
+      v-model="whatsappDialog"
+      :patient="selectedPatientForWhatsApp"
+      :case-data="selectedCaseForWhatsApp"
+    />
   </div>
 </template>
 
@@ -240,6 +264,7 @@ import api from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
 import { getSmartCaseColumns } from '@/config/specialties'
 import CaseDrawer from '@/components/CaseDrawer.vue'
+import WhatsAppMessageDialog from '@/components/WhatsAppMessageDialog.vue'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -261,6 +286,19 @@ const totalCases = ref(0)
 const drawerOpen = ref(false)
 const selectedCase = ref(null)
 const selectedCaseNotes = ref([])
+
+// WhatsApp dialog (the case is passed too so clinic templates can use the
+// case / doctor variables)
+const whatsappDialog = ref(false)
+const selectedPatientForWhatsApp = ref(null)
+const selectedCaseForWhatsApp = ref(null)
+
+function openWhatsAppDialog(caseItem) {
+  if (!caseItem?.patient?.phone) return
+  selectedPatientForWhatsApp.value = caseItem.patient
+  selectedCaseForWhatsApp.value = caseItem
+  whatsappDialog.value = true
+}
 
 // Filters
 const filters = reactive({
@@ -388,7 +426,7 @@ async function loadCases() {
     const params = {
       page: currentPage.value,
       per_page: perPage.value,
-      include: 'patient,doctor,category,status,warehouseItems,ophthalmologyEncounterDetails',
+      include: 'patient,doctor,category,status,bills,warehouseItems,ophthalmologyEncounterDetails',
     }
 
     if (search.value) params['filter[notes]'] = search.value
@@ -470,11 +508,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.cases-page {
-  padding: 24px;
-  max-width: 1400px;
-  margin: 0 auto;
-}
+
 .toolbar-card {
   background: #fff;
 }

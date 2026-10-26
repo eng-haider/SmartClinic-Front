@@ -20,6 +20,7 @@
  * Main Navigation Items
  * permissionPrefix: matches any permission containing this keyword
  * permissionKeywords: array of keywords - user needs permission matching ANY of them
+ * permissions: exact permission names - user needs ANY of them (checked instead of keywords)
  * alwaysShow: true = show to all authenticated users
  */
 export const NAV_CONFIG = [
@@ -86,7 +87,8 @@ export const NAV_CONFIG = [
     title: { ar: 'الحالات', en: 'Cases', ku: 'کەیسەکان', pl: 'Przypadki' },
     icon: 'mdi-file-document',
     to: '/cases',
-    permissionKeywords: ['case'], // matches: create-case, view-clinic-cases, etc.
+    // Exact: the 'case' keyword also matched 'notify-new-cases' and showed Cases to billing-only secretaries
+    permissions: ['view-clinic-cases'],
     order: 2
   },
   {
@@ -121,6 +123,68 @@ export const NAV_CONFIG = [
     permissionKeywords: ['expense', 'bill'],
     roleRequired: ['super_admin', 'clinic_super_doctor'],
     order: 11
+  },
+  {
+    key: 'reports',
+    title: { ar: 'التقارير', en: 'Reports', ku: 'ڕاپۆرتەکان', pl: 'Raporty' },
+    icon: 'mdi-chart-box-outline',
+    permissionKeywords: ['report', 'analytics'],
+    order: 12,
+    children: [
+      {
+        key: 'reports-overview',
+        title: { ar: 'نظرة عامة', en: 'Overview', ku: 'گشتی', pl: 'Przegląd' },
+        icon: 'mdi-view-dashboard-outline',
+        to: '/reports',
+        permissionKeywords: ['report', 'analytics'],
+        roleRequired: ['super_admin', 'clinic_super_doctor', 'doctor']
+      },
+      {
+        key: 'reports-doctors',
+        title: { ar: 'تقارير الأطباء', en: 'Doctors', ku: 'دکتۆرەکان', pl: 'Lekarze' },
+        icon: 'mdi-doctor',
+        to: '/reports/doctors',
+        permissionKeywords: ['report', 'analytics']
+      },
+      {
+        key: 'reports-patients',
+        title: { ar: 'حسابات المراجعين', en: 'Patient Accounts', ku: 'هەژماری نەخۆشەکان', pl: 'Konta pacjentów' },
+        icon: 'mdi-account-cash-outline',
+        to: '/reports/patients',
+        permissionKeywords: ['report', 'analytics']
+      },
+      {
+        key: 'reports-cases',
+        title: { ar: 'تقارير الحالات', en: 'Cases', ku: 'کەیسەکان', pl: 'Przypadki' },
+        icon: 'mdi-clipboard-text-multiple-outline',
+        to: '/reports/cases',
+        permissionKeywords: ['report', 'analytics']
+      },
+      {
+        key: 'reports-revenue',
+        title: { ar: 'الإيرادات والمدفوعات', en: 'Revenue & Payments', ku: 'داهات و پارەدان', pl: 'Przychody i płatności' },
+        icon: 'mdi-cash-multiple',
+        to: '/reports/revenue',
+        permissionKeywords: ['report', 'analytics'],
+        roleRequired: ['super_admin', 'clinic_super_doctor', 'doctor']
+      },
+      {
+        key: 'reports-expenses',
+        title: { ar: 'الصرفيات', en: 'Expenses', ku: 'خەرجییەکان', pl: 'Wydatki' },
+        icon: 'mdi-cash-minus',
+        to: '/reports/expenses',
+        permissionKeywords: ['report', 'analytics'],
+        roleRequired: ['super_admin', 'clinic_super_doctor', 'doctor']
+      },
+      {
+        key: 'reports-outstanding',
+        title: { ar: 'المبالغ المتبقية', en: 'Outstanding Balances', ku: 'باڵانسی ماوە', pl: 'Zaległe salda' },
+        icon: 'mdi-cash-clock',
+        to: '/reports/outstanding',
+        permissionKeywords: ['report', 'analytics'],
+        roleRequired: ['super_admin', 'clinic_super_doctor', 'doctor']
+      }
+    ]
   },
   {
     key: 'warehouse',
@@ -243,7 +307,14 @@ export const ROUTE_CONFIG = {
   'BookingRequests': { keywords: ['reservation', 'booking'] },
   'Bills': { keywords: ['bill'] },
   'Expenses': { keywords: ['expense', 'bill'], roles: ['super_admin', 'clinic_super_doctor'] },
-  'Analytics': { keywords: ['report', 'analytics'], roles: ['super_admin', 'clinic_super_doctor'] }
+  'Analytics': { keywords: ['report', 'analytics'], roles: ['super_admin', 'clinic_super_doctor'] },
+  'ReportsOverview': { keywords: ['report', 'analytics'], roles: ['super_admin', 'clinic_super_doctor', 'doctor'] },
+  'DoctorsReport': { keywords: ['report', 'analytics'] },
+  'PatientsReport': { keywords: ['report', 'analytics'] },
+  'CasesReport': { keywords: ['report', 'analytics'] },
+  'RevenueReport': { keywords: ['report', 'analytics'], roles: ['super_admin', 'clinic_super_doctor', 'doctor'] },
+  'ExpensesReport': { keywords: ['report', 'analytics'], roles: ['super_admin', 'clinic_super_doctor', 'doctor'] },
+  'OutstandingReport': { keywords: ['report', 'analytics'], roles: ['super_admin', 'clinic_super_doctor', 'doctor'] }
 }
 
 /**

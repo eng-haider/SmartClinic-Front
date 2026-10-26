@@ -29,7 +29,8 @@ apiClient.interceptors.request.use(
     const url = config.url || ''
     
     // List of paths that should be excluded from /tenant prefix
-    const excludedPaths = ['/login', '/register', '/auth/login', '/auth/register', 'smart-login', '/tenant/public', 'demo-register']
+    // /public/clinics is a central route (the clinic website), not a tenant one.
+    const excludedPaths = ['/login', '/register', '/auth/login', '/auth/register', 'smart-login', '/tenant/public', '/public/clinics', 'demo-register']
     
     // Check if the URL should be excluded from tenant prefix
     const shouldExclude = excludedPaths.some(path => url.includes(path))
@@ -39,8 +40,10 @@ apiClient.interceptors.request.use(
       config.url = `/tenant${url.startsWith('/') ? url : '/' + url}`
     }
     
-    // Don't add tenant headers for public endpoints
-    const isPublicEndpoint = url.includes('/tenant/public') || url.includes('/public')
+    // Don't add tenant headers for public endpoints (/tenant/public/..., /public/clinics/...).
+    // Match a whole "public" path segment: a plain substring check also caught authenticated
+    // routes like /notifications/push/public-key and /patients/{id}/public-profile.
+    const isPublicEndpoint = /(^|\/)public(\/|$)/.test(url)
     
     if (!isPublicEndpoint) {
       // Add JWT token

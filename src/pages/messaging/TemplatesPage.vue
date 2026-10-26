@@ -1,5 +1,5 @@
 <template>
-  <v-container fluid class="py-6">
+  <v-container fluid class="app-page">
     <v-card>
       <v-card-title class="d-flex justify-space-between align-center">
         <span class="text-h6">قوالب الرسائل</span>
@@ -199,7 +199,8 @@ const variables = [
   '{{case_name}}',
   '{{case_date}}',
   '{{case_notes}}',
-  '{{clinic_name}}'
+  '{{clinic_name}}',
+  '{{profile_url}}'
 ]
 
 const editorDialog = ref(false)

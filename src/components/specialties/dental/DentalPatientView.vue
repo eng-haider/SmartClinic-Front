@@ -1,6 +1,13 @@
 <template>
-  <v-card elevation="2" rounded="lg" class="mb-4">
-    <v-card-text class="pa-3 pa-sm-4">
+  <!-- On phones the section is drawn bare (no card surface, no padding) so the
+       teeth chart gets the full screen width. Wider screens keep the card. -->
+  <v-card
+    :variant="useCompactChart ? 'text' : 'elevated'"
+    :elevation="useCompactChart ? 0 : 2"
+    rounded="lg"
+    class="mb-4"
+  >
+    <v-card-text :class="useCompactChart ? 'pa-0' : 'pa-3 pa-sm-4'">
       <!-- Adult / Baby dentition switch -->
       <div class="d-flex justify-center mb-3">
         <v-btn-toggle
@@ -25,7 +32,7 @@
 
       <!-- Teeth Chart - Mobile version for small screens -->
       <TeethChartMobile
-        v-if="isMobile"
+        v-if="useCompactChart"
         :dentition="dentition"
         :categories="categories"
         :patient-cases="patientCases"
@@ -84,11 +91,14 @@
 import { computed, ref } from 'vue'
 import TeethChart from '@/components/teeth/TeethChart.vue'
 import TeethChartMobile from '@/components/teeth/TeethChartMobile.vue'
+import { useDentalChartPreference } from '@/composables/useDentalChartPreference'
 import { useDisplay } from 'vuetify'
 import { useI18n } from 'vue-i18n'
 
 const { mobile: isMobile } = useDisplay()
 const { t, locale } = useI18n()
+const { usesModernDentalChart } = useDentalChartPreference()
+const useCompactChart = computed(() => !usesModernDentalChart(isMobile.value))
 
 // 'permanent' = adult teeth (FDI 11-48), 'primary' = baby teeth (FDI 51-85)
 const dentition = ref('permanent')

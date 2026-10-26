@@ -10,6 +10,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import authService from '../services/auth.service'
+import pushService from '../services/push.service'
 import { ROLES } from '../constants/permissions'
 
 export const useAuthStore = defineStore('auth', () => {
@@ -141,6 +142,21 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   /**
+   * Set or remove the current user's profile photo
+   */
+  async function updateProfilePhoto(file) {
+    const result = await authService.uploadProfilePhoto(file)
+    if (result.success) user.value = result.data
+    return result
+  }
+
+  async function removeProfilePhoto() {
+    const result = await authService.deleteProfilePhoto()
+    if (result.success) user.value = result.data
+    return result
+  }
+
+  /**
    * Refresh JWT token
    */
   async function refreshToken() {
@@ -188,7 +204,10 @@ export const useAuthStore = defineStore('auth', () => {
     
     // Stop permission refresh
     stopPermissionRefresh()
-    
+
+    // Stop browser pushes for this user while the token is still valid
+    await pushService.unsubscribeCurrentUser()
+
     try {
       await authService.logout()
     } finally {
@@ -323,6 +342,8 @@ export const useAuthStore = defineStore('auth', () => {
     login,
     logout,
     loadUser,
+    updateProfilePhoto,
+    removeProfilePhoto,
     refreshToken,
     changePassword,
     initializeAuth,

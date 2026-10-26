@@ -261,6 +261,7 @@
 import { ref, reactive, computed } from 'vue'
 import OphthalmologyCaseCard from './OphthalmologyCaseCard.vue'
 import OphthalmologyAddCaseModal from './OphthalmologyAddCaseModal.vue'
+import { selectableCategories } from '@/utils/caseCategories'
 
 const props = defineProps({
   filteredCases:  { type: Array,  default: () => [] },
@@ -297,8 +298,8 @@ const handleEditSuccess = () => {
   emit('refresh-cases')
 }
 
-// All categories = prop list (comes from page)
-const allCategories = computed(() => props.categories)
+// Categories offered for a new case: the page's list, without inactive ones
+const allCategories = computed(() => selectableCategories(props.categories))
 
 const eyeSideOptions = [
   { title: 'يسار',          value: 'left'  },

@@ -72,6 +72,12 @@ export const PERMISSIONS = {
   EDIT_NOTE: 'edit-note',
   DELETE_NOTE: 'delete-note',
 
+  // Images (patient / case photos)
+  VIEW_IMAGES: 'view-images',
+  CREATE_IMAGE: 'create-image',
+  EDIT_IMAGE: 'edit-image',
+  DELETE_IMAGE: 'delete-image',
+
   // Recipes
   VIEW_ALL_RECIPES: 'view-all-recipes',
   VIEW_OWN_RECIPES: 'view-own-recipes',

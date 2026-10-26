@@ -1,5 +1,5 @@
 <template>
-  <v-container fluid class="py-6">
+  <v-container fluid class="app-page">
     <v-card>
       <v-card-title class="text-h6">إعدادات WhatsApp</v-card-title>
       <v-divider />

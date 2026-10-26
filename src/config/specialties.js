@@ -96,6 +96,9 @@ const specialtyCaseColumns = {
 }
 
 // For Cases.vue (all-cases page) — includes patient column
+// Sum of the bills recorded against a case
+const casePaidAmount = (row) => (row.bills || []).reduce((sum, b) => sum + Number(b.price || 0), 0)
+
 export const getSmartCaseColumns = (specialty, t) => {
   const specCols = (specialtyCaseColumns[specialty] || specialtyCaseColumns.dental)(t)
 
@@ -129,6 +132,26 @@ export const getSmartCaseColumns = (specialty, t) => {
       type: 'currency',
       sortable: true,
       width: '110px',
+    },
+    // Paid / remaining are derived from the case's bills (the list request
+    // must include them).
+    {
+      key: 'paid',
+      label: t('report.paid') || 'Paid',
+      type: 'currency',
+      sortable: false,
+      width: '110px',
+      getter: (row) => casePaidAmount(row),
+      color: () => 'success',
+    },
+    {
+      key: 'remaining',
+      label: t('report.remaining') || 'Remaining',
+      type: 'currency',
+      sortable: false,
+      width: '110px',
+      getter: (row) => Math.max(0, Number(row.price || 0) - casePaidAmount(row)),
+      color: (row) => (Number(row.price || 0) - casePaidAmount(row) > 0 ? 'warning' : 'success'),
     },
     {
       key: 'is_paid',

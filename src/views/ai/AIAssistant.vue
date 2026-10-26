@@ -1,5 +1,5 @@
 <template>
-  <div class="ai-assistant-page">
+  <div class="ai-assistant-page app-page">
     <!-- Page Header -->
     <div class="page-header mb-6">
       <div class="d-flex flex-wrap align-center justify-space-between ga-3">
@@ -527,11 +527,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.ai-assistant-page {
-  padding: 24px;
-  max-width: 1400px;
-  margin: 0 auto;
-}
 
 .quick-action-card {
   transition: all 0.3s ease;
@@ -633,7 +628,7 @@ onMounted(() => {
 }
 
 /* RTL Support */
-[dir="rtl"] .ai-assistant-page {
+[dir="rtl"] .ai-assistant-page  {
   text-align: right;
 }
 
@@ -649,9 +644,7 @@ onMounted(() => {
 
 /* Responsive */
 @media (max-width: 960px) {
-  .ai-assistant-page {
-    padding: 16px;
-  }
+
   
   .chat-container {
     height: 500px;

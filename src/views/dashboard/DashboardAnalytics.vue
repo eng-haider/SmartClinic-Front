@@ -1,5 +1,5 @@
 <template>
-  <v-container fluid class="dashboard pa-4 pa-md-6">
+  <v-container fluid class="dashboard app-page">
     <!-- ═══════════════════════════════════════════════════════════════════
          1️⃣ HEADER SECTION
          ═══════════════════════════════════════════════════════════════════ -->
@@ -347,8 +347,6 @@ const profitLoss = computed(() => {
 
 const isProfitable = computed(() => profitLoss.value !== null && profitLoss.value >= 0)
 
-
-
 const performanceHeaders = computed(() => [
   { title: t('dashboard.table.doctor'), key: 'doctor_name', sortable: true },
   { title: t('dashboard.table.patients'), key: 'total_patients', sortable: true, align: 'center' },
@@ -379,10 +377,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.dashboard {
-  background: rgb(var(--v-theme-background));
-  min-height: 100vh;
-}
 
 .dashboard__header {
   display: flex;
@@ -429,9 +423,6 @@ onMounted(() => {
 
 /* Responsive adjustments */
 @media (max-width: 959px) {
-  .dashboard {
-    padding: 12px !important;
-  }
 
   .dashboard__header {
     flex-direction: column;

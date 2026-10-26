@@ -1,5 +1,5 @@
 <template>
-  <div class="expenses-page">
+  <div class="expenses-page app-page">
     <!-- Page Header -->
     <div class="page-header mb-4">
       <div class="d-flex flex-wrap align-center justify-space-between ga-3">
@@ -1721,9 +1721,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.expenses-page {
-  padding: 16px;
-}
 
 .stats-row {
   display: grid;
@@ -1772,9 +1769,7 @@ onMounted(() => {
 }
 
 @media (max-width: 600px) {
-  .expenses-page {
-    padding: 8px;
-  }
+
   
   .stats-row {
     grid-template-columns: 1fr;

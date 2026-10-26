@@ -1,5 +1,5 @@
 <template>
-  <v-container fluid class="settings-page pa-4" :class="{ 'settings-page--with-save': showMobileSave }">
+  <v-container fluid class="settings-page app-page" :class="{ 'settings-page--with-save': showMobileSave }">
     <v-row class="mobile-page-heading">
       <v-col cols="12">
         <h1 class="text-h4 mb-4">{{ $t('settings.title') }}</h1>
@@ -25,9 +25,17 @@
               <v-icon start>mdi-hospital-building</v-icon>
               {{ $t('settings.clinic') }}
             </v-tab>
+            <v-tab value="rxPaper">
+              <v-icon start>mdi-prescription</v-icon>
+              {{ $t('rx.paper.template') }}
+            </v-tab>
             <v-tab value="ai">
               <v-icon start>mdi-robot</v-icon>
               AI
+            </v-tab>
+            <v-tab v-if="canManageTemplates" value="whatsappTemplates">
+              <v-icon start>mdi-whatsapp</v-icon>
+              {{ $t('settings.whatsappTemplates') }}
             </v-tab>
           </v-tabs>
 
@@ -148,18 +156,33 @@
                             rows="2"
                             :disabled="!canEdit"
                           ></v-textarea>
-                          <v-btn
-                            variant="tonal"
-                            color="primary"
-                            prepend-icon="mdi-crosshairs-gps"
-                            :loading="detectingLocation"
-                            :disabled="!canEdit"
-                            @click="detectClinicLocation"
-                          >{{ $t('clinicSettings.detectLocation') }}</v-btn>
+                          <div class="d-flex align-center flex-wrap ga-2">
+                            <v-btn
+                              variant="tonal"
+                              color="primary"
+                              prepend-icon="mdi-crosshairs-gps"
+                              :loading="detectingLocation"
+                              :disabled="!canEdit"
+                              @click="detectClinicLocation"
+                            >{{ $t('clinicSettings.detectLocation') }}</v-btn>
+                            <!-- The detected pin lives in its own setting so the address stays readable on bills/reports -->
+                            <v-chip
+                              v-if="clinicForm.location"
+                              color="success"
+                              variant="tonal"
+                              prepend-icon="mdi-map-marker-check"
+                              :closable="canEdit"
+                              :close-label="$t('clinicSettings.clearLocation')"
+                              @click:close="clinicForm.location = ''"
+                            >
+                              <span dir="ltr">{{ clinicForm.location }}</span>
+                              <v-tooltip activator="parent" location="bottom">{{ $t('clinicSettings.mapLocation') }}</v-tooltip>
+                            </v-chip>
+                          </div>
                           <p class="text-caption text-medium-emphasis mt-2">{{ $t('clinicSettings.detectLocationHint') }}</p>
                           <v-alert v-if="locationError" type="error" variant="tonal" class="mt-2" role="alert">{{ locationError }}</v-alert>
                           <iframe
-                            v-if="clinicForm.address.trim()"
+                            v-if="clinicMapQuery"
                             :src="clinicMapUrl"
                             :title="$t('clinicSettings.clinicMap')"
                             width="100%"
@@ -168,6 +191,60 @@
                             loading="lazy"
                             referrerpolicy="no-referrer-when-downgrade"
                           ></iframe>
+                        </v-col>
+                      </v-row>
+                    </v-card-text>
+                  </SettingsSection>
+
+                  <!-- Public clinic website: these values are intentionally
+                       limited to marketing/contact content, never patient data. -->
+                  <SettingsSection id="clinic-publicWebsite" title="Public website" icon="mdi-web">
+                    <v-card-text class="pa-4">
+                      <v-row>
+                        <v-col cols="12">
+                          <v-switch
+                            v-model="clinicForm.public_site_enabled"
+                            label="Show the public clinic website"
+                            color="primary"
+                            :disabled="!canEdit"
+                            hint="Turning this off makes the public clinic link unavailable; patient portal links are unaffected."
+                            persistent-hint
+                          ></v-switch>
+                        </v-col>
+                        <v-col cols="12">
+                          <v-textarea
+                            v-model="clinicForm.clinic_description"
+                            label="Clinic description"
+                            prepend-inner-icon="mdi-text"
+                            variant="outlined"
+                            rows="3"
+                            maxlength="700"
+                            counter
+                            :disabled="!canEdit"
+                          ></v-textarea>
+                        </v-col>
+                        <v-col cols="12" md="8">
+                          <v-text-field
+                            v-model="clinicForm.hero_image"
+                            label="Hero image URL (optional)"
+                            prepend-inner-icon="mdi-image-outline"
+                            variant="outlined"
+                            type="url"
+                            hint="Use an image you own or have permission to publish. Leave blank for the typography-first layout."
+                            persistent-hint
+                            :disabled="!canEdit"
+                          ></v-text-field>
+                        </v-col>
+                        <v-col cols="12" md="4">
+                          <v-text-field
+                            v-model="clinicForm.timezone"
+                            label="Clinic timezone"
+                            prepend-inner-icon="mdi-clock-outline"
+                            variant="outlined"
+                            hint="For example: Asia/Baghdad"
+                            persistent-hint
+                            :disabled="!canEdit"
+                          ></v-text-field>
                         </v-col>
                       </v-row>
                     </v-card-text>
@@ -375,6 +452,16 @@
                             :disabled="!canEdit"
                           ></v-select>
                         </v-col>
+                        <v-col cols="12">
+                          <v-switch
+                            v-model="clinicForm.hide_dashboard_numbers"
+                            :label="$t('clinicSettings.hideDashboardNumbers')"
+                            :hint="$t('clinicSettings.hideDashboardNumbersHint')"
+                            persistent-hint
+                            color="primary"
+                            :disabled="!canEdit"
+                          ></v-switch>
+                        </v-col>
 
                         <!-- Dental Chart Subsection -->
                         <v-col cols="12">
@@ -394,6 +481,18 @@
                             prepend-inner-icon="mdi-alphabetical-variant"
                             variant="outlined"
                             :disabled="!canEdit"
+                          ></v-select>
+                        </v-col>
+                        <v-col v-if="isDentalClinic" cols="12" md="6">
+                          <v-select
+                            :model-value="dentalChartType"
+                            :label="$t('clinicSettings.dentalChartType')"
+                            :items="dentalChartTypeOptions"
+                            :hint="$t('clinicSettings.dentalChartTypeHint')"
+                            persistent-hint
+                            prepend-inner-icon="mdi-view-dashboard-outline"
+                            variant="outlined"
+                            @update:model-value="setDentalChartType"
                           ></v-select>
                         </v-col>
 
@@ -707,6 +806,22 @@
             </v-window-item>
 
             <!-- AI Settings Tab -->
+            <!-- Prescription Paper Tab -->
+            <v-window-item value="rxPaper">
+              <v-card-text class="pa-6">
+                <div class="d-flex align-center justify-space-between flex-wrap gap-3 mb-4">
+                  <p class="text-medium-emphasis mb-0">{{ $t('rx.paper.settings_hint') }}</p>
+                  <div class="d-flex gap-2">
+                    <v-btn variant="text" color="error" @click="resetRxPaper">{{ $t('rx.reset_defaults') }}</v-btn>
+                    <v-btn color="primary" variant="elevated" prepend-icon="mdi-content-save" @click="saveRxPaper">
+                      {{ $t('common.save') }}
+                    </v-btn>
+                  </div>
+                </div>
+                <RxPaperSettings :draft="rxDraft" @error="(m) => showNotification(m, 'error')" />
+              </v-card-text>
+            </v-window-item>
+
             <v-window-item value="ai">
               <v-card-text class="pa-6">
                 <v-card variant="outlined" class="mb-6" rounded="xl">
@@ -716,7 +831,7 @@
                   </v-card-title>
                   <v-card-text class="pa-5">
                     <v-alert type="info" variant="tonal" class="mb-5" rounded="lg">
-                      <p class="mb-0">هذا سيقوم بتحويل جميع بيانات العيادة (المرضى، المواعيد، الحالات، الفواتير) إلى بيانات يمكن للمساعد الذكي البحث فيها. قم بالمزامنة بعد إضافة أو تعديل بيانات كبيرة.</p>
+                      <p class="mb-0">هذا سيقوم بتحويل جميع بيانات العيادة (المراجعين، المواعيد، الحالات، الفواتير) إلى بيانات يمكن للمساعد الذكي البحث فيها. قم بالمزامنة بعد إضافة أو تعديل بيانات كبيرة.</p>
                     </v-alert>
 
                     <v-btn
@@ -774,6 +889,11 @@
                 </v-card>
               </v-card-text>
             </v-window-item>
+
+            <!-- WhatsApp Templates Tab (the clinic's own message templates) -->
+            <v-window-item v-if="canManageTemplates" value="whatsappTemplates">
+              <TemplatesPage />
+            </v-window-item>
           </v-window>
         </v-card>
       </v-col>
@@ -804,11 +924,15 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
 import { useDisplay } from 'vuetify'
 import SettingsSection from '@/components/SettingsSection.vue'
 import CaseCategories from '@/views/settings/CaseCategories.vue'
+import RxPaperSettings from '@/components/prescription/RxPaperSettings.vue'
+import TemplatesPage from '@/pages/messaging/TemplatesPage.vue'
+import { usePermissions } from '@/composables/usePermissions'
 import aiService from '@/services/ai.service'
 import { useAuthStore } from '@/stores/authNew'
 import { PERMISSIONS } from '@/constants/permissions'
@@ -818,19 +942,36 @@ import {
   uploadClinicLogo
 } from '@/services/clinicSettings.service'
 import { useClinicSettings } from '@/composables/useClinicSettings'
+import { useRxTemplate } from '@/composables/useRxTemplate'
+import { DEFAULT_RX_TEMPLATE } from '@/utils/rxPaper'
 import { DEFAULT_TOOTH_NOTATION, normalizeToothNotation } from '@/components/teeth/toothNotation'
+import { DENTAL_CHART_TYPES, useDentalChartPreference } from '@/composables/useDentalChartPreference'
 
 const { t } = useI18n()
 const { xs } = useDisplay()
+const route = useRoute()
 const authStore = useAuthStore()
-const { resetCache } = useClinicSettings()
+const isDentalClinic = computed(() => authStore.specialty === 'dental')
+const { dentalChartType, setDentalChartType } = useDentalChartPreference()
+const { resetCache, clinicInfo, loadSettings: loadSharedClinicSettings } = useClinicSettings()
+const { hasAnyPermissionFor } = usePermissions()
 
-const activeTab = ref('caseCategories')
+// Same keywords that guard the standalone /messaging/templates route.
+const canManageTemplates = computed(() => hasAnyPermissionFor(['message', 'template', 'automation']))
+
 const settingsTabs = computed(() => [
   { value: 'caseCategories', title: t('settings.caseCategories'), icon: 'mdi-tag-multiple-outline' },
   { value: 'clinic', title: t('settings.clinic'), icon: 'mdi-hospital-building' },
-  { value: 'ai', title: 'AI', icon: 'mdi-robot-outline' }
+  { value: 'rxPaper', title: t('rx.paper.template'), icon: 'mdi-prescription' },
+  { value: 'ai', title: 'AI', icon: 'mdi-robot-outline' },
+  ...(canManageTemplates.value
+    ? [{ value: 'whatsappTemplates', title: t('settings.whatsappTemplates'), icon: 'mdi-whatsapp' }]
+    : [])
 ])
+// `?tab=` lets other screens deep-link to a tab (e.g. the WhatsApp dialog's "manage templates").
+const activeTab = ref(
+  settingsTabs.value.some(tab => tab.value === route.query.tab) ? route.query.tab : 'caseCategories'
+)
 const showMobileSave = computed(() => xs.value && activeTab.value === 'clinic' && canEdit.value && !loadingSettings.value && !settingsError.value)
 
 // Permission check
@@ -874,8 +1015,12 @@ const syncAiDatabase = async () => {
 
 const detectingLocation = ref(false)
 const locationError = ref('')
+// Coordinates pin the map exactly; the typed address is only a fallback search.
+const clinicMapQuery = computed(() =>
+  (clinicForm.value.location || '').trim() || (clinicForm.value.address || '').trim()
+)
 const clinicMapUrl = computed(() =>
-  `https://maps.google.com/maps?q=${encodeURIComponent(clinicForm.value.address.trim())}&z=16&output=embed`
+  `https://maps.google.com/maps?q=${encodeURIComponent(clinicMapQuery.value)}&z=16&output=embed`
 )
 
 function detectClinicLocation() {
@@ -888,7 +1033,7 @@ function detectClinicLocation() {
   detectingLocation.value = true
   navigator.geolocation.getCurrentPosition(
     ({ coords }) => {
-      clinicForm.value.address = `${coords.latitude.toFixed(6)}, ${coords.longitude.toFixed(6)}`
+      clinicForm.value.location = `${coords.latitude.toFixed(6)}, ${coords.longitude.toFixed(6)}`
       detectingLocation.value = false
     },
     (error) => {
@@ -911,8 +1056,13 @@ const clinicForm = ref({
   phone: '',
   email: '',
   address: '',
+  location: '', // "lat, lng" map pin, separate from the address text
   website: '',
   logo: '',
+  public_site_enabled: true,
+  clinic_description: '',
+  hero_image: '',
+  timezone: '',
   // Appointment settings
   appointment_duration: 30,
   enable_online_booking: false,
@@ -933,6 +1083,8 @@ const clinicForm = ref({
   language: 'ar',
   date_format: 'DD/MM/YYYY',
   time_format: '12h',
+  // Dashboard opens with its numbers hidden behind a show/hide button
+  hide_dashboard_numbers: false,
   // Dental chart: how baby (primary) teeth are labelled - 'fdi' | 'universal' | 'palmer'
   baby_teeth_notation: DEFAULT_TOOTH_NOTATION,
   // Social media
@@ -1019,6 +1171,12 @@ const babyTeethNotationOptions = computed(() => [
   { title: `${t('clinicSettings.babyTeethNotationPalmer')} (A - E)`, value: 'palmer' }
 ])
 
+const dentalChartTypeOptions = computed(() => [
+  { title: t('clinicSettings.dentalChartAutomatic'), value: DENTAL_CHART_TYPES.automatic },
+  { title: t('clinicSettings.dentalChartV4'), value: DENTAL_CHART_TYPES.v4 },
+  { title: t('clinicSettings.dentalChartModern'), value: DENTAL_CHART_TYPES.modern }
+])
+
 const weekDays = computed(() => [
   { value: 'sunday', label: t('clinicSettings.days.sunday') },
   { value: 'monday', label: t('clinicSettings.days.monday') },
@@ -1033,6 +1191,36 @@ const weekDays = computed(() => [
 const snackbar = ref(false)
 const snackbarText = ref('')
 const snackbarColor = ref('success')
+
+/* ── Prescription paper ──────────────────────────────────────────
+   Edited on a draft and written to the shared template only on save,
+   so leaving the tab without saving changes nothing. */
+const { template: rxTemplate, makeDraft: makeRxDraft, save: persistRxTemplate, reset: resetRxTemplate } = useRxTemplate()
+const rxDraft = reactive(makeRxDraft())
+
+// The draft is built at setup, which can beat the clinic settings request. Once
+// they land, fill only what the user has left blank so edits in progress stand.
+watch(clinicInfo, (clinic) => {
+  if (!clinic) return
+  if (!rxDraft.clinicName) rxDraft.clinicName = clinic.name || ''
+  if (!rxDraft.phone) rxDraft.phone = clinic.phone || ''
+  if (!rxDraft.address) rxDraft.address = clinic.address || ''
+}, { immediate: true })
+
+const saveRxPaper = () => {
+  Object.assign(rxTemplate, rxDraft)
+  if (!persistRxTemplate()) {
+    rxDraft.headerImage = ''
+    showNotification(t('rx.paper.storage_full'), 'error')
+    return
+  }
+  showNotification(t('clinicSettings.saveSuccess'))
+}
+
+const resetRxPaper = () => {
+  resetRxTemplate()
+  Object.assign(rxDraft, DEFAULT_RX_TEMPLATE, makeRxDraft())
+}
 
 const showNotification = (message, color = 'success') => {
   snackbarText.value = message
@@ -1078,8 +1266,13 @@ const loadClinicSettings = async () => {
         phone: settings.phone || '',
         email: settings.email || '',
         address: settings.address || settings.clinic_address || '',
+        location: settings.location || '',
         website: settings.website || '',
         logo: settings.logo || '',
+        public_site_enabled: settings.public_site_enabled === undefined ? true : Boolean(settings.public_site_enabled),
+        clinic_description: settings.clinic_description || '',
+        hero_image: settings.hero_image || '',
+        timezone: settings.timezone || '',
         appointment_duration: parseInt(settings.appointment_duration) || 30,
         enable_online_booking: Boolean(settings.enable_online_booking),
         booking_buffer: parseInt(settings.booking_buffer) || 15,
@@ -1096,11 +1289,19 @@ const loadClinicSettings = async () => {
         language: settings.language || 'ar',
         date_format: settings.date_format || 'DD/MM/YYYY',
         time_format: settings.time_format || '12h',
+        hide_dashboard_numbers: Boolean(settings.hide_dashboard_numbers),
         baby_teeth_notation: normalizeToothNotation(settings.baby_teeth_notation),
         facebook: settings.facebook || '',
         instagram: settings.instagram || '',
         twitter: settings.twitter || '',
         whatsapp: settings.whatsapp || ''
+      }
+
+      // Older versions wrote the detected coordinates into the address itself.
+      // Move them to the map pin so the address is free for real text again.
+      if (!clinicForm.value.location && /^-?\d+(\.\d+)?,\s*-?\d+(\.\d+)?$/.test(clinicForm.value.address.trim())) {
+        clinicForm.value.location = clinicForm.value.address.trim()
+        clinicForm.value.address = ''
       }
       
       // Parse working hours if available
@@ -1271,7 +1472,12 @@ const saveAllSettings = async () => {
       { key: 'phone', value: clinicForm.value.phone, type: 'string' },
       { key: 'email', value: clinicForm.value.email, type: 'string' },
       { key: 'address', value: clinicForm.value.address, type: 'string' },
+      { key: 'location', value: clinicForm.value.location, type: 'string' },
       { key: 'website', value: clinicForm.value.website, type: 'string' },
+      { key: 'public_site_enabled', value: clinicForm.value.public_site_enabled, type: 'boolean' },
+      { key: 'clinic_description', value: clinicForm.value.clinic_description, type: 'string' },
+      { key: 'hero_image', value: clinicForm.value.hero_image, type: 'string' },
+      { key: 'timezone', value: clinicForm.value.timezone, type: 'string' },
       { key: 'appointment_duration', value: clinicForm.value.appointment_duration, type: 'integer' },
       { key: 'enable_online_booking', value: clinicForm.value.enable_online_booking, type: 'boolean' },
       { key: 'booking_buffer', value: clinicForm.value.booking_buffer, type: 'integer' },
@@ -1288,6 +1494,7 @@ const saveAllSettings = async () => {
       { key: 'language', value: clinicForm.value.language, type: 'string' },
       { key: 'date_format', value: clinicForm.value.date_format, type: 'string' },
       { key: 'time_format', value: clinicForm.value.time_format, type: 'string' },
+      { key: 'hide_dashboard_numbers', value: clinicForm.value.hide_dashboard_numbers, type: 'boolean' },
       { key: 'baby_teeth_notation', value: clinicForm.value.baby_teeth_notation, type: 'string' },
       { key: 'facebook', value: clinicForm.value.facebook, type: 'string' },
       { key: 'instagram', value: clinicForm.value.instagram, type: 'string' },
@@ -1328,6 +1535,9 @@ onMounted(() => {
   if (activeTab.value === 'clinic') {
     loadClinicSettings()
   }
+  // The prescription paper falls back to the clinic's name/phone/address, so it
+  // needs the shared settings whichever tab we land on.
+  loadSharedClinicSettings()
 })
 </script>
 
@@ -1385,9 +1595,6 @@ onMounted(() => {
 }
 
 @media (max-width: 599px) {
-  .settings-page {
-    padding: 12px !important;
-  }
 
   .settings-page--with-save {
     padding-bottom: 96px !important;

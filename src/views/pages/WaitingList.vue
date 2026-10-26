@@ -1,5 +1,5 @@
 <template>
-  <div class="waiting-list-page pa-4">
+  <div class="waiting-list-page app-page">
     <!-- Page Header -->
     <div class="page-header mb-4">
       <div class="d-flex flex-wrap align-center justify-space-between gap-3">
@@ -576,10 +576,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.waiting-list-page {
-  max-width: 1400px;
-  margin: 0 auto;
-}
 
 .patient-link {
   transition: all 0.2s ease;

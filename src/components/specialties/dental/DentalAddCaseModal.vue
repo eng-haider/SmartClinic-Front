@@ -9,7 +9,7 @@
         <v-form ref="formRef" v-model="isValid">
           <v-select
             v-model="form.category_id"
-            :items="categories"
+            :items="categoryItems"
             :item-title="getCategoryItemTitle"
             item-value="id"
             :label="$t('patients.category')"
@@ -72,7 +72,7 @@
             class="mb-3"
           />
 
-          <WarehouseItemsPicker v-model="form.warehouse_items" />
+          <WarehouseItemsPicker v-model="form.warehouse_items" :reserved="editingCase?.warehouse_items || []" />
         </v-form>
       </v-card-text>
       <v-card-actions class="pa-4 pt-0">
@@ -121,6 +121,7 @@ import { PERMISSIONS } from '@/constants/permissions'
 import DentalCaseForm from './DentalCaseForm.vue'
 import WarehouseItemsPicker from '@/components/WarehouseItemsPicker.vue'
 import { toDateInputValue } from '@/utils/dateInput'
+import { selectableCategories } from '@/utils/caseCategories'
 
 const { t, locale } = useI18n()
 const authStore = useAuthStore()
@@ -222,6 +223,12 @@ const statusOptions = computed(() => [
   { title: t('common.pending'), value: '2' },
   { title: t('common.completed'), value: '3' }
 ])
+
+// Inactive categories can't be picked, except the one the edited case already has.
+const categoryItems = computed(() => selectableCategories(
+  props.categories,
+  props.editingCase?.case_categores_id || props.editingCase?.category?.id
+))
 
 const selectedCategory = computed(() => {
   if (!form.value.category_id) return null

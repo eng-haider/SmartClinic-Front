@@ -285,6 +285,9 @@
         <v-btn color="primary" variant="tonal" prepend-icon="mdi-printer" :loading="printing" @click="printReport">
           {{ $t('report.print') }}
         </v-btn>
+        <v-btn color="error" variant="tonal" prepend-icon="mdi-file-pdf-box" :loading="savingPdf" @click="saveAsPdf">
+          {{ $t('report.downloadPdf') }}
+        </v-btn>
         <v-btn color="success" variant="tonal" prepend-icon="mdi-image-outline" :loading="savingImage" @click="saveAsImage">
           {{ $t('report.saveImage') }}
         </v-btn>
@@ -318,13 +321,14 @@ const emit = defineEmits(['update:modelValue', 'close'])
 const { t, locale } = useI18n()
 const { width } = useDisplay()
 const isPhone = computed(() => width.value < 600)
-const { loadSettings, toothConditionColors, clinicInfo: sharedClinic, formatToothLabel } = useClinicSettings()
+const { loadSettings, getToothColorName, clinicInfo: sharedClinic, formatToothLabel } = useClinicSettings()
 
 onMounted(() => { loadSettings() })
 
 const reportContent = ref(null)
 const printing = ref(false)
 const savingImage = ref(false)
+const savingPdf = ref(false)
 const sharing = ref(false)
 
 const internalDialog = computed({
@@ -388,9 +392,7 @@ const hasPermanentTeeth = computed(() => toothDetails.value.some(d => !isBabyToo
 /* Resolve a tooth color hex -> readable condition name (from clinic settings) */
 const getColorName = (color) => {
   if (!color) return '—'
-  const norm = String(color).toLowerCase()
-  const match = (toothConditionColors.value || []).find(tc => String(tc.color || '').toLowerCase() === norm)
-  return match ? match.name : color
+  return getToothColorName(color) || color
 }
 
 /* Each used color with its count -> the legend / simple stats under the chart */
@@ -510,14 +512,74 @@ const renderToDataUrl = async () => {
   }
 }
 
-// Build the report image as a shareable File
-const buildShareFile = async () => {
+const loadImage = (src) => new Promise((resolve, reject) => {
+  const img = new Image()
+  img.onload = () => resolve(img)
+  img.onerror = () => reject(new Error('Could not load the rendered report'))
+  img.src = src
+})
+
+/* ---------- PDF ---------- */
+const PDF_MARGIN = 8      // mm of white around the sheet, on every page
+const PDF_JPEG_QUALITY = 0.92
+
+// The report renders as one tall image, so slice it into A4-sized bands and put
+// one band on each page - that keeps the same margin on every page instead of
+// letting a single oversized image bleed into the next one.
+const buildPdfBlob = async () => {
   const dataUrl = await renderToDataUrl()
-  const blob = await (await fetch(dataUrl)).blob()
-  return new File([blob], `${fileName.value}.png`, { type: 'image/png' })
+  const [{ jsPDF }, img] = await Promise.all([import('jspdf'), loadImage(dataUrl)])
+
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const pageWidth = pdf.internal.pageSize.getWidth()
+  const pageHeight = pdf.internal.pageSize.getHeight()
+  const drawWidth = pageWidth - PDF_MARGIN * 2
+  const drawHeight = pageHeight - PDF_MARGIN * 2
+
+  const pxPerMm = img.width / drawWidth
+  const slicePx = Math.max(1, Math.floor(drawHeight * pxPerMm))
+
+  const canvas = document.createElement('canvas')
+  const ctx = canvas.getContext('2d')
+
+  for (let y = 0, page = 0; y < img.height; y += slicePx, page++) {
+    const sliceHeight = Math.min(slicePx, img.height - y)
+    if (sliceHeight < 4 && page > 0) break   // a sliver left over -> no blank page for it
+
+    canvas.width = img.width
+    canvas.height = sliceHeight
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    ctx.drawImage(img, 0, y, img.width, sliceHeight, 0, 0, img.width, sliceHeight)
+
+    if (page > 0) pdf.addPage()
+    pdf.addImage(
+      canvas.toDataURL('image/jpeg', PDF_JPEG_QUALITY), 'JPEG',
+      PDF_MARGIN, PDF_MARGIN, drawWidth, sliceHeight / pxPerMm, undefined, 'FAST'
+    )
+  }
+
+  return pdf.output('blob')
 }
 
-// Pre-render the image as soon as the dialog opens, so the WhatsApp/native share
+// Build the report as a shareable PDF File (what WhatsApp receives as a document)
+const buildShareFile = async () => {
+  const blob = await buildPdfBlob()
+  return new File([blob], `${fileName.value}.pdf`, { type: 'application/pdf' })
+}
+
+const downloadFile = (file) => {
+  const url = URL.createObjectURL(file)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = file.name
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
+// Pre-build the PDF as soon as the dialog opens, so the WhatsApp/native share
 // can be triggered SYNCHRONOUSLY on tap (mobile browsers drop the user-gesture
 // permission if you do heavy async work before calling navigator.share()).
 const cachedShareFile = ref(null)
@@ -535,6 +597,18 @@ const handleClose = () => {
 
 const fileName = computed(() =>
   `report-${(props.patient?.name || 'patient').replace(/\s+/g, '-')}-${props.patient?.id || ''}`)
+
+const saveAsPdf = async () => {
+  savingPdf.value = true
+  try {
+    downloadFile(cachedShareFile.value || await buildShareFile())
+  } catch (e) {
+    console.error('Save PDF error:', e)
+    alert(t('errors.saveFailed') || 'Error saving PDF')
+  } finally {
+    savingPdf.value = false
+  }
+}
 
 const saveAsImage = async () => {
   savingImage.value = true
@@ -577,9 +651,19 @@ const printReport = async () => {
 
 const shareText = () => `${t('report.subtitle')} - ${props.patient?.name || ''}`
 
+// The patient's chat, with the local (0-prefixed) number turned into an Iraqi
+// international one that wa.me accepts.
+const whatsappChatUrl = () => {
+  let phone = (props.patient?.phone || '').replace(/\D/g, '')
+  if (phone.startsWith('0')) phone = phone.substring(1)
+  if (phone && !phone.startsWith('964')) phone = '964' + phone
+  const text = `?text=${encodeURIComponent(shareText())}`
+  return phone ? `https://wa.me/${phone}${text}` : `https://wa.me/${text}`
+}
+
 const shareViaWhatsApp = async () => {
-  // FAST PATH — image already rendered: call share() synchronously so the mobile
-  // user-gesture is still valid and the picture is attached to the WhatsApp chat.
+  // FAST PATH — PDF already built: call share() synchronously so the mobile
+  // user-gesture is still valid and the document is attached to the WhatsApp chat.
   const ready = cachedShareFile.value
   if (ready && navigator.canShare && navigator.canShare({ files: [ready] })) {
     try {
@@ -604,30 +688,11 @@ const shareViaWhatsApp = async () => {
       }
     }
 
-    // Desktop fallback: copy the image to clipboard (or download), then open the chat.
-    let copied = false
-    try {
-      await navigator.clipboard.write([new ClipboardItem({ 'image/png': file })])
-      copied = true
-    } catch {
-      const url = URL.createObjectURL(file)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = file.name
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      URL.revokeObjectURL(url)
-    }
-
-    let phone = (props.patient?.phone || '').replace(/\D/g, '')
-    if (phone.startsWith('0')) phone = phone.substring(1)
-    if (phone && !phone.startsWith('964')) phone = '964' + phone
-    window.open(phone ? `https://wa.me/${phone}` : 'https://wa.me/', '_blank')
-
-    alert(copied
-      ? (t('bill.paste_image_instruction') || 'Report image copied! Open WhatsApp and press Ctrl+V to paste it.')
-      : (t('bill.image_downloaded_share') || 'Report image downloaded. Attach it in WhatsApp.'))
+    // Desktop fallback: a wa.me link cannot carry an attachment, so hand the PDF
+    // over and open the patient's chat ready for the user to attach it.
+    downloadFile(file)
+    window.open(whatsappChatUrl(), '_blank')
+    alert(t('report.pdfDownloadedShare') || 'Report PDF downloaded. Attach it in WhatsApp.')
   } catch (e) {
     console.error('Share error:', e)
     alert(t('errors.shareFailed') || 'Failed to share the report')

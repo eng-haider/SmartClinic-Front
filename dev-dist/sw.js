@@ -69,6 +69,7 @@ if (!self.define) {
 }
 define(['./workbox-07ba41de'], (function (workbox) { 'use strict';
 
+  importScripts("push-sw.js");
   self.addEventListener('message', event => {
     if (event.data && event.data.type === 'SKIP_WAITING') {
       self.skipWaiting();

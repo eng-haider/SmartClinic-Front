@@ -99,8 +99,57 @@ export const financialReports = {
   getProfitLossTrend: (params = {}) => 
     apiClient.get('/reports/financial/profit-loss/trend', { params: buildParams(params) }),
   
-  getDoctorPerformance: (params = {}) => 
+  getDoctorPerformance: (params = {}) =>
     apiClient.get('/reports/financial/doctor-performance', { params: buildParams(params) })
+}
+
+/**
+ * Reports Module (tabular / drill-down reports).
+ * Backs the /reports/* pages — distinct from the endpoints above, which
+ * feed the chart-only Analytics dashboard.
+ */
+export const overviewReport = {
+  get: (params = {}) =>
+    apiClient.get('/reports/overview', { params: buildParams(params) })
+}
+
+export const doctorsReport = {
+  list: (params = {}) =>
+    apiClient.get('/reports/doctors', { params: buildParams(params) }),
+
+  detail: (doctorId, params = {}) =>
+    apiClient.get(`/reports/doctors/${doctorId}`, { params: buildParams(params) })
+}
+
+export const patientAccountsReport = {
+  list: (params = {}) =>
+    apiClient.get('/reports/patient-accounts', { params: buildParams(params) }),
+
+  detail: (patientId, params = {}) =>
+    apiClient.get(`/reports/patient-accounts/${patientId}`, { params: buildParams(params) })
+}
+
+export const caseCategoryReport = {
+  list: (params = {}) =>
+    apiClient.get('/reports/case-categories', { params: buildParams(params) }),
+
+  detail: (categoryId, params = {}) =>
+    apiClient.get(`/reports/case-categories/${categoryId}`, { params: buildParams(params) })
+}
+
+export const revenueReport = {
+  payments: (params = {}) =>
+    apiClient.get('/reports/revenue/payments', { params: buildParams(params) })
+}
+
+export const expensesReport = {
+  list: (params = {}) =>
+    apiClient.get('/reports/expenses/list', { params: buildParams(params) })
+}
+
+export const outstandingBalancesReport = {
+  list: (params = {}) =>
+    apiClient.get('/reports/outstanding-balances', { params: buildParams(params) })
 }
 
 export default {
@@ -108,5 +157,12 @@ export default {
   patients: patientReports,
   cases: caseReports,
   reservations: reservationReports,
-  financial: financialReports
+  financial: financialReports,
+  overview: overviewReport,
+  doctors: doctorsReport,
+  patientAccounts: patientAccountsReport,
+  caseCategories: caseCategoryReport,
+  revenue: revenueReport,
+  expenses: expensesReport,
+  outstandingBalances: outstandingBalancesReport
 }

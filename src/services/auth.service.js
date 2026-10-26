@@ -127,6 +127,43 @@ class AuthService {
   }
 
   /**
+   * Set the current user's profile photo (replaces any previous one)
+   * @param {File} file - JPG, PNG or WEBP image
+   * @returns {Promise<Object>} Updated user
+   */
+  async uploadProfilePhoto(file) {
+    try {
+      const formData = new FormData()
+      formData.append('photo', file)
+      const response = await apiClient.post('/auth/profile-photo', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
+      if (response.success && response.data) {
+        localStorage.setItem(USER_KEY, JSON.stringify(response.data))
+      }
+      return { success: true, data: response.data }
+    } catch (error) {
+      return this.handleError(error)
+    }
+  }
+
+  /**
+   * Remove the current user's profile photo
+   * @returns {Promise<Object>} Updated user
+   */
+  async deleteProfilePhoto() {
+    try {
+      const response = await apiClient.delete('/auth/profile-photo')
+      if (response.success && response.data) {
+        localStorage.setItem(USER_KEY, JSON.stringify(response.data))
+      }
+      return { success: true, data: response.data }
+    } catch (error) {
+      return this.handleError(error)
+    }
+  }
+
+  /**
    * Refresh JWT token
    * @returns {Promise<Object>} New token
    */

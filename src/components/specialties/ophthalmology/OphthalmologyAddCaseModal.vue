@@ -54,7 +54,7 @@
 
           <v-select
             v-model="form.category_id"
-            :items="categories"
+            :items="categoryItems"
             :item-title="getCategoryItemTitle"
             item-value="id"
             :label="$t('patients.category') + ' (' + ($t('common.optional') || 'اختياري') + ')'"
@@ -66,7 +66,7 @@
           
           <OphthalmologyCaseForm v-model="form" />
 
-          <WarehouseItemsPicker v-model="form.warehouse_items" class="mt-3" />
+          <WarehouseItemsPicker v-model="form.warehouse_items" :reserved="editingCase?.warehouse_items || []" class="mt-3" />
 
         </v-form>
       </v-card-text>
@@ -87,6 +87,7 @@ import warehouseService from '@/services/warehouse.service'
 import OphthalmologyCaseForm from './OphthalmologyCaseForm.vue'
 import WarehouseItemsPicker from '@/components/WarehouseItemsPicker.vue'
 import { toDateInputValue } from '@/utils/dateInput'
+import { selectableCategories } from '@/utils/caseCategories'
 
 const { t, locale } = useI18n()
 
@@ -105,6 +106,12 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['update:modelValue', 'success'])
+
+// Inactive categories can't be picked, except the one the edited case already has.
+const categoryItems = computed(() => selectableCategories(
+  props.categories,
+  props.editingCase?.case_categores_id || props.editingCase?.category?.id
+))
 
 const isOpen = computed({
   get: () => props.modelValue,

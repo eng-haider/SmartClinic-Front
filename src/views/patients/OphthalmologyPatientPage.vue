@@ -1,5 +1,5 @@
 <template>
-  <v-container fluid class="ophthal-patient-page pa-4" style="font-family:'Cairo',sans-serif">
+  <v-container fluid class="ophthal-patient-page app-page" style="font-family:'Cairo',sans-serif">
 
     <!-- Loading -->
     <div v-if="loading" class="d-flex justify-center align-center" style="min-height:400px">
@@ -228,10 +228,7 @@ const handleSaveDiagnosis = async (caseId, diagnosis, doctorNotes) => {
 </script>
 
 <style scoped>
-.ophthal-patient-page {
-  max-width: 1200px;
-  margin: 0 auto;
-}
+
 .border-b {
   border-bottom: 1px solid rgba(0,0,0,0.08);
 }

@@ -1,5 +1,5 @@
 <template>
-  <v-menu v-model="menuOpen" :close-on-content-click="false" location="bottom end" offset="8">
+  <v-menu v-bind="$attrs" v-model="menuOpen" :close-on-content-click="false" location="bottom end" offset="8">
     <template v-slot:activator="{ props }">
       <v-btn v-bind="props" icon variant="text" color="white">
         <v-badge
@@ -33,6 +33,31 @@
 
       <v-divider />
 
+      <!-- Browser notifications: offer to enable, or explain they are blocked -->
+      <div v-if="pushPermission === 'default'" class="d-flex align-center px-4 py-2 push-banner">
+        <v-icon color="primary" class="me-2">mdi-bell-ring-outline</v-icon>
+        <span class="text-caption flex-grow-1">{{ t('notifications.enablePushHint') }}</span>
+        <v-btn size="small" color="primary" variant="flat" :loading="enablingPush" @click="enablePush">
+          {{ t('notifications.enablePush') }}
+        </v-btn>
+      </div>
+      <div v-else-if="pushPermission === 'denied'" class="d-flex align-center px-4 py-2 push-banner">
+        <v-icon color="warning" class="me-2">mdi-bell-off-outline</v-icon>
+        <span class="text-caption">{{ t('notifications.pushBlocked') }}</span>
+      </div>
+      <!-- Allowed, but this device could not be registered: say why, so it can be fixed -->
+      <div v-else-if="pushPermission === 'granted' && pushError" class="d-flex align-center px-4 py-2 push-banner">
+        <v-icon color="error" class="me-2">mdi-bell-alert-outline</v-icon>
+        <div class="flex-grow-1">
+          <div class="text-caption">{{ t('notifications.pushFailed') }}</div>
+          <div class="text-caption text-medium-emphasis push-error-detail" dir="ltr">{{ pushError }}</div>
+        </div>
+        <v-btn size="small" color="primary" variant="tonal" :loading="enablingPush" @click="syncPush">
+          {{ t('common.retry') }}
+        </v-btn>
+      </div>
+      <v-divider v-if="pushPermission === 'default' || pushPermission === 'denied' || (pushPermission === 'granted' && pushError)" />
+
       <!-- Body -->
       <div class="notification-list">
         <div v-if="loading" class="d-flex justify-center py-6">
@@ -52,10 +77,10 @@
               </template>
 
               <v-list-item-title class="text-wrap text-body-2 font-weight-medium">
-                {{ item.title }}
+                {{ titleOf(item) }}
               </v-list-item-title>
               <v-list-item-subtitle class="text-wrap text-caption mt-1">
-                {{ item.body }}
+                {{ bodyOf(item) }}
               </v-list-item-subtitle>
               <div class="text-caption text-medium-emphasis mt-1">
                 {{ formatTime(item.created_at) }}
@@ -81,13 +106,43 @@
       </div>
     </v-card>
   </v-menu>
+
+  <!-- In-app popup for each new notification. Shows while the app is open even when the
+       OS hides browser notifications (e.g. macOS notifications off for Chrome). -->
+  <v-snackbar
+    v-model="toastOpen"
+    :location="toastLocation"
+    :timeout="8000"
+    color="surface"
+    elevation="8"
+    multi-line
+  >
+    <div v-if="currentToast" class="d-flex align-start ga-3 toast-body" @click="openToast">
+      <v-avatar :color="iconColor(currentToast)" size="36" variant="tonal">
+        <v-icon size="20">{{ iconFor(currentToast) }}</v-icon>
+      </v-avatar>
+      <div>
+        <div class="text-body-2 font-weight-bold">{{ titleOf(currentToast) }}</div>
+        <div class="text-caption mt-1">{{ bodyOf(currentToast) }}</div>
+      </div>
+    </div>
+    <template v-slot:actions>
+      <v-btn icon="mdi-close" size="small" variant="text" @click="toastOpen = false" />
+    </template>
+  </v-snackbar>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { useRtl } from 'vuetify'
 import notificationService from '@/services/notification.service'
+import pushService from '@/services/push.service'
+import { initNotificationSound, playNotificationSound } from '@/utils/notificationSound'
+
+// Two root nodes (menu + popup): keep passing the parent's attrs to the menu as before
+defineOptions({ inheritAttrs: false })
 
 const { t, locale } = useI18n()
 const router = useRouter()
@@ -97,15 +152,91 @@ const loading = ref(false)
 const markingAll = ref(false)
 const notifications = ref([])
 const unreadCount = ref(0)
+const pushPermission = ref(pushService.permission())
+const enablingPush = ref(false)
+const pushError = ref('') // why this device could not be registered for push, if it failed
 
 let pollTimer = null
-const POLL_INTERVAL = 60000 // refresh unread count every 60s
+// Pushes refresh the bell instantly; polling is the fallback when they are off or blocked
+const POLL_INTERVAL = 30000
+let countLoaded = false
+
+// The API stores one title/body (English); the Arabic copy rides along in data.
+const titleOf = (item) => (locale.value === 'ar' && item.data?.title_ar) || item.title
+const bodyOf = (item) => (locale.value === 'ar' && item.data?.body_ar) || item.body
 
 // ==================== Data ====================
+// Chime whenever the server count goes up (a push or a poll found something new). Local
+// read/delete actions only lower the count, so they never chime.
+const applyServerCount = (count) => {
+  if (countLoaded && count > unreadCount.value) {
+    playNotificationSound()
+    showNewToasts()
+    if (menuOpen.value) loadNotifications()
+  }
+  unreadCount.value = count
+  countLoaded = true
+}
+
+// ==================== Popup ====================
+// Newest notification id already seen; null until the first fetch sets the baseline,
+// so notifications that existed before the page loaded never pop up.
+let lastSeenId = null
+const toastQueue = []
+const toastOpen = ref(false)
+const currentToast = ref(null)
+let nextToastTimer = null
+
+// Vuetify mirrors left/right in RTL; keep the popup on the screen's right like OS notifications
+const { isRtl } = useRtl()
+const toastLocation = computed(() => (isRtl.value ? 'bottom left' : 'bottom right'))
+
+const showNextToast = () => {
+  currentToast.value = toastQueue.shift() || null
+  toastOpen.value = !!currentToast.value
+}
+
+const queueToast = (item) => {
+  toastQueue.push(item)
+  if (!toastOpen.value && !nextToastTimer) showNextToast()
+}
+
+// One popup at a time: after one closes, let its leave transition finish, then show the next
+watch(toastOpen, (open) => {
+  if (!open && toastQueue.length && !nextToastTimer) {
+    nextToastTimer = setTimeout(() => {
+      nextToastTimer = null
+      showNextToast()
+    }, 300)
+  }
+})
+
+const showNewToasts = async () => {
+  try {
+    const res = await notificationService.getAll({ limit: 5 })
+    const latest = res?.data ?? []
+    if (lastSeenId !== null) {
+      latest
+        .filter((n) => n.id > lastSeenId && !n.is_read)
+        .reverse() // oldest first
+        .forEach(queueToast)
+    }
+    lastSeenId = Math.max(lastSeenId ?? 0, ...latest.map((n) => n.id))
+  } catch (err) {
+    console.warn('Failed to load new notifications', err)
+  }
+}
+
+const openToast = () => {
+  const item = currentToast.value
+  toastOpen.value = false
+  if (item) onNotificationClick(item)
+}
+
 const loadUnreadCount = async () => {
   try {
     const res = await notificationService.getUnreadCount()
-    unreadCount.value = res?.unread_count ?? 0
+    applyServerCount(res?.unread_count ?? 0)
   } catch (err) {
     // Silent: the bell should never break the layout.
     console.warn('Failed to load notification count', err)
@@ -205,18 +336,77 @@ const formatTime = (iso) => {
   })
 }
 
-// Load the full list whenever the menu opens.
+// ==================== Browser push ====================
+const enablePush = async () => {
+  enablingPush.value = true
+  pushError.value = ''
+  try {
+    pushPermission.value = await pushService.enable()
+  } catch (err) {
+    console.warn('Failed to enable browser notifications', err)
+    pushError.value = err?.message || String(err)
+  } finally {
+    pushPermission.value = pushService.permission()
+    enablingPush.value = false
+  }
+}
+
+// Link this browser to whoever is logged in (no prompt; only once permission is granted)
+const syncPush = async () => {
+  if (!pushService.isSupported()) return
+  enablingPush.value = true
+  try {
+    await pushService.sync()
+    pushError.value = ''
+  } catch (err) {
+    console.warn('Failed to sync push subscription', err)
+    pushError.value = err?.message || String(err)
+  } finally {
+    pushPermission.value = pushService.permission()
+    enablingPush.value = false
+  }
+}
+
+// Messages from the service worker (public/push-sw.js)
+const onServiceWorkerMessage = (event) => {
+  if (event.data?.type === 'push-notification') {
+    loadUnreadCount()
+  } else if (event.data?.type === 'push-notification-click' && event.data.url?.startsWith('/')) {
+    router.push(event.data.url)
+  }
+}
+
+// Load the full list whenever the menu opens; retry a failed push registration too.
 watch(menuOpen, (open) => {
-  if (open) loadNotifications()
+  if (!open) return
+  loadNotifications()
+  if (pushError.value) syncPush()
+})
+
+// The push text follows the UI language
+watch(locale, () => {
+  syncPush()
 })
 
 onMounted(() => {
+  initNotificationSound()
   loadUnreadCount()
+  showNewToasts() // sets the baseline only
   pollTimer = setInterval(loadUnreadCount, POLL_INTERVAL)
+
+  if (pushService.isSupported()) {
+    navigator.serviceWorker.addEventListener('message', onServiceWorkerMessage)
+    // Re-link this browser to whoever is logged in now (no prompt; only if already allowed)
+    syncPush()
+  }
 })
 
 onUnmounted(() => {
   if (pollTimer) clearInterval(pollTimer)
+  if (nextToastTimer) clearTimeout(nextToastTimer)
+  if (pushService.isSupported()) {
+    navigator.serviceWorker.removeEventListener('message', onServiceWorkerMessage)
+  }
 })
 </script>
 
@@ -227,5 +417,15 @@ onUnmounted(() => {
 }
 .notification-unread {
   background-color: rgba(var(--v-theme-primary), 0.06);
+}
+.push-banner {
+  background-color: rgba(var(--v-theme-primary), 0.04);
+  gap: 4px;
+}
+.toast-body {
+  cursor: pointer;
+}
+.push-error-detail {
+  word-break: break-word;
 }
 </style>

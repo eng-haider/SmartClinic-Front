@@ -1,5 +1,5 @@
 <template>
-  <div class="reservations-page">
+  <div class="reservations-page app-page">
     <!-- Single Row Header (desktop) / Stacked (mobile) -->
     <div class="page-header mb-3">
       <div class="header-row">
@@ -506,8 +506,6 @@ const getEventsForDate = (date) => {
   return reservations.value.filter(r => r.reservation_start_date === date)
 }
 
-
-
 const getEventColor = (event) => {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -679,9 +677,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.reservations-page {
-  padding: 12px;
-}
 
 /* Single Row Header */
 .page-header {
@@ -739,9 +734,7 @@ onMounted(() => {
 
 /* Mobile: controls scroll horizontally */
 @media (max-width: 599px) {
-  .reservations-page {
-    padding: 8px;
-  }
+
   
   .header-row {
     flex-direction: column;

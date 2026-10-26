@@ -1,5 +1,5 @@
 <template>
-  <v-container fluid class="py-6">
+  <v-container fluid class="app-page">
     <v-card class="conversation-shell">
       <div class="conversation-layout" :class="{ mobile: isMobile }">
         <v-navigation-drawer

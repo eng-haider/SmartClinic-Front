@@ -1,5 +1,5 @@
 <template>
-  <v-container fluid class="case-categories pa-6">
+  <v-container fluid class="case-categories app-page">
     <!-- Header with Add Button -->
     <v-row class="mb-4 categories-header">
       <v-col cols="12" md="8">
@@ -80,6 +80,9 @@
                 <v-chip v-if="category.is_orthodontic" size="small" color="indigo" variant="tonal">
                   {{ $t('caseCategories.isOrthodontic') }}
                 </v-chip>
+                <v-chip v-if="category.is_active === false" size="small" color="grey" variant="tonal">
+                  {{ $t('caseCategories.inactive') }}
+                </v-chip>
                 <span>{{ $t('caseCategories.displayOrder') }}: {{ category.order }}</span>
               </div>
               <div class="category-card__detail">
@@ -153,6 +156,17 @@
                 {{ item.without_detect_tooth ? 'mdi-close-circle' : 'mdi-check-circle' }}
               </v-icon>
               {{ item.without_detect_tooth ? ($t('common.no') || 'No') : ($t('common.yes') || 'Yes') }}
+            </v-chip>
+          </template>
+
+          <!-- Active Column -->
+          <template v-slot:item.is_active="{ item }">
+            <v-chip
+              :color="item.is_active === false ? 'grey' : 'success'"
+              size="small"
+              variant="tonal"
+            >
+              {{ item.is_active === false ? $t('caseCategories.inactive') : $t('caseCategories.isActive') }}
             </v-chip>
           </template>
 
@@ -256,6 +270,24 @@
               prepend-inner-icon="mdi-tag-outline"
               class="mb-3"
             ></v-select>
+
+            <!-- Inactive categories are hidden when picking a category for a new
+                 case; cases that already use them keep them. -->
+            <v-switch
+              v-model="formData.is_active"
+              color="success"
+              hide-details
+              class="mb-3"
+            >
+              <template v-slot:label>
+                <div class="d-flex flex-column">
+                  <span>{{ $t('caseCategories.isActive') }}</span>
+                  <span class="text-caption text-medium-emphasis">
+                    {{ $t('caseCategories.isActiveHint') }}
+                  </span>
+                </div>
+              </template>
+            </v-switch>
 
             <v-switch
               v-if="formData.category_type === 'dental'"
@@ -425,7 +457,8 @@ const formData = ref({
   item_cost: 0,
   category_type: getDefaultCategoryType(authStore.specialty),
   without_detect_tooth: false,
-  is_orthodontic: false
+  is_orthodontic: false,
+  is_active: true
 })
 
 // Snackbar
@@ -454,6 +487,7 @@ const headers = computed(() => [
   { title: t('caseCategories.displayOrder'), key: 'order', align: 'center' },
   { title: t('caseCategories.defaultCost'), key: 'item_cost', align: 'center' },
   { title: t('caseCategories.requiresTooth') || 'Requires Tooth', key: 'without_detect_tooth', align: 'center' },
+  { title: t('caseCategories.isActive'), key: 'is_active', align: 'center' },
   { title: t('common.actions'), key: 'actions', align: 'center', sortable: false }
 ])
 
@@ -514,14 +548,15 @@ const openCreateDialog = () => {
     item_cost: 0,
     category_type: defaultCategoryType.value,
     without_detect_tooth: false,
-    is_orthodontic: false
+    is_orthodontic: false,
+    is_active: true
   }
   dialog.value = true
 }
 
 const openEditDialog = (category) => {
   isEditing.value = true
-  formData.value = { ...category }
+  formData.value = { ...category, is_active: category.is_active !== false }
   dialog.value = true
 }
 
@@ -534,7 +569,8 @@ const closeDialog = () => {
     item_cost: 0,
     category_type: defaultCategoryType.value,
     without_detect_tooth: false,
-    is_orthodontic: false
+    is_orthodontic: false,
+    is_active: true
   }
 }
 
@@ -685,9 +721,6 @@ onMounted(() => {
 }
 
 @media (max-width: 599px) {
-  .case-categories {
-    padding: 0 !important;
-  }
 
   .categories-mobile-list {
     background: transparent;

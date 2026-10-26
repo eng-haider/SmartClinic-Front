@@ -1,5 +1,5 @@
 <template>
-  <div class="doctors-page">
+  <div class="doctors-page app-page">
     <!-- Page Header -->
     <div class="page-header mb-6">
       <div class="d-flex flex-wrap align-center justify-space-between ga-4">
@@ -816,11 +816,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.doctors-page {
-  padding: 24px;
-  max-width: 1600px;
-  margin: 0 auto;
-}
 
 .toolbar-card {
   background: linear-gradient(135deg, #f5f7fa 0%, #ffffff 100%);
@@ -862,14 +857,9 @@ onMounted(() => {
 }
 
 /* RTL Support */
-[dir="rtl"] .doctors-page {
+[dir="rtl"] .doctors-page  {
   text-align: right;
 }
 
 /* Responsive */
-@media (max-width: 960px) {
-  .doctors-page {
-    padding: 16px;
-  }
-}
 </style>

@@ -325,6 +325,7 @@ import { teethData, babyTeethData } from './teethData'
 import { formatToothNumber } from './toothNotation'
 import { isOldFormat, convertOldToNew } from './oldToothMapping'
 import { useClinicSettings } from '@/composables/useClinicSettings'
+import { isCategoryActive } from '@/utils/caseCategories'
 
 // Props
 const props = defineProps({
@@ -360,6 +361,12 @@ const props = defineProps({
 
 // Emits
 const emit = defineEmits(['case-added', 'case-removed', 'color-changed', 'tooth-selected'])
+
+// Until v2 the root of tooth 37 and the big root of tooth 16 shared part id 1
+// with another part, so one saved entry coloured both shapes. Entries without
+// a version keep that look; everything saved since carries v: 2 and is exact.
+const TOOTH_PARTS_VERSION = 2
+const LEGACY_SHARED_PART = { 'tooth-37': 6, 'tooth-16': 7 }
 
 // Composables
 const { t, locale } = useI18n()
@@ -466,13 +473,13 @@ const lowerTeeth = computed(() => {
     .sort((a, b) => archSortKey(a.tooth_num) - archSortKey(b.tooth_num))
 })
 
-// Computed
+// Computed (inactive categories can't be picked for a new case)
 const categoriesWithTooth = computed(() =>
-  props.categories.filter(c => !c.without_detect_tooth)
+  props.categories.filter(c => !c.without_detect_tooth && isCategoryActive(c))
 )
 
 const categoriesWithoutTooth = computed(() =>
-  props.categories.filter(c => c.without_detect_tooth === true)
+  props.categories.filter(c => c.without_detect_tooth === true && isCategoryActive(c))
 )
 
 const filteredCategories = computed(() => {
@@ -754,7 +761,8 @@ function handlePartClick(tooth, part, event) {
     tooth_number: p.toothNum,
     tooth_id: p.toothId,
     part_id: p.partId,
-    color: p.color
+    color: p.color,
+    v: TOOTH_PARTS_VERSION
   }))
   
   const toothPartsJson = JSON.stringify(toothPartsData)
@@ -901,7 +909,7 @@ function loadColoredParts() {
     try {
       const parts = typeof toothData === 'string' ? JSON.parse(toothData) : toothData
       if (Array.isArray(parts)) {
-        coloredParts.value = parts.map(p => {
+        coloredParts.value = parts.flatMap(p => {
           const oldToothId = p.tooth_id
           // Detect old format: old system used sequential IDs like "tooth-35" for tooth 18
           // New system uses FDI-based IDs like "tooth-18"
@@ -917,12 +925,14 @@ function loadColoredParts() {
             }
           }
           // New format data - use as-is
-          return {
+          const part = {
             toothId: `tooth-${p.tooth_number}`,
             toothNum: p.tooth_number,
             partId: p.part_id,
             color: p.color
           }
+          const sharedPartId = !p.v && Number(p.part_id) === 1 ? LEGACY_SHARED_PART[part.toothId] : null
+          return sharedPartId ? [part, { ...part, partId: sharedPartId }] : [part]
         }).filter(p => p.toothNum) // filter out entries that couldn't be mapped
       }
     } catch (e) {

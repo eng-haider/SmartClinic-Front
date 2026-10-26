@@ -2,7 +2,14 @@
   "layout": {
     "menu": "Menu",
     "dashboard": "Dashboard",
-    "logout": "Logout"
+    "logout": "Logout",
+    "profilePhoto": "Profile photo",
+    "changeProfilePhoto": "Change profile photo",
+    "removeProfilePhoto": "Remove profile photo",
+    "profilePhotoUpdated": "Profile photo updated",
+    "profilePhotoRemoved": "Profile photo removed",
+    "profilePhotoFailed": "Couldn't save the photo. Use a JPG, PNG or WEBP image under 5 MB.",
+    "profilePhotoHint": "Patients see your photo next to your name in their portal."
   },
   "rows_per_page": "Rows per page",
   "lang": "عربي",
@@ -14,6 +21,7 @@
   },
   "common": {
     "save": "Save",
+    "saved": "Saved",
     "cancel": "Cancel",
     "retry": "Retry",
     "close": "Close",
@@ -53,7 +61,8 @@
     "categoryUpdated": "Category updated successfully",
     "categoryDeleted": "Category deleted successfully",
     "uploadSuccess": "Photos uploaded successfully",
-    "deleteSuccess": "Deleted successfully"
+    "deleteSuccess": "Deleted successfully",
+    "toothNumberUpdated": "Tooth number updated"
   },
   "ai": {
     "title": "AI Assistant",
@@ -225,6 +234,8 @@
     "profile_picture": "Profile picture"
   },
   "dashboard": {
+    "show_numbers": "Show numbers",
+    "hide_numbers": "Hide numbers",
     "Case_number_stats": "Case number stats",
     "title": "Analytics Dashboard",
     "welcome": "Welcome to SmartClinic Analytics",
@@ -355,6 +366,41 @@
     "female": "Female"
   },
   "rx": {
+    "paper": {
+      "add_header_image": "Header image",
+      "template": "Prescription paper",
+      "header_as_text": "Typed details",
+      "header_as_image": "Letterhead image",
+      "settings_hint": "How every printed, saved and shared prescription looks.",
+      "header_title": "Prescription header",
+      "upload_header": "Upload the top panel of your prescription",
+      "upload_hint": "Drop an image here or click to choose — leave empty to print the typed details below",
+      "replace_header": "Replace",
+      "header_height": "Top panel height",
+      "paper_size": "Paper size",
+      "size_a5_hint": "prescription pad",
+      "font_size": "Writing size",
+      "font_small": "Small",
+      "font_normal": "Normal",
+      "font_large": "Large",
+      "footer_note": "Footer note",
+      "show_patient_row": "Name / age / date line",
+      "show_signature": "Signature line",
+      "line_placeholder": "Paramol 500  2x1  × 5 days",
+      "add_line": "Add line",
+      "label_patient": "Name",
+      "label_age": "Age",
+      "label_date": "Date",
+      "label_notes": "Notes",
+      "label_signature": "Signature",
+      "save_image": "Save image",
+      "share": "Share",
+      "sample_patient": "Patient name",
+      "popup_blocked": "Allow pop-ups for this site to print.",
+      "image_failed": "Could not create the image.",
+      "not_an_image": "Please choose an image file.",
+      "storage_full": "The letterhead is too large to store — settings saved without it."
+    },
     "title": "Prescriptions",
     "subtitle": "Manage patient prescriptions and medications",
     "prescription": "PRESCRIPTION",
@@ -537,6 +583,9 @@
     "requiresTooth": "Requires Tooth",
     "isOrthodontic": "Orthodontics category",
     "isOrthodonticHint": "Enable this for the orthodontics category so arch/appliance/phase/duration fields show when adding a note to its cases",
+    "isActive": "Active",
+    "inactive": "Inactive",
+    "isActiveHint": "Inactive categories are hidden when choosing a category for a new case. Cases that already use them keep them",
     "deleteConfirmation": "Are you sure you want to delete the category '{name}'?",
     "sortByOrder": "Sort by Order",
     "sortByName": "Sort by Name",
@@ -785,6 +834,9 @@
     "add_booking": "Add Booking",
     "send_whatsapp": "Send WhatsApp",
     "message_templates": "Message Templates",
+    "clinic_templates": "Clinic templates",
+    "suggested_templates": "Suggested templates",
+    "manage_templates": "Manage templates",
     "message": "Message",
     "message_hint": "Type your custom message or select a template",
     "characters": "characters",
@@ -964,6 +1016,9 @@
     "status_error": "Failed to update status",
     "base_permissions_note": "Base permissions (view-own-clinic, view-notes) are always granted via secretary role and cannot be removed.",
     "actions": "Actions",
+    "permission_labels": {
+      "notify-new-cases": "Get notified when a doctor adds a case"
+    },
     "categories": {
       "patients": "Patients",
       "cases": "Cases",
@@ -1422,11 +1477,16 @@
     "title": "Settings",
     "caseCategories": "Case Categories",
     "general": "General Settings",
+    "whatsappTemplates": "WhatsApp Templates",
     "clinic": "Clinic Settings"
   },
   "clinicSettings": {
+    "hideDashboardNumbers": "Hide dashboard numbers",
+    "hideDashboardNumbersHint": "The dashboard opens with counts and amounts hidden, with a button to show or hide them",
     "detectLocation": "Use my current location",
-    "detectLocationHint": "Use this while at the clinic. This replaces the address with map coordinates. Check the preview, then save settings.",
+    "detectLocationHint": "Use this while at the clinic. The map pin is saved separately; the address text stays as you wrote it. Check the preview, then save settings.",
+    "mapLocation": "Map pin (coordinates)",
+    "clearLocation": "Remove map pin",
     "clinicMap": "Clinic location",
     "locationDenied": "Allow location access in your browser, then try again.",
     "locationUnavailable": "Unable to detect your location. Try again or enter the clinic address manually.",
@@ -1462,6 +1522,11 @@
     "dateFormat": "Date Format",
     "timeFormat": "Time Format",
     "dentalChart": "Dental Chart",
+    "dentalChartType": "Dental chart type",
+    "dentalChartTypeHint": "Saved only on this device. Automatic uses V4 on phones and the new chart on iPad.",
+    "dentalChartAutomatic": "Automatic (V4 on phone, new on iPad)",
+    "dentalChartV4": "V4 chart",
+    "dentalChartModern": "New chart",
     "babyTeethNotation": "Baby Teeth Numbering",
     "babyTeethNotationHint": "Changes only how baby teeth are labelled on the chart - saved cases are not affected",
     "babyTeethNotationFdi": "Numbers",
@@ -1670,6 +1735,10 @@
   "notifications": {
     "title": "Notifications",
     "markAllRead": "Mark all as read",
+    "enablePush": "Enable",
+    "enablePushHint": "Turn on browser notifications to get alerts instantly with sound, even when the app page is closed.",
+    "pushBlocked": "Browser notifications are blocked. Allow them in the site settings (the lock icon next to the address).",
+    "pushFailed": "Notifications could not be turned on for this device.",
     "empty": "No notifications"
   },
   "warehouse": {
@@ -1794,8 +1863,262 @@
     "print": "Print",
     "saveImage": "Save as Image",
     "shareWhatsapp": "Share via WhatsApp",
+    "downloadPdf": "Download PDF",
+    "pdfDownloadedShare": "Report PDF downloaded. Attach it in WhatsApp.",
     "paidBills": "Paid Bills",
     "amount": "Amount",
     "caseImages": "Case Images"
+  },
+  "reports": {
+    "nav": {
+      "doctors": "Doctors Report",
+      "patients": "Patient Accounts",
+      "cases": "Cases Report",
+      "revenue": "Revenue & Payments",
+      "expenses": "Expenses",
+      "appointments": "Appointments",
+      "outstanding": "Outstanding Balances"
+    },
+    "common": {
+      "exportPdf": "Export PDF",
+      "exportExcel": "Export Excel",
+      "today": "Today",
+      "thisWeek": "This Week",
+      "thisMonth": "This Month",
+      "thisYear": "This Year",
+      "customRange": "Custom Range",
+      "dateFrom": "From",
+      "dateTo": "To",
+      "apply": "Apply",
+      "noData": "No data for the selected period",
+      "noDataHint": "Try choosing a different date range",
+      "total": "Total",
+      "doctor": "Doctor",
+      "allDoctors": "All doctors"
+    },
+    "overview": {
+      "title": "Reports",
+      "subtitle": "A complete overview of the clinic's performance, accounts and cases",
+      "revenue": "Revenue",
+      "expenses": "Expenses",
+      "netIncome": "Net Income",
+      "outstanding": "Outstanding Balances",
+      "revenueVsExpenses": "Revenue vs Expenses",
+      "reportCategories": "Reports",
+      "clinicSummary": "Clinic Summary",
+      "newPatients": "New Patients",
+      "newCases": "New Cases",
+      "appointments": "Appointments",
+      "completedCases": "Completed Cases",
+      "doctorsDesc": "Performance and revenue per doctor",
+      "patientsDesc": "Patient balances and payments",
+      "casesDesc": "Case types and service analysis",
+      "revenueDesc": "Collected revenue and payments",
+      "expensesDesc": "Clinic expense tracking",
+      "appointmentsDesc": "Patient appointment tracking",
+      "outstandingDesc": "Patients with unpaid balances",
+      "unitDoctor": "doctors",
+      "unitPatient": "patients",
+      "unitCase": "cases",
+      "unitAppointment": "appointments"
+    },
+    "doctors": {
+      "title": "Doctors Report",
+      "subtitle": "Review doctor performance, cases and payments for the selected period",
+      "topByCases": "Top Doctors by Case Count",
+      "revenueByDoctor": "Revenue by Doctor",
+      "searchPlaceholder": "Search by doctor name",
+      "col": {
+        "name": "Doctor",
+        "phone": "Phone",
+        "patients": "Patients",
+        "cases": "Cases",
+        "completed": "Completed",
+        "inProgress": "In Progress",
+        "totalValue": "Total Case Value",
+        "paid": "Paid",
+        "remaining": "Remaining",
+        "avgValue": "Avg Case Value"
+      },
+      "detail": {
+        "patient": "Patient",
+        "category": "Case Type",
+        "tooth": "Tooth #",
+        "price": "Price",
+        "paid": "Paid",
+        "remaining": "Remaining",
+        "date": "Date"
+      },
+      "kpi": {
+        "doctorCount": "Doctors",
+        "caseCount": "Total Cases",
+        "totalValue": "Total Case Value",
+        "paid": "Total Paid"
+      }
+    },
+    "patients": {
+      "title": "Patient Accounts",
+      "subtitle": "Review patient balances and payments for the selected period",
+      "searchPlaceholder": "Search by patient name or phone",
+      "filterLabel": "Payment status",
+      "filterAll": "All",
+      "filterUnpaid": "Has balance",
+      "filterPaid": "Fully paid",
+      "col": {
+        "name": "Patient",
+        "phone": "Phone",
+        "cases": "Cases",
+        "total": "Total Value",
+        "paid": "Paid",
+        "remaining": "Remaining",
+        "percentage": "Paid %",
+        "lastPayment": "Last Payment",
+        "lastVisit": "Last Visit"
+      },
+      "detail": {
+        "total": "Account Total",
+        "paid": "Total Paid",
+        "remaining": "Total Remaining",
+        "category": "Case Type",
+        "tooth": "Tooth #",
+        "casePrice": "Case Price",
+        "payment": "Payment",
+        "status": "Case Status",
+        "date": "Date"
+      },
+      "kpi": {
+        "count": "Patients",
+        "total": "Total Amount",
+        "paid": "Total Paid",
+        "remaining": "Total Remaining"
+      }
+    },
+    "cases": {
+      "title": "Cases Report",
+      "subtitle": "Case type and service analysis for the selected period",
+      "byType": "Cases by Type",
+      "topByRevenue": "Top Case Types by Revenue",
+      "col": {
+        "type": "Case Type",
+        "cases": "Cases",
+        "patients": "Patients",
+        "doctors": "Doctors",
+        "totalValue": "Total Value",
+        "paid": "Paid",
+        "remaining": "Remaining",
+        "avgPrice": "Avg Price",
+        "percentage": "% of Total"
+      },
+      "detail": {
+        "patient": "Patient",
+        "doctor": "Doctor",
+        "tooth": "Tooth #",
+        "price": "Price",
+        "paid": "Paid",
+        "remaining": "Remaining",
+        "date": "Date"
+      },
+      "kpi": {
+        "total": "Total Cases",
+        "types": "Case Types",
+        "totalValue": "Total Value",
+        "remaining": "Total Remaining"
+      }
+    },
+    "revenue": {
+      "title": "Revenue & Payments",
+      "subtitle": "Review revenue and payments for the selected period",
+      "trend": "Revenue Trend",
+      "searchPlaceholder": "Search by patient name or phone",
+      "col": {
+        "date": "Date",
+        "patient": "Patient",
+        "doctor": "Doctor",
+        "case": "Case",
+        "caseValue": "Case Value",
+        "payment": "Payment",
+        "remaining": "Remaining"
+      },
+      "kpi": {
+        "caseValue": "Total Case Value",
+        "collected": "Total Collected",
+        "remaining": "Total Remaining",
+        "paymentCount": "Payments",
+        "avgPayment": "Avg Payment"
+      }
+    },
+    "expenses": {
+      "title": "Expenses Report",
+      "subtitle": "Track clinic expenses for the selected period",
+      "byCategory": "Expenses by Category",
+      "overTime": "Expenses Over Time",
+      "searchPlaceholder": "Search expenses",
+      "categoryFilter": "Category",
+      "allCategories": "All Categories",
+      "total": "Total Expenses",
+      "col": {
+        "date": "Date",
+        "category": "Category",
+        "description": "Description",
+        "amount": "Amount",
+        "addedBy": "Added By"
+      },
+      "kpi": {
+        "total": "Total Expenses",
+        "count": "Expense Entries",
+        "avg": "Average Expense",
+        "topCategory": "Top Category"
+      }
+    },
+    "appointments": {
+      "title": "Appointments Report",
+      "subtitle": "Track patient appointments for the selected period",
+      "overTime": "Appointments Over Time",
+      "searchPlaceholder": "Search by patient name",
+      "doctorFilter": "Doctor",
+      "allDoctors": "All Doctors",
+      "statusFilter": "Status",
+      "allStatuses": "All Statuses",
+      "col": {
+        "patient": "Patient",
+        "doctor": "Doctor",
+        "date": "Date",
+        "time": "Time",
+        "status": "Status",
+        "notes": "Notes"
+      },
+      "kpi": {
+        "total": "Total Appointments",
+        "completed": "Completed",
+        "cancelled": "Cancelled",
+        "upcoming": "Upcoming"
+      }
+    },
+    "outstanding": {
+      "title": "Outstanding Balances",
+      "subtitle": "Patients with unpaid balances",
+      "searchPlaceholder": "Search by patient name or phone",
+      "rangeFilter": "Balance Range",
+      "rangeAll": "All",
+      "rangeUnder100k": "Under 100,000",
+      "range100to500k": "100,000 - 500,000",
+      "rangeOver500k": "Over 500,000",
+      "col": {
+        "name": "Patient",
+        "phone": "Phone",
+        "unpaidCases": "Unpaid Cases",
+        "total": "Account Total",
+        "paid": "Paid",
+        "remaining": "Remaining",
+        "lastPayment": "Last Payment",
+        "lastVisit": "Last Visit"
+      },
+      "kpi": {
+        "patientCount": "Patients With Balance",
+        "totalRemaining": "Total Remaining",
+        "avgRemaining": "Average Remaining",
+        "maxRemaining": "Highest Remaining"
+      }
+    }
   }
 }

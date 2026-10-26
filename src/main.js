@@ -79,6 +79,7 @@ import pl from './locales/pl.json'
 import './styles/main.css'
 import './styles/mobile.css'
 import './styles/dialogs.css'
+import './styles/public-experience.css'
 
 // Custom Directives
 import permissionDirective, { roleDirective as roleDir, canDirective } from './directives/permission'

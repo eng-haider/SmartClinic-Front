@@ -29,6 +29,8 @@ export default defineConfig({
         navigateFallback: null,
         // Clean up old caches from previous builds
         cleanupOutdatedCaches: true,
+        // Web Push: show pushed notifications and tell open tabs (public/push-sw.js)
+        importScripts: ['push-sw.js'],
         runtimeCaching: [
           {
             // Financial balances must never fall back to an old cached response.

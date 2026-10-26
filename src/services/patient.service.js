@@ -173,7 +173,7 @@ export const patientService = {
    */
   async getPublicPatientByToken(token, clinicId = null) {
     const params = clinicId ? { clinic: clinicId } : {}
-    return await api.get(`/public/patients/${token}`, { params })
+    return await api.get(`/tenant/public/patients/${encodeURIComponent(token)}`, { params })
   },
 
   /**
@@ -182,7 +182,7 @@ export const patientService = {
    * @returns {Promise} - Patient cases
    */
   async getPublicPatientCases(token) {
-    return await api.get(`/public/patients/${token}/cases`)
+    return await api.get(`/tenant/public/patients/${encodeURIComponent(token)}/cases`)
   },
 
   /**
@@ -191,7 +191,7 @@ export const patientService = {
    * @returns {Promise} - Patient images
    */
   async getPublicPatientImages(token) {
-    return await api.get(`/public/patients/${token}/images`)
+    return await api.get(`/tenant/public/patients/${encodeURIComponent(token)}/images`)
   },
 
   /**
@@ -200,7 +200,7 @@ export const patientService = {
    * @returns {Promise} - Patient upcoming reservations
    */
   async getPublicPatientReservations(token) {
-    return await api.get(`/public/patients/${token}/reservations`)
+    return await api.get(`/tenant/public/patients/${encodeURIComponent(token)}/reservations`)
   }
 }
 

@@ -136,6 +136,12 @@ class PermissionHelper {
       }
     }
 
+    // Exact permission names win over keywords (a keyword like 'case' also
+    // matches unrelated permissions such as 'notify-new-cases')
+    if (item.permissions && item.permissions.length > 0) {
+      return this.hasAnyExactPermission(item.permissions)
+    }
+
     // Check keyword-based permissions
     if (item.permissionKeywords && item.permissionKeywords.length > 0) {
       return this.hasAnyPermissionFor(item.permissionKeywords)
@@ -143,6 +149,15 @@ class PermissionHelper {
 
     // If no restrictions defined, allow access
     return true
+  }
+
+  /**
+   * Check if user has ANY of the exact permissions
+   * @param {Array<string>} permissions - Exact permission names
+   * @returns {boolean}
+   */
+  hasAnyExactPermission(permissions) {
+    return permissions.some(permission => this.hasExactPermission(permission))
   }
 
   /**

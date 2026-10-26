@@ -58,7 +58,8 @@ const hasData = computed(() => props.data && props.data.length > 0)
 
 const total = computed(() => props.data.reduce((sum, d) => sum + (d[props.valueKey] || 0), 0))
 
-const centerValue = computed(() => new Intl.NumberFormat('ar-IQ').format(total.value))
+// en-US: Western digits, never Arabic-Indic, regardless of UI language.
+const centerValue = computed(() => new Intl.NumberFormat('en-US').format(total.value))
 
 const legendItems = computed(() => props.data.map((d, i) => ({
   label: d[props.labelKey],

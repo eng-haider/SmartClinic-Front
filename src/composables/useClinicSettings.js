@@ -15,6 +15,76 @@ import {
   normalizeToothNotation
 } from '@/components/teeth/toothNotation'
 
+/**
+ * The palette a clinic starts with, plus every palette that shipped before
+ * clinics could customise `display.tooth_colors`. Teeth marked under an older
+ * palette still hold those hex values, so the names stay here to label them.
+ */
+const DEFAULT_TOOTH_COLORS = [
+  { id: 'healthy', name: 'Healthy', color: '#4CAF50' },
+  { id: 'cavity', name: 'Cavity', color: '#FF6B6B' },
+  { id: 'filling', name: 'Filling', color: '#4ECDC4' },
+  { id: 'crown', name: 'Crown', color: '#FFD93D' },
+  { id: 'missing', name: 'Missing', color: '#95A5A6' },
+  { id: 'implant', name: 'Implant', color: '#3498DB' },
+  { id: 'root_canal', name: 'Root Canal', color: '#9B59B6' }
+]
+
+const LEGACY_TOOTH_COLORS = [
+  ...DEFAULT_TOOTH_COLORS,
+  { name: 'Healthy', color: '#FFFFFF' },
+  { name: 'Healthy', color: '#22C55E' },
+  { name: 'Cavity', color: '#F44336' },
+  { name: 'Cavity', color: '#EF4444' },
+  { name: 'Filling', color: '#2196F3' },
+  { name: 'Filling', color: '#3B82F6' },
+  { name: 'Crown', color: '#FFC107' },
+  { name: 'Crown', color: '#F59E0B' },
+  { name: 'Missing', color: '#9E9E9E' },
+  { name: 'Missing', color: '#6B7280' },
+  { name: 'Implant', color: '#00BCD4' },
+  { name: 'Implant', color: '#14B8A6' },
+  { name: 'Root Canal', color: '#9C27B0' },
+  { name: 'Root Canal', color: '#8B5CF6' },
+  { name: 'Bridge', color: '#EC4899' }
+].map(tc => ({ name: tc.name, hex: tc.color.toLowerCase() }))
+
+/* '#ABC', '#AABBCC' or 'rgb(r, g, b)' -> '#aabbcc' (null when unparseable) */
+const normalizeHex = (color) => {
+  if (!color || typeof color !== 'string') return null
+  const value = color.trim().toLowerCase()
+
+  const rgb = value.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/)
+  if (rgb) {
+    return '#' + rgb.slice(1, 4)
+      .map(n => Math.min(255, parseInt(n, 10)).toString(16).padStart(2, '0'))
+      .join('')
+  }
+
+  const hex = value.replace(/^#/, '')
+  if (/^[0-9a-f]{3}$/.test(hex)) return '#' + hex.split('').map(c => c + c).join('')
+  if (/^[0-9a-f]{6}$/.test(hex)) return '#' + hex
+  return null
+}
+
+/* Closest palette entry, but only when the shades are near identical - a
+   slightly-off hex should be named, a genuinely different color should not. */
+const NEAREST_COLOR_TOLERANCE = 40
+const nearestColor = (hex, palette) => {
+  const toRgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16))
+  const [r, g, b] = toRgb(hex)
+
+  let best = null
+  palette.forEach(entry => {
+    const [r2, g2, b2] = toRgb(entry.hex)
+    const distance = Math.sqrt((r - r2) ** 2 + (g - g2) ** 2 + (b - b2) ** 2)
+    if (distance <= NEAREST_COLOR_TOLERANCE && (!best || distance < best.distance)) {
+      best = { name: entry.name, distance }
+    }
+  })
+  return best ? best.name : null
+}
+
 // Shared state (singleton pattern)
 const settings = ref(null)
 const loading = ref(false)
@@ -153,18 +223,33 @@ export function useClinicSettings() {
     const colors = getSetting('display', 'tooth_colors')
     if (!colors || !Array.isArray(colors)) {
       // Default colors if not set
-      return [
-        { id: 'healthy', name: 'Healthy', color: '#4CAF50' },
-        { id: 'cavity', name: 'Cavity', color: '#FF6B6B' },
-        { id: 'filling', name: 'Filling', color: '#4ECDC4' },
-        { id: 'crown', name: 'Crown', color: '#FFD93D' },
-        { id: 'missing', name: 'Missing', color: '#95A5A6' },
-        { id: 'implant', name: 'Implant', color: '#3498DB' },
-        { id: 'root_canal', name: 'Root Canal', color: '#9B59B6' }
-      ]
+      return DEFAULT_TOOTH_COLORS
     }
     return colors
   })
+
+  /**
+   * Hex color stored on a tooth -> the condition name to show the user.
+   * Looks in the clinic's own palette first, then in the palettes that shipped
+   * before the clinic customised theirs (teeth saved back then still hold those
+   * hex values), then at the closest palette entry for near-identical shades.
+   * Returns the hex itself only when nothing plausible matches.
+   */
+  const getToothColorName = (color) => {
+    const hex = normalizeHex(color)
+    if (!hex) return ''
+
+    const clinicPalette = (toothConditionColors.value || [])
+      .map(tc => ({ name: tc.name, hex: normalizeHex(tc.color || tc.hex_code) }))
+      .filter(tc => tc.hex && tc.name)
+
+    const exact = clinicPalette.find(tc => tc.hex === hex) ||
+      LEGACY_TOOTH_COLORS.find(tc => tc.hex === hex)
+    if (exact) return exact.name
+
+    const nearest = nearestColor(hex, clinicPalette)
+    return nearest || color
+  }
 
   /**
    * Get tooth statuses from settings
@@ -326,6 +411,7 @@ export function useClinicSettings() {
     
     // Medical Settings
     toothConditionColors,
+    getToothColorName,
     toothStatuses,
     babyTeethNotation,
     formatToothLabel,

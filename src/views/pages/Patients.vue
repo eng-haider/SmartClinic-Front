@@ -1,5 +1,5 @@
 <template>
-  <div class="patients-page">
+  <div class="patients-page app-page">
     <!-- Page Header (hidden on mobile) -->
     <div class="page-header mb-6 d-none d-sm-block">
       <div class="d-flex flex-wrap align-center justify-space-between ga-4">
@@ -583,84 +583,12 @@
     />
 
     <!-- WhatsApp Message Dialog -->
-    <v-dialog v-model="whatsappDialog" max-width="600">
-      <v-card rounded="xl">
-        <v-card-title class="d-flex align-center justify-space-between pa-4 bg-success">
-          <div class="d-flex align-center ga-2">
-            <v-icon color="white" size="28">mdi-whatsapp</v-icon>
-            <span class="text-white">{{ $t('patients.send_whatsapp') }}</span>
-          </div>
-          <v-btn icon="mdi-close" variant="text" color="white" @click="whatsappDialog = false" />
-        </v-card-title>
-
-        <v-card-text class="pa-6">
-          <!-- Patient Info -->
-          <v-alert v-if="selectedPatientForWhatsApp" type="info" variant="tonal" class="mb-4">
-            <div class="d-flex align-center ga-3">
-              <v-avatar :color="getAvatarColor(selectedPatientForWhatsApp.name)" size="40">
-                <span class="text-white">{{ getInitials(selectedPatientForWhatsApp.name) }}</span>
-              </v-avatar>
-              <div>
-                <div class="font-weight-medium">{{ selectedPatientForWhatsApp.name }}</div>
-                <div class="text-caption" dir="ltr">{{ selectedPatientForWhatsApp.phone }}</div>
-              </div>
-            </div>
-          </v-alert>
-
-          <!-- Message Templates -->
-          <div class="mb-4">
-            <div class="text-subtitle-2 mb-2">{{ $t('patients.message_templates') }}</div>
-            <v-chip-group v-model="selectedTemplate" column mandatory>
-              <v-chip
-                v-for="template in messageTemplates"
-                :key="template.id"
-                :value="template.id"
-                filter
-                variant="outlined"
-                @click="selectTemplate(template)"
-              >
-                {{ template.title }}
-              </v-chip>
-            </v-chip-group>
-          </div>
-
-          <!-- Custom Message -->
-          <v-textarea
-            v-model="whatsappMessage"
-            :label="$t('patients.message')"
-            variant="outlined"
-            rows="6"
-            auto-grow
-            prepend-inner-icon="mdi-message-text"
-            :hint="$t('patients.message_hint')"
-            persistent-hint
-          />
-
-          <!-- Character Count -->
-          <div class="text-caption text-right text-grey mt-1">
-            {{ whatsappMessage.length }} {{ $t('patients.characters') }}
-          </div>
-        </v-card-text>
-
-        <v-divider />
-
-        <v-card-actions class="pa-4">
-          <v-spacer />
-          <v-btn variant="text" @click="whatsappDialog = false">
-            {{ $t('common.cancel') }}
-          </v-btn>
-          <v-btn
-            color="success"
-            variant="elevated"
-            prepend-icon="mdi-whatsapp"
-            :disabled="!whatsappMessage || !selectedPatientForWhatsApp?.phone"
-            @click="sendWhatsAppMessage"
-          >
-            {{ $t('patients.send') }}
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <WhatsAppMessageDialog
+      v-model="whatsappDialog"
+      :patient="selectedPatientForWhatsApp"
+      @sent="showSnackbar(t('patients.whatsapp_opened'), 'success')"
+      @error="showSnackbar(t('patients.whatsapp_error'), 'error')"
+    />
 
     <!-- Patient ID Card Dialog -->
     <PatientIdCard
@@ -732,6 +660,7 @@ import api from '@/services/api'
 import BookingDialog from '@/components/BookingDialog.vue'
 import PatientFormDialog from '@/components/PatientFormDialog.vue'
 import PatientIdCard from '@/components/PatientIdCard.vue'
+import WhatsAppMessageDialog from '@/components/WhatsAppMessageDialog.vue'
 import QrScanner from '@/components/QrScanner.vue'
 import { useClinicSettings } from '@/composables/useClinicSettings'
 
@@ -739,7 +668,7 @@ const { t } = useI18n()
 const { smAndDown } = useDisplay()
 const router = useRouter()
 const route = useRoute()
-const { clinicSettings, clinicName } = useClinicSettings()
+const { clinicSettings } = useClinicSettings()
 
 // ==================== State ====================
 const loading = ref(false)
@@ -759,8 +688,6 @@ const filters = reactive({
   clinics_id: route.query.clinics_id ? Number(route.query.clinics_id) : null,
   payment_status: route.query.payment_status || null
 })
-
-
 
 const sortBy = ref('-created_at') // Default sorting by newest
 
@@ -792,10 +719,6 @@ const selectedPatientForBooking = ref(null)
 const selectedPatientForWhatsApp = ref(null)
 const selectedPatientForQrCard = ref(null)
 
-// WhatsApp message
-const whatsappMessage = ref('')
-const selectedTemplate = ref(null)
-
 // Selected Patient
 const selectedPatient = ref(null)
 const patientToDelete = ref(null)
@@ -821,55 +744,6 @@ const sortOptions = computed(() => [
   { text: t('patients.oldest'), value: 'created_at' },
   { text: t('patients.name_az'), value: 'name' },
   { text: t('patients.name_za'), value: '-name' }
-])
-
-// The clinic's own name for patient-facing messages, with a neutral wording
-// (never the product name) when the clinic has not set one yet.
-const whatsappClinicName = computed(() => clinicName.value || t('patients.clinic_name'))
-
-// WhatsApp Message Templates
-const messageTemplates = computed(() => [
-  {
-    id: 1,
-    title: t('patients.template_reminder'),
-    text: t('patients.template_reminder_text', {
-      name: selectedPatientForWhatsApp.value?.name || '',
-      clinic: whatsappClinicName.value
-    })
-  },
-  {
-    id: 2,
-    title: t('patients.template_followup'),
-    text: t('patients.template_followup_text', {
-      name: selectedPatientForWhatsApp.value?.name || ''
-    })
-  },
-  {
-    id: 3,
-    title: t('patients.template_checkup'),
-    text: t('patients.template_checkup_text', {
-      name: selectedPatientForWhatsApp.value?.name || ''
-    })
-  },
-  {
-    id: 4,
-    title: t('patients.template_results'),
-    text: t('patients.template_results_text', {
-      name: selectedPatientForWhatsApp.value?.name || ''
-    })
-  },
-  {
-    id: 5,
-    title: t('patients.template_profile_link'),
-    text: generateProfileLinkMessage()
-  },
-  {
-    id: 6,
-    title: t('patients.template_greeting'),
-    text: t('patients.template_greeting_text', {
-      name: selectedPatientForWhatsApp.value?.name || ''
-    })
-  }
 ])
 
 // Table Headers
@@ -1108,9 +982,6 @@ function handleBookingSaved() {
 // Open WhatsApp Dialog
 function openWhatsAppDialog(patient) {
   selectedPatientForWhatsApp.value = patient
-  selectedTemplate.value = 1
-  // Set default template message
-  selectTemplate(messageTemplates.value[0])
   whatsappDialog.value = true
 }
 
@@ -1136,68 +1007,6 @@ function handleScanSuccess(data) {
 function handleScanError(error) {
   console.error('QR Scan error:', error)
   showSnackbar(t('qrScanner.scanError'), 'error')
-}
-
-// Generate Profile Link Message
-function generateProfileLinkMessage() {
-  if (!selectedPatientForWhatsApp.value) return ''
-  
-  const patient = selectedPatientForWhatsApp.value
-  const frontendBaseUrl = window.location.origin
-  
-  // Try to get public token from patient data (if available)
-  let profileUrl = `${frontendBaseUrl}/public/patient/patient-${patient.id}`
-  
-  // If patient has public_token, use it
-  if (patient.public_token) {
-    profileUrl = `${frontendBaseUrl}/public/patient/${patient.public_token}`
-  }
-  
-  return t('patients.template_profile_link_text', {
-    name: patient.name,
-    clinic: whatsappClinicName.value,
-    url: profileUrl
-  })
-}
-
-// Select Message Template
-function selectTemplate(template) {
-  if (template && template.text) {
-    whatsappMessage.value = template.text
-  }
-}
-
-// Send WhatsApp Message
-function sendWhatsAppMessage() {
-  if (!selectedPatientForWhatsApp.value?.phone || !whatsappMessage.value) {
-    showSnackbar(t('patients.whatsapp_error'), 'error')
-    return
-  }
-
-  // Clean phone number (remove spaces and formatting)
-  let phone = selectedPatientForWhatsApp.value.phone.replace(/\D/g, '')
-  
-  // Ensure phone starts with country code
-  if (!phone.startsWith('964')) {
-    // If starts with 0, replace with 964
-    if (phone.startsWith('0')) {
-      phone = '964' + phone.substring(1)
-    } else {
-      phone = '964' + phone
-    }
-  }
-
-  // Encode message for URL
-  const encodedMessage = encodeURIComponent(whatsappMessage.value)
-  
-  // Create WhatsApp URL
-  const whatsappUrl = `https://wa.me/${phone}?text=${encodedMessage}`
-  
-  // Open in new tab
-  window.open(whatsappUrl, '_blank')
-  
-  showSnackbar(t('patients.whatsapp_opened'), 'success')
-  whatsappDialog.value = false
 }
 
 // ==================== Helpers ====================
@@ -1251,11 +1060,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.patients-page {
-  padding: 24px;
-  max-width: 1600px;
-  margin: 0 auto;
-}
 
 .toolbar-card {
   background: linear-gradient(135deg, #f5f7fa 0%, #ffffff 100%);
@@ -1418,16 +1222,11 @@ onMounted(() => {
 }
 
 /* RTL Support */
-[dir="rtl"] .patients-page {
+[dir="rtl"] .patients-page  {
   text-align: right;
 }
 
 /* Responsive */
-@media (max-width: 960px) {
-  .patients-page {
-    padding: 16px;
-  }
-}
 
 /* Floating Action Buttons */
 .fab-container {

@@ -18,6 +18,35 @@ import { ROUTE_CONFIG } from '@/config/navigation'
 
 // ==================== Route Components ====================
 const routes = [
+  // Public marketing, support and privacy pages (No Auth Required)
+  {
+    path: '/about',
+    name: 'Marketing',
+    component: () => import('@/views/public/MarketingPage.vue'),
+    meta: {
+      public: true,
+      title: 'Smart Clinic | Clinic Management'
+    }
+  },
+  {
+    path: '/support',
+    name: 'Support',
+    component: () => import('@/views/public/SupportPage.vue'),
+    meta: {
+      public: true,
+      title: 'Smart Clinic Support | الدعم'
+    }
+  },
+  {
+    path: '/privacy',
+    name: 'PrivacyPolicy',
+    component: () => import('@/views/public/PrivacyPolicyPage.vue'),
+    meta: {
+      public: true,
+      title: 'Smart Clinic Privacy Policy | سياسة الخصوصية'
+    }
+  },
+
   // Public Patient Profile (No Auth Required)
   {
     path: '/public/patient/:token',
@@ -26,6 +55,18 @@ const routes = [
     meta: {
       public: true,
       layout: 'blank'
+    }
+  },
+
+  // Public clinic marketing website. Kept separate from the private patient
+  // portal so it can later be mapped to a clinic domain/subdomain unchanged.
+  {
+    path: '/clinic/:slug',
+    name: 'PublicClinicWebsite',
+    component: () => import('@/views/public/ClinicWebsite.vue'),
+    meta: {
+      public: true,
+      title: 'Clinic'
     }
   },
 
@@ -78,10 +119,77 @@ const routes = [
         }
       },
       {
+        path: 'reports',
+        name: 'ReportsOverview',
+        component: () => import('@/views/reports/ReportsOverview.vue'),
+        meta: {
+          title: 'Reports Overview',
+          permissionKeywords: ['report', 'analytics'],
+          roles: ['super_admin', 'clinic_super_doctor', 'doctor']
+        }
+      },
+      {
+        path: 'reports/doctors',
+        name: 'DoctorsReport',
+        component: () => import('@/views/reports/DoctorsReport.vue'),
+        meta: {
+          title: 'Doctors Report',
+          permissionKeywords: ['report', 'analytics']
+        }
+      },
+      {
+        path: 'reports/patients',
+        name: 'PatientsReport',
+        component: () => import('@/views/reports/PatientsReport.vue'),
+        meta: {
+          title: 'Patient Accounts Report',
+          permissionKeywords: ['report', 'analytics']
+        }
+      },
+      {
+        path: 'reports/cases',
+        name: 'CasesReport',
+        component: () => import('@/views/reports/CasesReport.vue'),
+        meta: {
+          title: 'Cases Report',
+          permissionKeywords: ['report', 'analytics']
+        }
+      },
+      {
+        path: 'reports/revenue',
+        name: 'RevenueReport',
+        component: () => import('@/views/reports/RevenueReport.vue'),
+        meta: {
+          title: 'Revenue & Payments Report',
+          permissionKeywords: ['report', 'analytics'],
+          roles: ['super_admin', 'clinic_super_doctor', 'doctor']
+        }
+      },
+      {
+        path: 'reports/expenses',
+        name: 'ExpensesReport',
+        component: () => import('@/views/reports/ExpensesReport.vue'),
+        meta: {
+          title: 'Expenses Report',
+          permissionKeywords: ['report', 'analytics'],
+          roles: ['super_admin', 'clinic_super_doctor', 'doctor']
+        }
+      },
+      {
+        path: 'reports/outstanding',
+        name: 'OutstandingReport',
+        component: () => import('@/views/reports/OutstandingReport.vue'),
+        meta: {
+          title: 'Outstanding Balances Report',
+          permissionKeywords: ['report', 'analytics'],
+          roles: ['super_admin', 'clinic_super_doctor', 'doctor']
+        }
+      },
+      {
         path: 'patients',
         name: 'Patients',
         component: () => import('@/views/pages/Patients.vue'),
-        meta: { 
+        meta: {
           title: 'Patients Management',
           permissionKeywords: ['patient']
         }
@@ -118,18 +226,19 @@ const routes = [
         path: 'cases',
         name: 'Cases',
         component: () => import('@/views/pages/Cases.vue'),
-        meta: { 
+        meta: {
           title: 'Cases Management',
-          permissionKeywords: ['case']
+          // Exact: the 'case' keyword also matched 'notify-new-cases'
+          permissions: ['view-clinic-cases']
         }
       },
       {
         path: 'cases/:id',
         name: 'CaseDetail',
         component: () => import('@/views/cases/CaseDetail.vue'),
-        meta: { 
+        meta: {
           title: 'Case Details',
-          permissionKeywords: ['case']
+          permissions: ['view-clinic-cases']
         }
       },
       {
@@ -153,7 +262,9 @@ const routes = [
         }
       },
       {
-        path: 'booking-requests',
+        // Optional :id lets notifications deep-link to a single request
+        // (action_url is "/booking-requests/{id}") and open its details.
+        path: 'booking-requests/:id?',
         name: 'BookingRequests',
         component: () => import('@/views/pages/BookingRequests.vue'),
         meta: {
@@ -345,6 +456,11 @@ function checkRoutePermission(meta) {
     if (permissionHelper.hasAnyRole(meta.roles)) {
       return true
     }
+  }
+
+  // Exact permission names win over keywords (see permissionHelper.canAccessNavItem)
+  if (meta.permissions && meta.permissions.length > 0) {
+    return permissionHelper.hasAnyExactPermission(meta.permissions)
   }
 
   // Check keyword-based permissions

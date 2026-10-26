@@ -37,12 +37,56 @@ p, span, div, a, button, input, textarea, select, label {
   font-family: 'Cairo', sans-serif !important;
 }
 
+/* Shared page container. Every routed page puts `app-page` on its root so the
+   width, centering and gutters match (values taken from the Patients page).
+   `.v-container.app-page` outranks Vuetify's own container padding. */
+.app-page,
+.v-container.app-page {
+  padding: 24px;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+@media (max-width: 960px) {
+  .app-page,
+  .v-container.app-page {
+    padding: 16px;
+  }
+}
+
 /* Force Cairo for all data tables */
 .v-data-table,
 .v-data-table *,
 .v-table,
 .v-table * {
   font-family: 'Cairo', sans-serif !important;
+}
+
+/* Data-table header row: light blue band with bold dark labels so it stands
+   apart from the white body rows. Selectors match Vuetify's own specificity so
+   its hover/sort colours don't win; pages that paint their own header
+   (e.g. the cases table) still override this with !important. */
+.v-data-table .v-table__wrapper > table > thead > tr > th,
+.v-table .v-table__wrapper > table > thead > tr > th {
+  /* Light steel-blue band with dark text: clearly not a body row, but not a
+     heavy dark bar either. */
+  background: #dbe7ef;
+  color: #0d3b53;
+  /* Vuetify's th rule (weight 500) has equal specificity and loads later */
+  font-weight: 700 !important;
+  font-size: 13px;
+  border-bottom: none;
+}
+.v-data-table .v-data-table-header__content,
+.v-data-table .v-data-table-header__content span {
+  font-weight: 700 !important;
+}
+.v-data-table .v-table__wrapper > table > thead > tr > th.v-data-table__th--sortable:hover,
+.v-data-table .v-table__wrapper > table > thead > tr > th.v-data-table__th--sortable:focus {
+  color: #0d3b53;
+}
+.v-data-table .v-table__wrapper > table > thead > tr > th .v-data-table-header__sort-icon,
+.v-data-table .v-table__wrapper > table > thead > tr > th .v-icon {
+  color: #0d3b53;
 }
 
 /* Force Cairo for all cards and dialogs */

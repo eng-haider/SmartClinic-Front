@@ -76,6 +76,12 @@ const props = defineProps({
   modelValue: {
     type: Array,
     default: () => []
+  },
+  // Items the case being edited already consumed ({ warehouse_item_id | id, quantity }).
+  // The API returns them to stock before re-applying the list, so they count as available.
+  reserved: {
+    type: Array,
+    default: () => []
   }
 })
 
@@ -158,8 +164,17 @@ function itemById(id) {
   return items.value.find(i => i.id === id)
 }
 
+const reservedQty = computed(() => {
+  const map = new Map()
+  for (const r of props.reserved || []) {
+    const id = r.warehouse_item_id ?? r.id
+    if (id) map.set(id, (map.get(id) || 0) + (Number(r.quantity) || 0))
+  }
+  return map
+})
+
 function stockOf(id) {
-  return Number(itemById(id)?.quantity ?? 0)
+  return Number(itemById(id)?.quantity ?? 0) + (reservedQty.value.get(id) || 0)
 }
 
 function maxQtyFor(id) {
@@ -174,7 +189,7 @@ function availableItemsFor(currentId) {
     .filter(i => i.id === currentId || !used.has(i.id))
     .map(i => ({
       id: i.id,
-      label: `${i.name} (${Number(i.quantity)} ${t('warehouse.available')})`,
+      label: `${i.name} (${stockOf(i.id)} ${t('warehouse.available')})`,
     }))
 }
 
@@ -187,8 +202,10 @@ const canAddRow = computed(() => {
   return items.value.some(i => !used.has(i.id))
 })
 
+// The error flag on the qty field invalidates the parent v-form (disabling Save),
+// so only flag it once real stock numbers are known.
 function isRowOverStock(row) {
-  if (!row.warehouse_item_id) return false
+  if (!row.warehouse_item_id || !loaded.value) return false
   return Number(row.quantity) > stockOf(row.warehouse_item_id)
 }
 

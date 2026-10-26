@@ -470,7 +470,7 @@
 
     .comon {
         fill: #fff;
-        stroke: #ddd;
+        stroke: #000;
         stroke-width: 1px;
         cursor: pointer;
         transition: all 0.2s ease;
@@ -796,6 +796,7 @@ fill: #000;
 <script>
     import { PRIMARY_TOOTH_OFFSET, PRIMARY_LAST_POSITION, formatToothNumber } from './toothNotation'
     import { useClinicSettings } from '@/composables/useClinicSettings'
+    import { isCategoryActive } from '@/utils/caseCategories'
 
     // Number strip under the arch - taken from the artwork so every label keeps
     // sitting under the tooth it belongs to.
@@ -978,10 +979,10 @@ fill: #000;
                 return this.localCategories.length > 0 ? this.localCategories : this.categories;
             },
             
-            // Categories to display in bottom sheet (filtered by search, tooth-only)
+            // Categories to display in bottom sheet (filtered by search, tooth-only, active)
             displayedCategories() {
                 const cats = (this.localCategories.length > 0 ? this.localCategories : this.categories)
-                    .filter(c => !c.without_detect_tooth);
+                    .filter(c => !c.without_detect_tooth && isCategoryActive(c));
                 if (!cats || !Array.isArray(cats)) return [];
                 if (!this.categorySearch || !this.categorySearch.trim()) return cats;
 
@@ -995,7 +996,7 @@ fill: #000;
             categoriesWithoutTooth() {
                 const cats = this.localCategories.length > 0 ? this.localCategories : this.categories;
                 if (!cats || !Array.isArray(cats)) return [];
-                return cats.filter(c => c.without_detect_tooth === true);
+                return cats.filter(c => c.without_detect_tooth === true && isCategoryActive(c));
             }
         },
         methods: {

@@ -57,7 +57,8 @@
         <template v-slot:activator="{ props }">
           <v-btn icon v-bind="props" :aria-label="userName">
             <v-avatar color="white" size="36">
-              <span class="primary--text font-weight-bold">
+              <img v-if="userPhoto" :src="userPhoto" :alt="userName" class="user-photo" @error="onPhotoError">
+              <span v-else class="primary--text font-weight-bold">
                 {{ userInitials }}
               </span>
             </v-avatar>
@@ -74,6 +75,22 @@
             </v-list-item-subtitle>
           </v-list-item>
           <v-divider></v-divider>
+          <v-list-item
+            prepend-icon="mdi-camera-outline"
+            :title="t('layout.changeProfilePhoto')"
+            :subtitle="t('layout.profilePhotoHint')"
+            lines="two"
+            :disabled="photoBusy"
+            @click="photoInput?.click()"
+          />
+          <v-list-item
+            v-if="authStore.user?.profile_photo_url"
+            prepend-icon="mdi-image-remove-outline"
+            :title="t('layout.removeProfilePhoto')"
+            :disabled="photoBusy"
+            @click="removePhoto"
+          />
+          <v-divider></v-divider>
           <v-list-item v-if="isMobile">
             <LanguageSwitcher />
           </v-list-item>
@@ -83,7 +100,13 @@
           </v-list-item>
         </v-list>
       </v-menu>
+      <!-- Outside the menu so the picker still opens after the menu closes -->
+      <input ref="photoInput" type="file" accept="image/jpeg,image/png,image/webp" hidden @change="onPhotoSelected">
     </v-app-bar>
+
+    <v-snackbar v-model="photoSnackbar.show" :color="photoSnackbar.color" :timeout="3500" location="top">
+      {{ photoSnackbar.text }}
+    </v-snackbar>
 
     <!-- Navigation Drawer -->
     <!-- No click-to-expand on the drawer itself: on a tablet the rail is the
@@ -313,6 +336,46 @@ const userInitials = computed(() => {
   return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
 })
 
+// Profile photo (patients see it next to the doctor's name in their portal)
+const photoInput = ref(null)
+const photoBusy = ref(false)
+const photoFailed = ref(false)
+const photoSnackbar = ref({ show: false, text: '', color: 'success' })
+const userPhoto = computed(() => photoFailed.value ? '' : (authStore.user?.profile_photo_url || ''))
+watch(() => authStore.user?.profile_photo_url, () => { photoFailed.value = false })
+
+// The photo URL is signed for a few minutes, so one restored from storage can
+// be stale: show initials and fetch a fresh link once.
+let photoRetried = false
+const onPhotoError = () => {
+  photoFailed.value = true
+  if (!photoRetried) {
+    photoRetried = true
+    authStore.loadUser()
+  }
+}
+
+const notifyPhoto = (ok, message) => {
+  photoSnackbar.value = { show: true, text: message, color: ok ? 'success' : 'error' }
+}
+
+const onPhotoSelected = async (event) => {
+  const file = event.target.files?.[0]
+  event.target.value = ''
+  if (!file) return
+  photoBusy.value = true
+  const result = await authStore.updateProfilePhoto(file)
+  photoBusy.value = false
+  notifyPhoto(result.success, result.success ? t('layout.profilePhotoUpdated') : t('layout.profilePhotoFailed'))
+}
+
+const removePhoto = async () => {
+  photoBusy.value = true
+  const result = await authStore.removeProfilePhoto()
+  photoBusy.value = false
+  notifyPhoto(result.success, result.success ? t('layout.profilePhotoRemoved') : (result.message || t('layout.profilePhotoFailed')))
+}
+
 // Get role display name based on current language
 const userRoleDisplay = computed(() => {
   const role = userRole.value
@@ -401,6 +464,12 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+.user-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .mobile-page-title {
   min-width: 0;
   margin-inline-start: 4px;
