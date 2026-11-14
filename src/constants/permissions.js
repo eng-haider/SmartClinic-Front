@@ -78,6 +78,10 @@ export const PERMISSIONS = {
   EDIT_IMAGE: 'edit-image',
   DELETE_IMAGE: 'delete-image',
 
+  // Orthodontics module (only when the clinic enables it)
+  VIEW_ORTHODONTICS: 'view-orthodontics',
+  MANAGE_ORTHODONTICS: 'manage-orthodontics',
+
   // Recipes
   VIEW_ALL_RECIPES: 'view-all-recipes',
   VIEW_OWN_RECIPES: 'view-own-recipes',

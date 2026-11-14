@@ -44,7 +44,21 @@
         </div>
       </div>
 
-      <v-row>
+      <!-- Orthodontics module: only for orthodontic-category cases of clinics
+           that enabled it (the API enforces the same rule). -->
+      <v-tabs v-if="showOrthodontics" v-model="section" color="primary" class="mb-4" density="comfortable">
+        <v-tab value="details" prepend-icon="mdi-information-outline">{{ $t('cases.case_info') }}</v-tab>
+        <v-tab value="orthodontics" prepend-icon="mdi-tooth-outline">تحليل التقويم</v-tab>
+      </v-tabs>
+
+      <OrthodonticsWorkspace
+        v-if="showOrthodontics && section === 'orthodontics'"
+        :case-id="caseData.id"
+        :initial-tab="String(route.query.ortho_tab || 'overview')"
+        @dirty="v => (orthoDirty = v)"
+      />
+
+      <v-row v-show="section === 'details' || !showOrthodontics">
         <!-- Main Info Card -->
         <v-col cols="12" md="8">
           <v-card elevation="2" rounded="xl" class="mb-6">
@@ -290,8 +304,10 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { ref, computed, onMounted, defineAsyncComponent, watch } from 'vue'
+import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
+import { useClinicSettings } from '@/composables/useClinicSettings'
+import { useOrthodontics, isOrthodonticCategory } from '@/modules/orthodontics/composables/useOrthodontics'
 import { useI18n } from 'vue-i18n'
 import api from '@/services/api'
 import { usePermissions } from '@/composables/usePermissions'
@@ -310,6 +326,24 @@ const { hasPermissionFor, hasPermission } = usePermissions()
 // Permission computed refs for template
 const canViewBills = computed(() => hasPermissionFor('bill'))
 const canViewPatient = computed(() => hasPermissionFor('patient'))
+
+// Orthodontics workspace (lazy: its code, and the imaging libraries, only
+// load when the tab is opened).
+const OrthodonticsWorkspace = defineAsyncComponent(() => import('@/modules/orthodontics/components/OrthodonticsWorkspace.vue'))
+const { loadSettings } = useClinicSettings()
+const { moduleEnabled: orthodonticsEnabled, canView: canViewOrthodontics } = useOrthodontics()
+const section = ref(route.query.tab === 'orthodontics' ? 'orthodontics' : 'details')
+const orthoDirty = ref(false)
+const showOrthodontics = computed(() =>
+  orthodonticsEnabled.value && canViewOrthodontics.value && isOrthodonticCategory(caseData.value?.category)
+)
+watch(section, v => {
+  router.replace({ query: { ...route.query, tab: v === 'orthodontics' ? 'orthodontics' : undefined } })
+})
+onBeforeRouteLeave(() => {
+  if (orthoDirty.value && !window.confirm('هناك تعديلات غير محفوظة في تحليل التقويم. هل تريد المغادرة؟')) return false
+  return true
+})
 
 // State
 const loading = ref(true)
@@ -422,6 +456,7 @@ function formatDateTime(dateString) {
 
 // Lifecycle
 onMounted(() => {
+  loadSettings()
   loadCase()
 })
 </script>

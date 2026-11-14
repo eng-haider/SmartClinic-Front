@@ -104,6 +104,13 @@ export const normalizePatientAgeInput = (value) =>
 export const DEPARTMENTS_ENABLED_KEY = 'enable_departments'
 
 /**
+ * Orthodontics module (cephalometric, 3D model, CBCT and facial analysis).
+ * Off by default; when on it only appears in cases whose category is flagged
+ * is_orthodontic.
+ */
+export const ORTHODONTICS_ENABLED_KEY = 'enable_orthodontics'
+
+/**
  * When on, picking a case category on the patient's dental chart opens the
  * add-case dialog (prefilled with the category, tooth and price) instead of
  * creating the case straight away. Off by default.
@@ -417,6 +424,7 @@ export function useClinicSettings() {
     normalizeDashboardQuickActions(getSettingByKey(DASHBOARD_QUICK_ACTIONS_KEY))
   )
   const departmentsEnabled = computed(() => getSettingByKey(DEPARTMENTS_ENABLED_KEY) === true)
+  const orthodonticsEnabled = computed(() => getSettingByKey(ORTHODONTICS_ENABLED_KEY) === true)
   const caseDialogOnCategory = computed(() => getSettingByKey(CASE_DIALOG_ON_CATEGORY_KEY) === true)
   const waitingListStyle = computed(() => normalizeWaitingListStyle(getSettingByKey(WAITING_LIST_STYLE_KEY)))
 
@@ -532,6 +540,7 @@ export function useClinicSettings() {
     patientAgeInput,
     dashboardQuickActions,
     departmentsEnabled,
+    orthodonticsEnabled,
     caseDialogOnCategory,
     waitingListStyle,
 

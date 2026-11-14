@@ -1611,6 +1611,8 @@
     "hideDashboardNumbersHint": "The dashboard opens with counts and amounts hidden, with a button to show or hide them",
     "enableDepartments": "Clinic departments",
     "enableDepartmentsHint": "Put case categories in departments (e.g. Orthodontics, Cosmetic) and filter cases and bills by department. Departments are managed on the case categories page",
+    "enableOrthodontics": "Orthodontics module",
+    "enableOrthodonticsHint": "Enable orthodontic analysis tools (cephalometric X-rays, 3D models, CBCT, facial analysis) inside orthodontics cases.",
     "dashboardQuickActions": "Dashboard quick actions",
     "dashboardQuickActionsHint": "Choose which actions appear at the top of the dashboard",
     "patientAgeInput": "Patient age entry",

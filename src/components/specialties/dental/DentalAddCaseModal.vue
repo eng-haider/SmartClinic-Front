@@ -60,6 +60,27 @@
 
           <DentalCaseForm v-model="form" :show-tooth-field="showToothField" :tooth-field-required="showToothField" />
 
+          <!-- Orthodontics module section (clinic setting + orthodontic category) -->
+          <v-alert
+            v-if="showOrthoSection"
+            type="info"
+            variant="tonal"
+            density="compact"
+            icon="mdi-tooth-outline"
+            class="mb-3"
+          >
+            <div class="font-weight-bold">وحدة تقويم الأسنان</div>
+            <div class="text-caption">
+              {{ editingCase ? 'تحليل الأشعة والموديلات و CBCT والوجه والخطة العلاجية متاحة من صفحة الحالة.' : 'بعد حفظ الحالة تتوفر أدوات تحليل التقويم من صفحة الحالة.' }}
+            </div>
+            <template v-if="editingCase" #append>
+              <v-btn size="small" variant="text" color="primary" :to="{ path: `/cases/${editingCase.id}`, query: { tab: 'orthodontics' } }">فتح</v-btn>
+            </template>
+          </v-alert>
+          <v-alert v-else-if="leavingOrthoWithRecords" type="warning" variant="tonal" density="compact" class="mb-3">
+            لهذه الحالة سجلات تقويم محفوظة. تغيير الفئة يخفي وحدة التقويم ولا يحذف السجلات، وتعود للظهور عند إرجاع الفئة.
+          </v-alert>
+
           <v-row dense class="mb-1">
             <v-col cols="12" sm="6">
               <!-- Native input so the thousands separators don't move the cursor -->
@@ -181,6 +202,21 @@
     </v-card>
   </v-dialog>
 
+  <!-- Confirm moving a case with orthodontic records out of an orthodontic category -->
+  <v-dialog v-model="orthoConfirm" max-width="440">
+    <v-card rounded="xl">
+      <v-card-title>تغيير فئة حالة تقويم</v-card-title>
+      <v-card-text>
+        لهذه الحالة تحليلات أو ملفات تقويم محفوظة. ستُخفى وحدة التقويم لهذه الحالة بعد تغيير الفئة، لكن لن يُحذف أي سجل، وستعود عند إرجاع الحالة إلى فئة تقويم. هل تريد المتابعة؟
+      </v-card-text>
+      <v-card-actions>
+        <v-spacer />
+        <v-btn variant="text" @click="orthoConfirm = false">إلغاء</v-btn>
+        <v-btn color="primary" @click="orthoConfirm = false; saveCase(true)">متابعة</v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
+
   <!-- Quick "add category" dialog, so a category can be created without leaving the patient page -->
   <v-dialog v-model="newCategoryDialog" max-width="420" persistent>
     <v-card>
@@ -223,6 +259,8 @@ import WarehouseItemsPicker from '@/components/WarehouseItemsPicker.vue'
 import { parseToothNumbers, serializeToothNumbers } from '@/components/teeth/toothNotation'
 import { toDateInputValue } from '@/utils/dateInput'
 import { selectableCategories } from '@/utils/caseCategories'
+import { useOrthodontics, isOrthodonticCategory } from '@/modules/orthodontics/composables/useOrthodontics'
+import { orthoApi } from '@/modules/orthodontics/api'
 
 const { t, locale } = useI18n()
 const { smAndDown } = useDisplay()
@@ -258,6 +296,14 @@ const isOpen = computed({
 
 const formRef = ref(null)
 const notesRef = ref(null)
+
+// Orthodontics module: shown for orthodontic categories when the clinic
+// enabled it. Moving a case with saved orthodontic records to another
+// category asks first (the records are kept, only hidden).
+const { moduleEnabled: orthoEnabled, canView: canViewOrtho } = useOrthodontics()
+const orthoConfirm = ref(false)
+const caseHasOrthoRecords = ref(false)
+const originalCategory = computed(() => props.categories.find(c => c.id === (props.editingCase?.case_categores_id || props.editingCase?.category?.id)) || props.editingCase?.category)
 const isValid = ref(false)
 const loading = ref(false)
 const saveError = ref('')
@@ -364,6 +410,29 @@ const showToothField = computed(() => {
   const isOrtho = !!selectedCategory.value.is_orthodontic
   return requiresTooth && !isBeauty && !isOrtho
 })
+
+const showOrthoSection = computed(() => orthoEnabled.value && canViewOrtho.value && isOrthodonticCategory(selectedCategory.value))
+const leavingOrthoWithRecords = computed(() =>
+  !!props.editingCase && caseHasOrthoRecords.value && isOrthodonticCategory(originalCategory.value) &&
+  !!selectedCategory.value && !isOrthodonticCategory(selectedCategory.value)
+)
+
+// Does the edited case hold orthodontic records? (Only asked when it is an
+// orthodontic case in a clinic with the module on.)
+watch(() => [props.modelValue, props.editingCase?.id], async ([open]) => {
+  caseHasOrthoRecords.value = false
+  if (!open || !props.editingCase || !orthoEnabled.value || !isOrthodonticCategory(originalCategory.value)) return
+  try {
+    const res = await orthoApi.overview(props.editingCase.id)
+    const d = res.data || {}
+    const analyses = Object.values(d.analyses || {}).reduce((n, a) => n + (a.total || 0), 0)
+    const files = Object.values(d.files || {}).reduce((n, c) => n + Number(c || 0), 0)
+    caseHasOrthoRecords.value = analyses + files + (d.cbct_studies || 0) > 0 || !!d.treatment_plan
+  } catch (_) {
+    // Could not check: be safe and ask before hiding anything.
+    caseHasOrthoRecords.value = true
+  }
+}, { immediate: true })
 
 const teethLabel = computed(() => {
   const teeth = parseToothNumbers(form.value.tooth_num)
@@ -483,10 +552,14 @@ const onPriceBlur = (event) => {
   event.target.value = formatNumberWithCommas(form.value.price)
 }
 
-const saveCase = async () => {
+const saveCase = async (orthoConfirmed = false) => {
   if (loading.value) return
   const result = await formRef.value?.validate()
   if (result && result.valid === false) return
+  if (leavingOrthoWithRecords.value && orthoConfirmed !== true) {
+    orthoConfirm.value = true
+    return
+  }
 
   try {
     loading.value = true

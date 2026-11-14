@@ -1602,6 +1602,8 @@
     "hideDashboardNumbersHint": "Pulpit otwiera się z ukrytymi liczbami i kwotami, z przyciskiem do ich pokazania lub ukrycia",
     "enableDepartments": "Działy kliniki",
     "enableDepartmentsHint": "Przypisuj kategorie przypadków do działów (np. Ortodoncja, Estetyka) i filtruj przypadki oraz rachunki według działu. Działami zarządza się na stronie kategorii przypadków",
+    "enableOrthodontics": "Moduł ortodontyczny",
+    "enableOrthodonticsHint": "Włącz narzędzia analizy ortodontycznej (cefalometria, modele 3D, CBCT, analiza twarzy) w przypadkach ortodontycznych.",
     "dashboardQuickActions": "Szybkie akcje na pulpicie",
     "dashboardQuickActionsHint": "Wybierz, które akcje pojawiają się u góry pulpitu",
     "patientAgeInput": "Wprowadzanie wieku pacjenta",

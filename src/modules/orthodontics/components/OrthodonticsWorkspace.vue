@@ -1,0 +1,171 @@
+<template>
+  <v-card class="ortho-workspace" rounded="xl" elevation="2">
+    <div class="ow-header">
+      <v-icon size="28" color="white">mdi-tooth-outline</v-icon>
+      <div class="flex-grow-1">
+        <div class="text-h6 text-white font-weight-bold">تحليل التقويم</div>
+        <div v-if="overview" class="text-caption ow-sub">{{ overview.case.patient?.name }} · {{ overview.case.category?.name }}</div>
+      </div>
+      <v-chip v-if="overview && !canManage" color="white" variant="outlined" size="small">عرض فقط</v-chip>
+    </div>
+
+    <div v-if="loading" class="pa-10 d-flex justify-center"><v-progress-circular indeterminate color="primary" /></div>
+    <v-alert v-else-if="blocked" :type="blocked.type" variant="tonal" class="ma-4">{{ blocked.message }}</v-alert>
+
+    <template v-else-if="overview">
+      <v-tabs v-model="tab" color="primary" show-arrows density="comfortable" class="ow-tabs">
+        <v-tab v-for="t in TABS" :key="t.value" :value="t.value" :prepend-icon="t.icon">{{ t.title }}</v-tab>
+      </v-tabs>
+      <v-divider />
+      <div class="pa-4">
+        <!-- Only the active tab is mounted, so each imaging library loads on demand. -->
+        <component
+          :is="components[tab]"
+          :key="tab + refreshKey"
+          :case-id="caseId"
+          :can-manage="canManage"
+          :overview="overview"
+          :detection-available="!!overview.capabilities?.landmark_detection"
+          :driver="overview.capabilities?.cbct_driver"
+          @dirty="v => (dirty = v)"
+          @changed="reloadOverview"
+          @go="goTab"
+        />
+      </div>
+    </template>
+
+    <v-dialog v-model="leaveDialog" max-width="420">
+      <v-card rounded="xl">
+        <v-card-title>تغييرات غير محفوظة</v-card-title>
+        <v-card-text>في هذا القسم تعديلات لم تُحفظ. الانتقال سيتجاهلها (لن يُحذف أي شيء محفوظ).</v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="leaveDialog = false">البقاء</v-btn>
+          <v-btn color="error" @click="confirmLeave">تجاهل والانتقال</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+  </v-card>
+</template>
+
+<script setup>
+import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { orthoApi, orthoError } from '../api.js'
+import { releaseObjectUrls } from '../utils/blob.js'
+import { useOrthodontics } from '../composables/useOrthodontics.js'
+
+const props = defineProps({
+  caseId: { type: [Number, String], required: true },
+  initialTab: { type: String, default: 'overview' }
+})
+const emit = defineEmits(['dirty'])
+
+const TABS = [
+  { value: 'overview', title: 'نظرة عامة', icon: 'mdi-view-dashboard-outline' },
+  { value: 'ceph', title: 'تحليل Ceph', icon: 'mdi-radiology-box-outline' },
+  { value: 'cast', title: 'تحليل الموديلات 3D', icon: 'mdi-cube-scan' },
+  { value: 'cbct', title: 'تحليل CBCT', icon: 'mdi-scan-helper' },
+  { value: 'face', title: 'تحليل الوجه', icon: 'mdi-face-recognition' },
+  { value: 'plan', title: 'الخطة العلاجية', icon: 'mdi-clipboard-text-outline' },
+  { value: 'reports', title: 'التقارير', icon: 'mdi-file-chart-outline' }
+]
+
+const components = {
+  overview: defineAsyncComponent(() => import('./OrthoOverviewTab.vue')),
+  ceph: defineAsyncComponent(() => import('./ceph/CephAnalysisViewer.vue')),
+  cast: defineAsyncComponent(() => import('./cast/DentalCastViewer.vue')),
+  cbct: defineAsyncComponent(() => import('./cbct/CbctStudies.vue')),
+  face: defineAsyncComponent(() => import('./face/FacialAnalysisViewer.vue')),
+  plan: defineAsyncComponent(() => import('./OrthodonticTreatmentPlan.vue')),
+  reports: defineAsyncComponent(() => import('./OrthodonticReports.vue'))
+}
+
+const { canManage: hasManagePermission } = useOrthodontics()
+const overview = ref(null)
+const loading = ref(true)
+const blocked = ref(null)
+const tab = ref(TABS.some(t => t.value === props.initialTab) ? props.initialTab : 'overview')
+const dirty = ref(false)
+const leaveDialog = ref(false)
+const pendingTab = ref(null)
+const refreshKey = ref(0)
+let lastTab = tab.value
+
+// The server decides (permission + case); the stored permission list only
+// hides buttons early.
+const canManage = computed(() => !!overview.value?.can_manage && hasManagePermission.value !== false)
+
+watch(dirty, v => emit('dirty', v))
+
+// Ask before leaving a tab with unsaved work.
+watch(tab, (next, prev) => {
+  if (next === lastTab) return
+  if (dirty.value) {
+    pendingTab.value = next
+    tab.value = prev
+    leaveDialog.value = true
+    return
+  }
+  lastTab = next
+})
+
+function confirmLeave () {
+  leaveDialog.value = false
+  dirty.value = false
+  lastTab = pendingTab.value
+  tab.value = pendingTab.value
+}
+
+function goTab (t) { tab.value = t }
+
+async function reloadOverview () {
+  try {
+    overview.value = (await orthoApi.overview(props.caseId)).data
+  } catch (_) { /* keep the last summary */ }
+}
+
+async function load () {
+  loading.value = true
+  blocked.value = null
+  try {
+    overview.value = (await orthoApi.overview(props.caseId)).data
+  } catch (e) {
+    const code = e?.response?.data?.code
+    blocked.value = {
+      type: code === 'orthodontics_not_eligible' || code === 'orthodontics_disabled' ? 'info' : 'error',
+      message: code === 'orthodontics_not_eligible'
+        ? 'وحدة التقويم متاحة فقط لحالات فئة التقويم. السجلات المحفوظة سابقاً لهذه الحالة لم تُحذف وتعود للظهور عند إرجاع الحالة إلى فئة تقويم.'
+        : orthoError(e)
+    }
+  } finally {
+    loading.value = false
+  }
+}
+
+function beforeUnload (e) {
+  if (dirty.value) { e.preventDefault(); e.returnValue = '' }
+}
+
+onMounted(() => {
+  load()
+  window.addEventListener('beforeunload', beforeUnload)
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('beforeunload', beforeUnload)
+  releaseObjectUrls(props.caseId)
+})
+
+defineExpose({ isDirty: () => dirty.value })
+</script>
+
+<style scoped>
+.ow-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  background: linear-gradient(135deg, rgb(var(--v-theme-primary)), #1e88a8);
+}
+.ow-sub { color: rgba(255, 255, 255, 0.85); }
+.ow-tabs :deep(.v-tab) { text-transform: none; letter-spacing: 0; }
+</style>

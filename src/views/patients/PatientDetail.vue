@@ -701,6 +701,18 @@
               <tr class="case-notes-panel-row">
                 <td :colspan="columns.length" class="pa-0">
                   <div class="case-notes-panel">
+                    <!-- Orthodontics module shortcut (clinic setting + orthodontic category) -->
+                    <div v-if="showOrthoWorkspaceFor(item)" class="d-flex justify-end mb-2">
+                      <v-btn
+                        size="small"
+                        color="indigo"
+                        variant="tonal"
+                        prepend-icon="mdi-tooth-outline"
+                        :to="{ path: `/cases/${item.id}`, query: { tab: 'orthodontics' } }"
+                      >
+                        تحليل التقويم
+                      </v-btn>
+                    </div>
                     <!-- Roomy notes textarea -->
                     <div class="case-notes-section">
                       <div class="d-flex align-center justify-space-between">
@@ -1422,6 +1434,7 @@
 </template>
 
 <script setup>
+import { useOrthodontics } from '@/modules/orthodontics/composables/useOrthodontics'
 import { ref, reactive, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -2001,6 +2014,11 @@ const openLightbox = (images, index) => {
   lightboxIndex.value = index
   lightboxOpen.value = true
 }
+
+// Orthodontics workspace link: module enabled for the clinic, case in an
+// orthodontic category, and the user may view it (the API checks again).
+const { moduleEnabled: orthoModuleEnabled, canView: canViewOrthoModule } = useOrthodontics()
+const showOrthoWorkspaceFor = (item) => orthoModuleEnabled.value && canViewOrthoModule.value && isOrthoCase(item)
 
 // Ortho quick-fields only apply to categories flagged is_orthodontic
 // (a regular 'dental' category, e.g. تقويم — not a separate category_type).

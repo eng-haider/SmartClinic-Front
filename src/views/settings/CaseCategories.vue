@@ -21,6 +21,32 @@
       </v-col>
     </v-row>
 
+    <!-- Orthodontics module: suggest flagging categories named like orthodontics.
+         Only a suggestion - the module always follows the is_orthodontic flag. -->
+    <v-alert
+      v-if="orthodonticsEnabled && orthoSuggestions.length"
+      type="info"
+      variant="tonal"
+      density="compact"
+      class="mb-4"
+      icon="mdi-tooth-outline"
+    >
+      <div class="font-weight-bold">وحدة تقويم الأسنان مفعّلة ولا توجد فئة معلَّمة كفئة تقويم</div>
+      <div class="text-caption mb-2">تظهر أدوات التقويم فقط في حالات الفئات المعلَّمة «فئة تقويم». هذه فئات قد تكون للتقويم:</div>
+      <v-chip
+        v-for="c in orthoSuggestions"
+        :key="c.id"
+        class="me-2 mb-1"
+        color="indigo"
+        variant="outlined"
+        size="small"
+        :disabled="!canFlagOrtho"
+        @click="flagAsOrthodontic(c)"
+      >
+        <v-icon start size="16">mdi-check</v-icon>{{ c.name }} ← تعليم كفئة تقويم
+      </v-chip>
+    </v-alert>
+
     <!-- Departments (only when the clinic turned departments on in Settings) -->
     <v-card v-if="departmentsEnabled" class="mb-4" variant="outlined">
       <v-card-text>
@@ -558,7 +584,7 @@ import { useClinicSettings } from '@/composables/useClinicSettings'
 const { t } = useI18n()
 const { xs } = useDisplay()
 const authStore = useAuthStore()
-const { departmentsEnabled, loadSettings } = useClinicSettings()
+const { departmentsEnabled, orthodonticsEnabled, loadSettings } = useClinicSettings()
 
 // Category types available for this clinic's specialty, and the default type
 // used for newly created categories (e.g. 'general' for non-dental clinics).
@@ -731,6 +757,27 @@ const closeDialog = () => {
     is_orthodontic: false,
     is_active: true,
     department_id: null
+  }
+}
+
+// Name-based suggestions only (e.g. "تقويم", "Orthodontics"); nothing is
+// flagged without the clinic choosing it.
+const ORTHO_NAME = /تقويم|orthodon|ortho\b/i
+const orthoSuggestions = computed(() => {
+  const list = categories.value || []
+  if (list.some(c => c.is_orthodontic)) return []
+  return list.filter(c => c.is_active !== false && [c.name, c.name_ar, c.name_en].some(n => n && ORTHO_NAME.test(n)))
+})
+const canFlagOrtho = computed(() => authStore.hasPermission(PERMISSIONS.EDIT_CASE) || authStore.hasPermission(PERMISSIONS.CREATE_CASE))
+const flagAsOrthodontic = async (category) => {
+  try {
+    const response = await updateCaseCategory(category.id, { ...category, is_orthodontic: true })
+    if (response.success) {
+      showSnackbar(t('messages.categoryUpdated'), 'success')
+      loadCategories()
+    }
+  } catch (error) {
+    showSnackbar(error.response?.data?.message || t('errors.saveFailed'), 'error')
   }
 }
 

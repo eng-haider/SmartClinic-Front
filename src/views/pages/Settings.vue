@@ -473,6 +473,18 @@
                           ></v-switch>
                         </v-col>
                         <v-col cols="12">
+                          <!-- Orthodontics module: per clinic, off by default. Turning it
+                               off only hides it - saved orthodontic records are kept. -->
+                          <v-switch
+                            v-model="clinicForm.enable_orthodontics"
+                            :label="$t('clinicSettings.enableOrthodontics')"
+                            :hint="$t('clinicSettings.enableOrthodonticsHint')"
+                            persistent-hint
+                            color="primary"
+                            :disabled="!canEdit"
+                          ></v-switch>
+                        </v-col>
+                        <v-col cols="12">
                           <v-select
                             v-model="clinicForm.dashboard_quick_actions"
                             :label="$t('clinicSettings.dashboardQuickActions')"
@@ -1155,6 +1167,8 @@ const clinicForm = ref({
   hide_dashboard_numbers: false,
   // Case categories grouped in departments, with a department filter on cases and bills
   enable_departments: false,
+  // Orthodontics module inside orthodontic-category cases
+  enable_orthodontics: false,
   // Keys of the quick actions shown on the dashboard (all of them by default)
   dashboard_quick_actions: normalizeDashboardQuickActions(null),
   // Patient form asks for a birth date or an age - 'birth_date' | 'age'
@@ -1384,6 +1398,7 @@ const loadClinicSettings = async () => {
         time_format: settings.time_format || '12h',
         hide_dashboard_numbers: Boolean(settings.hide_dashboard_numbers),
         enable_departments: settings.enable_departments === true,
+        enable_orthodontics: settings.enable_orthodontics === true,
         dashboard_quick_actions: normalizeDashboardQuickActions(settings.dashboard_quick_actions),
         patient_age_input: normalizePatientAgeInput(settings.patient_age_input),
         waiting_list_style: normalizeWaitingListStyle(settings.waiting_list_style),
@@ -1594,6 +1609,7 @@ const saveAllSettings = async () => {
       { key: 'time_format', value: clinicForm.value.time_format, type: 'string' },
       { key: 'hide_dashboard_numbers', value: clinicForm.value.hide_dashboard_numbers, type: 'boolean' },
       { key: 'enable_departments', value: clinicForm.value.enable_departments, type: 'boolean' },
+      { key: 'enable_orthodontics', value: clinicForm.value.enable_orthodontics, type: 'boolean' },
       { key: 'dashboard_quick_actions', value: normalizeDashboardQuickActions(clinicForm.value.dashboard_quick_actions), type: 'json' },
       { key: 'patient_age_input', value: clinicForm.value.patient_age_input, type: 'string' },
       { key: 'waiting_list_style', value: clinicForm.value.waiting_list_style, type: 'string' },
