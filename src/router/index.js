@@ -46,6 +46,15 @@ const routes = [
       title: 'Smart Clinic Privacy Policy | سياسة الخصوصية'
     }
   },
+  {
+    path: '/delete-account',
+    name: 'DeleteAccount',
+    component: () => import('@/views/public/DeleteAccountPage.vue'),
+    meta: {
+      public: true,
+      title: 'Delete Smart Clinic Account | حذف الحساب'
+    }
+  },
 
   // Public Patient Profile (No Auth Required)
   {
@@ -396,7 +405,17 @@ const routes = [
           roles: ['super_admin', 'clinic_super_doctor']
         }
       },
-      // AI Assistant route removed – replaced by floating AiChatWidget in DashboardLayout
+      // The AI chatbot as a full page (the same chat as the floating widget)
+      {
+        path: 'ai-chatbot',
+        name: 'AiChatbot',
+        component: () => import('@/views/ai/AiChatbotPage.vue'),
+        meta: {
+          title: 'AI Assistant',
+          requiresAuth: true,
+          alwaysAllow: true
+        }
+      },
       // Access Denied page
       {
         path: 'access-denied',
@@ -447,7 +466,7 @@ router.afterEach(() => {
  * @param {Object} meta - Route meta
  * @returns {boolean}
  */
-function checkRoutePermission(meta) {
+export function checkRoutePermission(meta) {
   // Always allow routes marked as such
   if (meta.alwaysAllow) return true
 

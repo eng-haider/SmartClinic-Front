@@ -21,6 +21,56 @@
       </v-col>
     </v-row>
 
+    <!-- Departments (only when the clinic turned departments on in Settings) -->
+    <v-card v-if="departmentsEnabled" class="mb-4" variant="outlined">
+      <v-card-text>
+        <div class="d-flex flex-wrap align-center justify-space-between ga-2 mb-3">
+          <div>
+            <h3 class="text-subtitle-1 font-weight-bold">{{ $t('departments.title') }}</h3>
+            <p class="text-caption text-medium-emphasis">{{ $t('departments.subtitle') }}</p>
+          </div>
+          <v-btn
+            v-permission="PERMISSIONS.CREATE_CASE"
+            color="primary"
+            variant="tonal"
+            size="small"
+            prepend-icon="mdi-plus"
+            @click="openDepartmentDialog()"
+          >
+            {{ $t('departments.add') }}
+          </v-btn>
+        </div>
+        <div v-if="departments.length" class="d-flex flex-wrap ga-2">
+          <v-chip
+            v-for="department in departments"
+            :key="department.id"
+            color="primary"
+            variant="tonal"
+            prepend-icon="mdi-domain"
+          >
+            {{ department.name }}
+            <span class="text-caption ms-1">({{ department.case_categories_count ?? 0 }})</span>
+            <template v-slot:append>
+              <v-icon
+                v-permission="PERMISSIONS.EDIT_CASE"
+                size="16"
+                class="ms-2"
+                @click="openDepartmentDialog(department)"
+              >mdi-pencil</v-icon>
+              <v-icon
+                v-permission="PERMISSIONS.DELETE_CASE"
+                size="16"
+                class="ms-1"
+                color="error"
+                @click="confirmDeleteDepartment(department)"
+              >mdi-close-circle</v-icon>
+            </template>
+          </v-chip>
+        </div>
+        <p v-else class="text-body-2 text-medium-emphasis">{{ $t('departments.empty') }}</p>
+      </v-card-text>
+    </v-card>
+
     <!-- Search and Filters -->
     <v-row class="mb-4 categories-filters">
       <v-col cols="12" md="6">
@@ -83,6 +133,9 @@
                 <v-chip v-if="category.is_active === false" size="small" color="grey" variant="tonal">
                   {{ $t('caseCategories.inactive') }}
                 </v-chip>
+                <v-chip v-if="departmentsEnabled && category.department_id" size="small" color="primary" variant="tonal">
+                  {{ departmentName(category.department_id) }}
+                </v-chip>
                 <span>{{ $t('caseCategories.displayOrder') }}: {{ category.order }}</span>
               </div>
               <div class="category-card__detail">
@@ -136,6 +189,14 @@
               <v-icon start size="14">mdi-tooth-outline</v-icon>
               {{ $t('caseCategories.isOrthodontic') || 'Orthodontics' }}
             </v-chip>
+          </template>
+
+          <!-- Department Column -->
+          <template v-slot:item.department_id="{ item }">
+            <v-chip v-if="item.department_id" color="primary" size="small" variant="tonal">
+              {{ departmentName(item.department_id) }}
+            </v-chip>
+            <span v-else class="text-medium-emphasis">—</span>
           </template>
 
           <!-- Item Cost Column -->
@@ -271,6 +332,21 @@
               class="mb-3"
             ></v-select>
 
+            <v-select
+              v-if="departmentsEnabled"
+              v-model="formData.department_id"
+              :label="$t('departments.department')"
+              :items="departments"
+              item-title="name"
+              item-value="id"
+              :hint="$t('departments.categoryHint')"
+              persistent-hint
+              clearable
+              variant="outlined"
+              prepend-inner-icon="mdi-domain"
+              class="mb-3"
+            ></v-select>
+
             <!-- Inactive categories are hidden when picking a category for a new
                  case; cases that already use them keep them. -->
             <v-switch
@@ -378,6 +454,67 @@
       </v-card>
     </v-dialog>
 
+    <!-- Department Create/Edit Dialog -->
+    <v-dialog v-model="departmentDialog" max-width="420px">
+      <v-card>
+        <v-card-title class="text-h6">
+          {{ departmentForm.id ? $t('departments.edit') : $t('departments.add') }}
+        </v-card-title>
+        <v-card-text>
+          <v-text-field
+            v-model="departmentForm.name"
+            :label="$t('departments.name')"
+            :placeholder="$t('departments.namePlaceholder')"
+            variant="outlined"
+            prepend-inner-icon="mdi-domain"
+            autofocus
+            @keyup.enter="saveDepartment"
+          ></v-text-field>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn variant="text" @click="departmentDialog = false">
+            {{ $t('common.cancel') }}
+          </v-btn>
+          <v-btn
+            color="primary"
+            variant="elevated"
+            :loading="savingDepartment"
+            :disabled="!departmentForm.name?.trim()"
+            @click="saveDepartment"
+          >
+            {{ $t('common.save') }}
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Department Delete Confirmation Dialog -->
+    <v-dialog v-model="departmentDeleteDialog" max-width="400px">
+      <v-card>
+        <v-card-title class="text-h5">
+          {{ $t('common.confirmDelete') }}
+        </v-card-title>
+        <v-card-text>
+          {{ $t('departments.deleteConfirmation', { name: departmentToDelete?.name }) }}
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn variant="text" @click="departmentDeleteDialog = false">
+            {{ $t('common.cancel') }}
+          </v-btn>
+          <v-btn
+            color="error"
+            variant="elevated"
+            :loading="deletingDepartment"
+            @click="deleteDepartmentConfirmed"
+          >
+            {{ $t('common.delete') }}
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <!-- Snackbar for notifications -->
     <v-snackbar
       v-model="snackbar"
@@ -410,10 +547,18 @@ import {
   updateCaseCategory,
   deleteCaseCategory
 } from '@/services/caseCategory.service'
+import {
+  getDepartments,
+  createDepartment,
+  updateDepartment,
+  deleteDepartment
+} from '@/services/department.service'
+import { useClinicSettings } from '@/composables/useClinicSettings'
 
 const { t } = useI18n()
 const { xs } = useDisplay()
 const authStore = useAuthStore()
+const { departmentsEnabled, loadSettings } = useClinicSettings()
 
 // Category types available for this clinic's specialty, and the default type
 // used for newly created categories (e.g. 'general' for non-dental clinics).
@@ -449,6 +594,15 @@ const formValid = ref(false)
 const isEditing = ref(false)
 const categoryToDelete = ref(null)
 
+// Departments (e.g. Orthodontics, Cosmetic) that categories can belong to
+const departments = ref([])
+const departmentDialog = ref(false)
+const departmentForm = ref({ id: null, name: '' })
+const savingDepartment = ref(false)
+const departmentDeleteDialog = ref(false)
+const departmentToDelete = ref(null)
+const deletingDepartment = ref(false)
+
 // Form data
 const formData = ref({
   name: '',
@@ -458,7 +612,8 @@ const formData = ref({
   category_type: getDefaultCategoryType(authStore.specialty),
   without_detect_tooth: false,
   is_orthodontic: false,
-  is_active: true
+  is_active: true,
+  department_id: null
 })
 
 // Snackbar
@@ -484,6 +639,9 @@ const sortOptions = computed(() => [
 const headers = computed(() => [
   { title: t('caseCategories.categoryName'), key: 'name', align: 'start' },
   { title: t('caseCategories.categoryType') || 'Type', key: 'category_type', align: 'center' },
+  ...(departmentsEnabled.value
+    ? [{ title: t('departments.department'), key: 'department_id', align: 'center', sortable: false }]
+    : []),
   { title: t('caseCategories.displayOrder'), key: 'order', align: 'center' },
   { title: t('caseCategories.defaultCost'), key: 'item_cost', align: 'center' },
   { title: t('caseCategories.requiresTooth') || 'Requires Tooth', key: 'without_detect_tooth', align: 'center' },
@@ -549,7 +707,8 @@ const openCreateDialog = () => {
     category_type: defaultCategoryType.value,
     without_detect_tooth: false,
     is_orthodontic: false,
-    is_active: true
+    is_active: true,
+    department_id: null
   }
   dialog.value = true
 }
@@ -570,7 +729,8 @@ const closeDialog = () => {
     category_type: defaultCategoryType.value,
     without_detect_tooth: false,
     is_orthodontic: false,
-    is_active: true
+    is_active: true,
+    department_id: null
   }
 }
 
@@ -594,6 +754,8 @@ const saveCategory = async () => {
       )
       closeDialog()
       loadCategories()
+      // Refresh the per-department category counts
+      if (departmentsEnabled.value) loadDepartments()
     }
   } catch (error) {
     showSnackbar(t('errors.saveFailed'), 'error')
@@ -625,6 +787,66 @@ const deleteCategory = async () => {
   }
 }
 
+const loadDepartments = async () => {
+  try {
+    const response = await getDepartments()
+    departments.value = response.data || []
+  } catch (error) {
+    console.error('❌ Error loading departments:', error)
+    departments.value = []
+  }
+}
+
+const departmentName = (id) => departments.value.find(d => d.id === id)?.name || '—'
+
+const openDepartmentDialog = (department = null) => {
+  departmentForm.value = { id: department?.id ?? null, name: department?.name ?? '' }
+  departmentDialog.value = true
+}
+
+const saveDepartment = async () => {
+  const name = departmentForm.value.name?.trim()
+  if (!name) return
+
+  savingDepartment.value = true
+  try {
+    if (departmentForm.value.id) {
+      await updateDepartment(departmentForm.value.id, { name })
+    } else {
+      await createDepartment({ name })
+    }
+    showSnackbar(t('departments.saved'), 'success')
+    departmentDialog.value = false
+    loadDepartments()
+  } catch (error) {
+    showSnackbar(t('errors.saveFailed'), 'error')
+  } finally {
+    savingDepartment.value = false
+  }
+}
+
+const confirmDeleteDepartment = (department) => {
+  departmentToDelete.value = department
+  departmentDeleteDialog.value = true
+}
+
+const deleteDepartmentConfirmed = async () => {
+  deletingDepartment.value = true
+  try {
+    await deleteDepartment(departmentToDelete.value.id)
+    showSnackbar(t('departments.deleted'), 'success')
+    departmentDeleteDialog.value = false
+    departmentToDelete.value = null
+    // Its categories now have no department
+    loadDepartments()
+    loadCategories()
+  } catch (error) {
+    showSnackbar(t('errors.deleteFailed'), 'error')
+  } finally {
+    deletingDepartment.value = false
+  }
+}
+
 const formatCurrency = (amount) => {
   return new Intl.NumberFormat('en-IQ', {
     style: 'currency',
@@ -652,9 +874,14 @@ watch(() => formData.value.is_orthodontic, (isOrtho) => {
   if (isOrtho) formData.value.without_detect_tooth = true
 })
 
+watch(departmentsEnabled, (enabled) => {
+  if (enabled) loadDepartments()
+}, { immediate: true })
+
 // Lifecycle
 onMounted(() => {
   loadCategories()
+  loadSettings()
 })
 </script>
 

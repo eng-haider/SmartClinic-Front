@@ -222,6 +222,7 @@ class PermissionHelper {
           key: item.key,
           title: item.title[lang] || item.title.ar || item.title,
           icon: item.icon,
+          color: item.color,
           to: item.to
         }
         if (item.children && item.children.length > 0) {
@@ -231,6 +232,7 @@ class PermissionHelper {
               key: child.key,
               title: child.title[lang] || child.title.ar || child.title,
               icon: child.icon,
+              color: child.color,
               to: child.to
             }))
         }

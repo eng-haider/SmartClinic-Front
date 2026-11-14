@@ -1,5 +1,39 @@
 <template>
   <div class="teeth-chart" :class="{ 'rtl': isRtl }">
+    <!-- Multi-tooth selection: pick several teeth, then one treatment for all -->
+    <div v-if="categoriesWithTooth.length" class="multi-select-bar">
+      <v-btn
+        size="x-small"
+        :variant="multiSelectMode ? 'tonal' : 'text'"
+        :color="multiSelectMode ? 'deep-purple' : 'primary'"
+        @click="toggleMultiSelect"
+      >
+        <v-icon start size="14">mdi-checkbox-multiple-outline</v-icon>
+        {{ t('teeth.selectMultiple') }}
+      </v-btn>
+      <template v-if="multiSelectMode">
+        <span v-if="!multiSelection.length" class="multi-select-hint">
+          {{ t('teeth.multiSelectHint') }}
+        </span>
+        <template v-else>
+          <span class="multi-select-teeth">
+            {{ t('teeth.selectedTeeth') }}: {{ multiSelectionLabel }}
+          </span>
+          <v-btn
+            size="x-small"
+            color="deep-purple"
+            variant="flat"
+            @click.stop="openMultiCategoryMenu"
+          >
+            {{ t('teeth.chooseTreatment') }}
+          </v-btn>
+          <v-btn size="x-small" variant="text" @click="multiSelection = []">
+            {{ t('teeth.clearSelection') }}
+          </v-btn>
+        </template>
+      </template>
+    </div>
+
     <!-- SVG Teeth Diagram -->
     <div class="svg-container" ref="svgContainer" :style="{ '--chart-scale': chartScale }">
       <!-- Upper Teeth Numbers Overlay -->
@@ -14,7 +48,7 @@
             :data-tooth-index="index"
             :data-tooth-number="tooth.tooth_num"
             class="tooth-number"
-            :class="{ 'active': isToothActive(tooth.tooth_num), 'has-case': hasExistingCase(tooth.tooth_num) }"
+            :class="{ 'active': isToothActive(tooth.tooth_num), 'has-case': hasExistingCase(tooth.tooth_num), 'multi-selected': isMultiSelected(tooth.tooth_num) }"
             @click="handleToothClick(tooth.tooth_num, $event)"
           >
             {{ formatToothLabel(tooth.tooth_num) }}
@@ -49,8 +83,8 @@
           >
             <path
               :d="extractPathData(part.svg)"
-              :fill="getPartColor(tooth.id, part.id)"
-              :stroke="getPartStroke(tooth.id, part.id)"
+              :fill="getPartColor(tooth.id, part.id, tooth.tooth_num)"
+              :stroke="getPartStroke(tooth.id, part.id, tooth.tooth_num)"
               stroke-width="1"
               class="tooth-path"
               :class="{ 'clickable': tooth.tooth_num }"
@@ -72,7 +106,7 @@
             :data-tooth-index="index"
             :data-tooth-number="tooth.tooth_num"
             class="tooth-number"
-            :class="{ 'active': isToothActive(tooth.tooth_num), 'has-case': hasExistingCase(tooth.tooth_num) }"
+            :class="{ 'active': isToothActive(tooth.tooth_num), 'has-case': hasExistingCase(tooth.tooth_num), 'multi-selected': isMultiSelected(tooth.tooth_num) }"
             @click="handleToothClick(tooth.tooth_num, $event)"
           >
             {{ formatToothLabel(tooth.tooth_num) }}
@@ -152,7 +186,8 @@
         <div class="menu-header">
           <div class="tooth-info">
             <v-icon color="primary">mdi-tooth</v-icon>
-            <span>{{ t('teeth.tooth') }} {{ formatToothLabel(contextMenu.toothNum) }}</span>
+            <span v-if="contextMenu.toothNums?.length">{{ t('teeth.teeth') }} {{ formatToothLabel(contextMenu.toothNums) }}</span>
+            <span v-else>{{ t('teeth.tooth') }} {{ formatToothLabel(contextMenu.toothNum) }}</span>
           </div>
           <v-btn
             icon
@@ -200,7 +235,7 @@
         </div>
 
         <!-- Remove Button -->
-        <div class="remove-section" v-if="isToothActive(contextMenu.toothNum)">
+        <div class="remove-section" v-if="!contextMenu.toothNums?.length && isToothActive(contextMenu.toothNum)">
           <v-btn
             color="error"
             variant="outlined"
@@ -322,7 +357,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useDisplay, useRtl } from 'vuetify'
 import { teethData, babyTeethData } from './teethData'
-import { formatToothNumber } from './toothNotation'
+import { formatToothNumber, parseToothNumbers } from './toothNotation'
 import { isOldFormat, convertOldToNew } from './oldToothMapping'
 import { useClinicSettings } from '@/composables/useClinicSettings'
 import { isCategoryActive } from '@/utils/caseCategories'
@@ -356,6 +391,13 @@ const props = defineProps({
   notation: {
     type: String,
     default: ''
+  },
+  // The parent opens an add-case dialog for a picked category instead of
+  // saving it, so the tooth is only marked once the case is saved and comes
+  // back in patientCases (a cancelled dialog leaves nothing behind).
+  deferCaseCreation: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -367,6 +409,10 @@ const emit = defineEmits(['case-added', 'case-removed', 'color-changed', 'tooth-
 // a version keep that look; everything saved since carries v: 2 and is exact.
 const TOOTH_PARTS_VERSION = 2
 const LEGACY_SHARED_PART = { 'tooth-37': 6, 'tooth-16': 7 }
+
+// Tint for teeth picked in multi-select mode (uncoloured parts only)
+const MULTI_SELECT_COLOR = '#7c3aed'
+const MULTI_SELECT_FILL = 'rgba(124, 58, 237, 0.3)'
 
 // Composables
 const { t, locale } = useI18n()
@@ -390,12 +436,21 @@ const showToast = ref(false)
 const toastMessage = ref('')
 const categorySearchTerm = ref('')
 
-// Context Menu State
+// Multi-select mode: clicks pick teeth instead of colouring them, then one
+// treatment creates a single case covering every picked tooth.
+const multiSelectMode = ref(false)
+const multiSelection = ref([])
+const multiSelectionLabel = computed(() =>
+  formatToothLabel([...multiSelection.value].sort((a, b) => a - b))
+)
+
+// Context Menu State (toothNums is set when it opens for a multi-selection)
 const contextMenu = ref({
   visible: false,
   x: 0,
   y: 0,
   toothNum: null,
+  toothNums: null,
   toothId: null
 })
 
@@ -611,18 +666,52 @@ function getToothLabelY(tooth) {
   return isUpper ? minY - 10 : maxY + 20
 }
 
-function getPartColor(toothId, partId) {
+function getPartColor(toothId, partId, toothNum) {
   const coloredPart = coloredParts.value.find(
     p => p.toothId === toothId && p.partId === partId
   )
-  return coloredPart ? coloredPart.color : 'transparent'
+  if (coloredPart) return coloredPart.color
+  return isMultiSelected(toothNum) ? MULTI_SELECT_FILL : 'transparent'
 }
 
-function getPartStroke(toothId, partId) {
+function getPartStroke(toothId, partId, toothNum) {
   const coloredPart = coloredParts.value.find(
     p => p.toothId === toothId && p.partId === partId
   )
-  return coloredPart ? coloredPart.color : '#1e1e1e'
+  if (coloredPart) return coloredPart.color
+  return isMultiSelected(toothNum) ? MULTI_SELECT_COLOR : '#1e1e1e'
+}
+
+function isMultiSelected(toothNum) {
+  return multiSelectMode.value && multiSelection.value.includes(toothNum)
+}
+
+function toggleMultiSelect() {
+  multiSelectMode.value = !multiSelectMode.value
+  multiSelection.value = []
+}
+
+function toggleToothSelection(toothNum) {
+  multiSelection.value = multiSelection.value.includes(toothNum)
+    ? multiSelection.value.filter(n => n !== toothNum)
+    : [...multiSelection.value, toothNum]
+}
+
+// Treatment menu for the picked teeth, opened under the "choose treatment" button
+function openMultiCategoryMenu(event) {
+  if (!multiSelection.value.length) return
+  const rect = event?.currentTarget?.getBoundingClientRect()
+  const x = rect ? rect.left : window.innerWidth / 2
+  const y = rect ? rect.bottom + 8 : 200
+
+  contextMenu.value = {
+    visible: true,
+    x: Math.min(x, window.innerWidth - 340),
+    y: Math.min(y, window.innerHeight - 400),
+    toothNum: null,
+    toothNums: [...multiSelection.value].sort((a, b) => a - b),
+    toothId: null
+  }
 }
 
 function isToothActive(toothNum) {
@@ -632,23 +721,23 @@ function isToothActive(toothNum) {
   return hasManualCategory || hasExisting
 }
 
+// tooth_num may hold one tooth or a JSON list of the teeth one case covers
+function caseCoversTooth(caseItem, toothNum) {
+  if (caseItem.tooth_number && parseInt(caseItem.tooth_number) === parseInt(toothNum)) return true
+  return parseToothNumbers(caseItem.tooth_num).includes(parseInt(toothNum))
+}
+
 function hasExistingCase(toothNum) {
   if (!props.patientCases || !props.patientCases.length) return false
-  return props.patientCases.some(c => {
-    if (c.tooth_number && parseInt(c.tooth_number) === toothNum) return true
-    if (c.tooth_num) {
-      try {
-        const nums = JSON.parse(c.tooth_num)
-        return Array.isArray(nums) ? nums.includes(toothNum) : nums === toothNum
-      } catch {
-        return false
-      }
-    }
-    return false
-  })
+  return props.patientCases.some(c => caseCoversTooth(c, toothNum))
 }
 
 function handleToothClick(toothNum, event) {
+  if (multiSelectMode.value) {
+    toggleToothSelection(toothNum)
+    return
+  }
+
   // Check if this tooth has cases
   const toothCases = getToothCases(toothNum)
   
@@ -673,25 +762,8 @@ function handleToothClick(toothNum, event) {
 
 function getToothCases(toothNum) {
   if (!props.patientCases || !props.patientCases.length) return []
-  
-  return props.patientCases.filter(c => {
-    // Check tooth_number field
-    if (c.tooth_number && parseInt(c.tooth_number) === parseInt(toothNum)) return true
-    
-    // Check tooth_num field (can be JSON array or single value)
-    if (c.tooth_num) {
-      try {
-        const nums = JSON.parse(c.tooth_num)
-        if (Array.isArray(nums)) {
-          return nums.includes(parseInt(toothNum)) || nums.includes(String(toothNum))
-        }
-        return parseInt(nums) === parseInt(toothNum)
-      } catch {
-        return parseInt(c.tooth_num) === parseInt(toothNum) || c.tooth_num === String(toothNum)
-      }
-    }
-    return false
-  })
+
+  return props.patientCases.filter(c => caseCoversTooth(c, toothNum))
 }
 
 function getCaseCategoryName(caseItem) {
@@ -741,6 +813,11 @@ function handlePartClick(tooth, part, event) {
   event.stopPropagation()
   if (!tooth.tooth_num) return
 
+  if (multiSelectMode.value) {
+    toggleToothSelection(tooth.tooth_num)
+    return
+  }
+
   const existingIndex = coloredParts.value.findIndex(
     p => p.toothId === tooth.id && p.partId === part.id
   )
@@ -776,6 +853,23 @@ function handleContextMenu(tooth, event) {
 
   if (!tooth.tooth_num) return
 
+  // In multi-select mode a right-click picks the tooth and opens the
+  // treatment menu for the whole selection.
+  if (multiSelectMode.value) {
+    if (!multiSelection.value.includes(tooth.tooth_num)) {
+      multiSelection.value = [...multiSelection.value, tooth.tooth_num]
+    }
+    contextMenu.value = {
+      visible: true,
+      x: event.clientX,
+      y: event.clientY,
+      toothNum: null,
+      toothNums: [...multiSelection.value].sort((a, b) => a - b),
+      toothId: null
+    }
+    return
+  }
+
   contextMenu.value = {
     visible: true,
     x: event.clientX,
@@ -786,6 +880,9 @@ function handleContextMenu(tooth, event) {
 }
 
 function handleTouchStart(tooth, part, event) {
+  // Taps toggle teeth in multi-select mode - no double-tap menu there
+  if (multiSelectMode.value) return
+
   const currentTime = Date.now()
   const tapLength = currentTime - lastTouchTime.value
 
@@ -833,29 +930,34 @@ function selectColor(color) {
 }
 
 function selectCategory(category) {
-  const { toothNum, toothId } = contextMenu.value
+  const { toothNum, toothNums, toothId } = contextMenu.value
+
+  if (toothNums?.length) {
+    selectCategoryForTeeth(toothNums, category)
+    return
+  }
 
   if (!toothNum) return
 
-  // Remove existing category for this tooth
-  selectedCases.value = selectedCases.value.filter(
-    c => String(c.toothNum) !== String(toothNum)
-  )
-  toothCategories.value.delete(`tooth-${toothNum}`)
+  if (!props.deferCaseCreation) {
+    // Remove existing category for this tooth
+    selectedCases.value = selectedCases.value.filter(
+      c => String(c.toothNum) !== String(toothNum)
+    )
+    toothCategories.value.delete(`tooth-${toothNum}`)
 
-  // Add new case
-  const newCase = {
-    toothNum: String(toothNum),
-    toothId,
-    category,
-    timestamp: Date.now()
+    // Add new case
+    selectedCases.value.push({
+      toothNum: String(toothNum),
+      toothId,
+      category,
+      timestamp: Date.now()
+    })
+    toothCategories.value.set(`tooth-${toothNum}`, {
+      toothNumber: toothNum,
+      category
+    })
   }
-
-  selectedCases.value.push(newCase)
-  toothCategories.value.set(`tooth-${toothNum}`, {
-    toothNumber: toothNum,
-    category
-  })
 
   emit('case-added', {
     toothNumber: toothNum,
@@ -863,9 +965,36 @@ function selectCategory(category) {
     categoryName: getCategoryName(category)
   })
 
-  toastMessage.value = `${t('teeth.categoryAdded')} ${getCategoryName(category)} - ${t('teeth.tooth')} ${toothNum}`
-  showToast.value = true
+  if (!props.deferCaseCreation) {
+    toastMessage.value = `${t('teeth.categoryAdded')} ${getCategoryName(category)} - ${t('teeth.tooth')} ${toothNum}`
+    showToast.value = true
+  }
 
+  hideContextMenu()
+}
+
+// One case covering every picked tooth; the parent saves toothNumber (a list)
+// into tooth_num.
+function selectCategoryForTeeth(toothNums, category) {
+  if (!props.deferCaseCreation) {
+    toothNums.forEach(num => {
+      toothCategories.value.set(`tooth-${num}`, { toothNumber: num, category })
+    })
+  }
+
+  emit('case-added', {
+    toothNumber: toothNums,
+    category,
+    categoryName: getCategoryName(category)
+  })
+
+  if (!props.deferCaseCreation) {
+    toastMessage.value = `${t('teeth.categoryAdded')} ${getCategoryName(category)} - ${t('teeth.teeth')} ${formatToothLabel(toothNums)}`
+    showToast.value = true
+  }
+
+  multiSelectMode.value = false
+  multiSelection.value = []
   hideContextMenu()
 }
 
@@ -898,8 +1027,10 @@ function selectCategoryWithoutTooth(category) {
     categoryName: getCategoryName(category)
   })
 
-  toastMessage.value = `${t('teeth.categoryAdded')} ${getCategoryName(category)}`
-  showToast.value = true
+  if (!props.deferCaseCreation) {
+    toastMessage.value = `${t('teeth.categoryAdded')} ${getCategoryName(category)}`
+    showToast.value = true
+  }
 }
 
 function loadColoredParts() {
@@ -976,6 +1107,11 @@ watch(() => props.patientCases, () => {
   // Force re-render when cases change
 }, { deep: true })
 
+// Adult and baby teeth don't share a case selection
+watch(() => props.dentition, () => {
+  multiSelection.value = []
+})
+
 // Watch for tooth color changes from settings
 watch(toothConditionColors, (newColors) => {
   // Update selected color if the current one is no longer available
@@ -1025,6 +1161,26 @@ onUnmounted(() => {
   border-radius: 12px;
   padding: 16px;
   overflow: visible;
+}
+
+/* Multi-tooth selection bar */
+.multi-select-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.multi-select-hint {
+  font-size: 0.75rem;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.multi-select-teeth {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #5b21b6;
 }
 
 /* No-Tooth Categories Section */
@@ -1156,6 +1312,11 @@ onUnmounted(() => {
 .tooth-number.active {
   background: linear-gradient(135deg, #FF9800 0%, #FFC107 100%) !important;
   box-shadow: 0 2px 6px rgba(255, 152, 0, 0.4) !important;
+}
+
+.tooth-number.multi-selected {
+  background: linear-gradient(135deg, #6d28d9 0%, #8b5cf6 100%) !important;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.35) !important;
 }
 
 /* Dotted Line connecting number to tooth */

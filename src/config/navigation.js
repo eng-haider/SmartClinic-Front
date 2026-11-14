@@ -28,14 +28,25 @@ export const NAV_CONFIG = [
     key: 'dashboard',
     title: { ar: 'الرئيسية', en: 'Dashboard', ku: 'سەرەکی', pl: 'Panel główny' },
     icon: 'mdi-view-dashboard',
+    color: '#1E88E5',
     to: '/',
     alwaysShow: true, // Dashboard always visible
     order: 1
   },
   {
+    key: 'ai-chatbot',
+    title: { ar: 'المساعد الذكي', en: 'AI Assistant', ku: 'یاریدەدەری زیرەک', pl: 'Asystent AI' },
+    icon: 'mdi-robot',
+    color: '#6366F1',
+    to: '/ai-chatbot',
+    alwaysShow: true, // the page explains when the clinic doesn't have the chatbot
+    order: 14.5 // after Secretaries, just before Settings
+  },
+  {
     key: 'patients',
     title: { ar: 'المراجعين', en: 'Patients', ku: 'نەخۆشەکان', pl: 'Pacjenci' },
     icon: 'mdi-account-group',
+    color: '#00897B',
     to: '/patients',
     permissionKeywords: ['patient'], // matches: create-patient, edit-patient, view-clinic-patients, etc.
     order: 2
@@ -44,40 +55,45 @@ export const NAV_CONFIG = [
     key: 'doctors',
     title: { ar: 'الأطباء', en: 'Doctors', ku: 'دکتۆرەکان', pl: 'Lekarze' },
     icon: 'mdi-doctor',
+    color: '#039BE5',
     to: '/doctors',
     permissionKeywords: ['doctor', 'user'], // matches: view-doctors, create-user, etc.
     roleRequired: ['super_admin', 'clinic_super_doctor'], // OR role-based access
-    order: 3
+    order: 13
   },
   {
     key: 'secretaries',
     title: { ar: 'السكرتارية', en: 'Secretaries', ku: 'سکرتێرەکان', pl: 'Sekretarki' },
     icon: 'mdi-account-tie',
+    color: '#AB47BC',
     to: '/secretaries',
     permissionKeywords: ['secretary', 'user'],
     roleRequired: ['super_admin', 'clinic_super_doctor'],
-    order: 4
+    order: 14
   },
   {
     key: 'reservations',
     title: { ar: 'المواعيد', en: 'Appointments', ku: 'مەوعیدەکان', pl: 'Wizyty' },
     icon: 'mdi-calendar-clock',
+    color: '#3949AB',
     to: '/reservations',
     permissionKeywords: ['reservation'], // matches: create-reservation, view-clinic-reservations, etc.
-    order: 3
+    order: 5
   },
   {
     key: 'waiting-list',
     title: { ar: 'قائمة الانتظار', en: 'Waiting List', ku: 'لیستی چاوەڕوانی', pl: 'Lista oczekujących' },
     icon: 'mdi-clipboard-list',
+    color: '#FB8C00',
     to: '/waiting-list',
     permissionKeywords: ['reservation', 'waiting'],
-    order: 6
+    order: 4
   },
   {
     key: 'booking-requests',
     title: { ar: 'طلبات الحجز', en: 'Booking Requests', ku: 'داواکاری حجزکردن', pl: 'Prośby o rezerwację' },
     icon: 'mdi-calendar-question',
+    color: '#D81B60',
     to: '/booking-requests',
     permissionKeywords: ['reservation', 'booking'],
     order: 7
@@ -86,55 +102,62 @@ export const NAV_CONFIG = [
     key: 'cases',
     title: { ar: 'الحالات', en: 'Cases', ku: 'کەیسەکان', pl: 'Przypadki' },
     icon: 'mdi-file-document',
+    color: '#8E24AA',
     to: '/cases',
     // Exact: the 'case' keyword also matched 'notify-new-cases' and showed Cases to billing-only secretaries
     permissions: ['view-clinic-cases'],
-    order: 2
+    order: 3
   },
   {
     key: 'bills',
     title: { ar: 'الحسابات', en: 'Bills', ku: 'پسوڵەکان', pl: 'Rachunki' },
     icon: 'mdi-receipt',
+    color: '#43A047',
     to: '/bills',
     permissionKeywords: ['bill'], // matches: create-bill, view-clinic-bills, etc.
-    order: 4
+    order: 6
   },
   {
     key: 'recipes',
     title: { ar: 'الوصفات الطبية', en: 'Prescriptions', ku: 'داواکاریەکان', pl: 'Recepty' },
     icon: 'mdi-pill',
+    color: '#E53935',
     to: '/recipes',
     permissionKeywords: ['recipe', 'prescription'],
-    order: 9
+    order: 8
   },
   {
     key: 'medications',
     title: { ar: 'مكتبة الأدوية', en: 'Medication Library', ku: 'كتێبخانەی دەرمان', pl: 'Biblioteka leków' },
     icon: 'mdi-pill-multiple',
+    color: '#00ACC1',
     to: '/medications',
     permissionKeywords: ['recipe', 'medication'],
-    order: 10
+    order: 9
   },
   {
     key: 'expenses',
     title: { ar: 'المصروفات', en: 'Expenses', ku: 'خەرجییەکان', pl: 'Wydatki' },
     icon: 'mdi-cash-multiple',
+    color: '#F4511E',
     to: '/expenses',
     permissionKeywords: ['expense', 'bill'],
     roleRequired: ['super_admin', 'clinic_super_doctor'],
-    order: 11
+    order: 10
   },
   {
     key: 'reports',
     title: { ar: 'التقارير', en: 'Reports', ku: 'ڕاپۆرتەکان', pl: 'Raporty' },
     icon: 'mdi-chart-box-outline',
+    color: '#5E35B1',
     permissionKeywords: ['report', 'analytics'],
-    order: 12,
+    order: 11,
     children: [
       {
         key: 'reports-overview',
         title: { ar: 'نظرة عامة', en: 'Overview', ku: 'گشتی', pl: 'Przegląd' },
         icon: 'mdi-view-dashboard-outline',
+        color: '#5E35B1',
         to: '/reports',
         permissionKeywords: ['report', 'analytics'],
         roleRequired: ['super_admin', 'clinic_super_doctor', 'doctor']
@@ -143,6 +166,7 @@ export const NAV_CONFIG = [
         key: 'reports-doctors',
         title: { ar: 'تقارير الأطباء', en: 'Doctors', ku: 'دکتۆرەکان', pl: 'Lekarze' },
         icon: 'mdi-doctor',
+        color: '#039BE5',
         to: '/reports/doctors',
         permissionKeywords: ['report', 'analytics']
       },
@@ -150,6 +174,7 @@ export const NAV_CONFIG = [
         key: 'reports-patients',
         title: { ar: 'حسابات المراجعين', en: 'Patient Accounts', ku: 'هەژماری نەخۆشەکان', pl: 'Konta pacjentów' },
         icon: 'mdi-account-cash-outline',
+        color: '#00897B',
         to: '/reports/patients',
         permissionKeywords: ['report', 'analytics']
       },
@@ -157,6 +182,7 @@ export const NAV_CONFIG = [
         key: 'reports-cases',
         title: { ar: 'تقارير الحالات', en: 'Cases', ku: 'کەیسەکان', pl: 'Przypadki' },
         icon: 'mdi-clipboard-text-multiple-outline',
+        color: '#8E24AA',
         to: '/reports/cases',
         permissionKeywords: ['report', 'analytics']
       },
@@ -164,6 +190,7 @@ export const NAV_CONFIG = [
         key: 'reports-revenue',
         title: { ar: 'الإيرادات والمدفوعات', en: 'Revenue & Payments', ku: 'داهات و پارەدان', pl: 'Przychody i płatności' },
         icon: 'mdi-cash-multiple',
+        color: '#43A047',
         to: '/reports/revenue',
         permissionKeywords: ['report', 'analytics'],
         roleRequired: ['super_admin', 'clinic_super_doctor', 'doctor']
@@ -172,6 +199,7 @@ export const NAV_CONFIG = [
         key: 'reports-expenses',
         title: { ar: 'الصرفيات', en: 'Expenses', ku: 'خەرجییەکان', pl: 'Wydatki' },
         icon: 'mdi-cash-minus',
+        color: '#F4511E',
         to: '/reports/expenses',
         permissionKeywords: ['report', 'analytics'],
         roleRequired: ['super_admin', 'clinic_super_doctor', 'doctor']
@@ -180,6 +208,7 @@ export const NAV_CONFIG = [
         key: 'reports-outstanding',
         title: { ar: 'المبالغ المتبقية', en: 'Outstanding Balances', ku: 'باڵانسی ماوە', pl: 'Zaległe salda' },
         icon: 'mdi-cash-clock',
+        color: '#FB8C00',
         to: '/reports/outstanding',
         permissionKeywords: ['report', 'analytics'],
         roleRequired: ['super_admin', 'clinic_super_doctor', 'doctor']
@@ -190,62 +219,20 @@ export const NAV_CONFIG = [
     key: 'warehouse',
     title: { ar: 'المخزن', en: 'Warehouse', ku: 'کۆگا', pl: 'Magazyn' },
     icon: 'mdi-warehouse',
+    color: '#6D4C41',
     to: '/warehouse',
     permissionKeywords: ['warehouse'],
     roleRequired: ['super_admin', 'clinic_super_doctor'],
     order: 12
   },
-  // {
-  //   key: 'messaging',
-  //   title: { ar: 'المراسلات', en: 'Messaging', ku: 'نامەنێردن' },
-  //   icon: 'mdi-message-text',
-  //   permissionKeywords: ['message', 'whatsapp', 'automation'],
-  //   order: 12,
-  //   children: [
-  //     {
-  //       key: 'messaging-conversations',
-  //       title: { ar: 'المحادثات', en: 'Conversations', ku: 'گفتوگۆکان' },
-  //       icon: 'mdi-message-processing',
-  //       to: '/messaging/conversations',
-  //       permissionKeywords: ['message', 'conversation', 'whatsapp']
-  //     },
-  //     {
-  //       key: 'messaging-templates',
-  //       title: { ar: 'القوالب', en: 'Templates', ku: 'قاڵبەکان' },
-  //       icon: 'mdi-file-document-outline',
-  //       to: '/messaging/templates',
-  //       permissionKeywords: ['message', 'template', 'automation']
-  //     },
-  //     {
-  //       key: 'messaging-rules',
-  //       title: { ar: 'قواعد الأتمتة', en: 'Automation Rules', ku: 'ڕێسەکانی ئۆتۆماسیۆن' },
-  //       icon: 'mdi-robot',
-  //       to: '/messaging/rules',
-  //       permissionKeywords: ['message', 'automation', 'rule']
-  //     },
-  //     {
-  //       key: 'messaging-targets',
-  //       title: { ar: 'الأهداف', en: 'Targets', ku: 'ئامانجەکان' },
-  //       icon: 'mdi-bullseye-arrow',
-  //       to: '/messaging/targets',
-  //       permissionKeywords: ['message', 'automation', 'target']
-  //     },
-  //     {
-  //       key: 'messaging-settings',
-  //       title: { ar: 'إعدادات الرسائل', en: 'Messaging Settings', ku: 'ڕێکخستنی نامەنێردن' },
-  //       icon: 'mdi-cog-outline',
-  //       to: '/messaging/settings',
-  //       permissionKeywords: ['message', 'whatsapp', 'automation']
-  //     }
-  //   ]
-  // },
   { 
     key: 'settings',
     title: { ar: 'الإعدادات', en: 'Settings', ku: 'ڕێکخستنەکان', pl: 'Ustawienia' },
     icon: 'mdi-cog',
+    color: '#607D8B',
     to: '/settings',
     alwaysShow: true, // Settings always visible
-    order: 13
+    order: 15
   }
 ]
 
@@ -293,6 +280,7 @@ export const ROUTE_CONFIG = {
   'Dashboard': { alwaysAllow: true },
   'DashboardAlt': { alwaysAllow: true },
   'Settings': { alwaysAllow: true },
+  'AiChatbot': { alwaysAllow: true },
   'AccessDenied': { alwaysAllow: true },
   
   // Dynamic permission check based on keywords

@@ -34,6 +34,7 @@
       <TeethChartMobile
         v-if="useCompactChart"
         :dentition="dentition"
+        :defer-case-creation="deferCaseCreation"
         :categories="categories"
         :patient-cases="patientCases"
         :patient-data="patientData"
@@ -47,6 +48,7 @@
       <TeethChart
         v-else
         :dentition="dentition"
+        :defer-case-creation="deferCaseCreation"
         :categories="categories"
         :patient-cases="patientCases"
         :patient-data="patientData"
@@ -116,6 +118,12 @@ const props = defineProps({
   beautyCategories: {
     type: Array,
     default: () => []
+  },
+  // Picking a category opens the parent's add-case dialog instead of saving
+  // the case, so the chart must not mark the tooth as done yet.
+  deferCaseCreation: {
+    type: Boolean,
+    default: false
   }
 })
 

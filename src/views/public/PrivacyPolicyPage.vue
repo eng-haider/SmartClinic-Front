@@ -4,7 +4,7 @@
       <header class="policy-header">
         <span>سياسة الخصوصية</span>
         <h1>كيف يتعامل Smart Clinic مع البيانات</h1>
-        <p>تاريخ السريان: 23 سبتمبر 2026 · آخر تحديث: 24 سبتمبر 2026</p>
+        <p>تاريخ السريان: 23 سبتمبر 2026 · آخر تحديث: 28 أكتوبر 2026</p>
       </header>
 
       <div class="notice">
@@ -44,7 +44,7 @@
           <li><strong>بيانات المراجع:</strong> الاسم، الهاتف، العمر أو تاريخ الميلاد، الجنس، العنوان، والمعلومات التعريفية التي تدخلها العيادة.</li>
           <li><strong>بيانات إدارة العيادة:</strong> المواعيد، الحالات، الملاحظات، والصور أو المرفقات التي تضيفها العيادة.</li>
           <li><strong>بيانات مالية:</strong> الفواتير، الدفعات، الأرصدة والمصروفات. لا يعالج التطبيق بيانات بطاقات دفع داخل التطبيق حالياً.</li>
-          <li><strong>بيانات تقنية:</strong> نوع الجهاز، إصدار التطبيق، عنوان الشبكة، سجلات الدخول والأخطاء ومعلومات الأمان اللازمة لتشغيل الخدمة.</li>
+          <li><strong>بيانات تقنية:</strong> نوع الجهاز، إصدار التطبيق، عنوان الشبكة، سجلات الدخول والأخطاء ومعلومات الأمان اللازمة لتشغيل الخدمة، ومعرّف الإشعارات الخاص بالهاتف عند السماح بالإشعارات.</li>
         </ul>
       </section>
 
@@ -54,6 +54,7 @@
           <li>إنشاء الحسابات والمصادقة وإدارة صلاحيات المستخدمين.</li>
           <li>تشغيل المواعيد والسجلات والفواتير والتقارير ووظائف العيادة.</li>
           <li>المزامنة بين الأجهزة، تقديم الدعم، والتحقق من الأعطال.</li>
+          <li>إرسال إشعارات العيادة إلى هاتفك، مثل طلبات الحجز الجديدة، عند السماح بها. يمكن إيقافها من إعدادات الهاتف.</li>
           <li>حماية الحسابات ومنع الاستخدام غير المصرح به والاحتيال.</li>
           <li>الامتثال للالتزامات القانونية والاستجابة للطلبات النظامية الصحيحة.</li>
           <li>تحسين موثوقية الخدمة وتجربة الاستخدام باستخدام بيانات مجمعة أو محدودة قدر الإمكان.</li>
@@ -66,6 +67,7 @@
         <ul>
           <li>المستخدمون المصرح لهم داخل العيادة وفق أدوارهم وصلاحياتهم.</li>
           <li>مزودو الاستضافة والبنية التقنية الذين يساعدون في تشغيل الخدمة وحمايتها.</li>
+          <li>مزود الإشعارات (OneSignal) وخدمات الإشعارات لدى Apple وGoogle، لإيصال الإشعارات التي تسمح بها فقط. تستلم معرّف الإشعارات للهاتف ونص الإشعار، وقد يتضمن تنبيه طلب الحجز اسم المراجع ورقم هاتفه.</li>
           <li>الجهات الرسمية عندما يكون الإفصاح مطلوباً بموجب طلب قانوني صحيح.</li>
           <li>طرف بديل في حالة إعادة تنظيم الخدمة، مع استمرار حماية البيانات وفق القانون.</li>
         </ul>
@@ -90,7 +92,8 @@
           تصديرها أو حذفها عبر التواصل مع الدعم. وقد نطلب التحقق من الهوية أو
           ملكية الحساب. إذا كنت مراجعاً أو مريضاً، فتواصل أولاً مع العيادة التي
           أنشأت سجلك لأنها تحدد كيفية إدارة بياناتك لديها. يمكنك مراسلتنا للمساعدة
-          في توجيه الطلب إلى الجهة المناسبة.
+          في توجيه الطلب إلى الجهة المناسبة. لحذف حسابك استخدم «حذف الحساب» في
+          التطبيق أو صفحة <router-link to="/delete-account">حذف الحساب</router-link>.
         </p>
       </section>
 
@@ -124,7 +127,7 @@
         <header>
           <span>Privacy Policy</span>
           <h2>How Smart Clinic handles data</h2>
-          <p>Effective: September 23, 2026. Last updated: September 24, 2026</p>
+          <p>Effective: September 23, 2026. Last updated: October 28, 2026</p>
         </header>
 
         <h3>Overview and roles</h3>
@@ -141,22 +144,28 @@
           We may process account information (name, phone, optional email, protected
           password, role and permissions); clinic information; patient identity and
           contact information; appointments, cases, notes, images and attachments entered by authorized clinic
-          users; billing and payment records; and limited device, login, security, and
-          diagnostic information. The app does not currently process payment-card data.
+          users; billing and payment records; limited device, login, security, and
+          diagnostic information; and, if you allow notifications, the phone's push
+          notification identifier. The app does not currently process payment-card data.
         </p>
 
         <h3>Purposes</h3>
         <p>
           We use data to authenticate users, provide clinic workflows, synchronize data,
-          deliver support, prevent unauthorized access, comply with lawful requests, and
-          improve service reliability using limited or aggregated information where possible.
+          send the clinic notifications you allow (such as new booking requests; turn them
+          off in the phone's settings), deliver support, prevent unauthorized access, comply
+          with lawful requests, and improve service reliability using limited or aggregated
+          information where possible.
         </p>
 
         <h3>Disclosure</h3>
         <p>
           Data may be available to authorized clinic staff, infrastructure and hosting
           providers needed to operate the service, and authorities when required by a
-          valid legal request. It may also transfer as part of a service reorganization,
+          valid legal request. Notifications are delivered through our notification provider
+          (OneSignal) and Apple's and Google's push services, which receive the phone's push
+          identifier and the notification text only to deliver it; a booking-request
+          notification may include the patient's name and phone number. It may also transfer as part of a service reorganization,
           subject to continued protection. We do not sell personal or patient information.
         </p>
 
@@ -173,7 +182,8 @@
           Clinic account owners may request access, correction, export, or deletion after
           ownership verification. Patients should first contact the clinic that created
           their record because that clinic controls the information it entered. We can help
-          route a request. Data about minors may be entered by a clinic in connection with
+          route a request. To delete your account, use Delete account in the app or the
+          <router-link to="/delete-account">account deletion page</router-link>. Data about minors may be entered by a clinic in connection with
           care; the clinic is responsible for the required authority and consent.
         </p>
 

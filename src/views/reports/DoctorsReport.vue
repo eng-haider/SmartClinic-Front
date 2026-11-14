@@ -72,6 +72,10 @@
           >
             <template #item.price="{ item }">{{ formatCurrency(item.price, currency) }}</template>
             <template #item.paid_amount="{ item }">{{ formatCurrency(item.paid_amount, currency) }}</template>
+            <template #item.collected_amount="{ item }">
+              <span class="text-success font-weight-medium">{{ formatCurrency(item.collected_amount, currency) }}</span>
+            </template>
+            <template #item.case_doctor="{ item }">{{ item.case_doctor?.name || '—' }}</template>
             <template #item.remaining_amount="{ item }">{{ formatCurrency(item.remaining_amount, currency) }}</template>
             <template #item.case_date="{ item }">{{ formatDate(item.case_date) }}</template>
           </SmartTable>
@@ -132,7 +136,11 @@ const detailColumns = computed(() => [
   { key: 'tooth_num', label: t('reports.doctors.detail.tooth') },
   { key: 'price', label: t('reports.doctors.detail.price'), align: 'end' },
   { key: 'paid_amount', label: t('reports.doctors.detail.paid'), align: 'end' },
+  // What this doctor took on the case: adds up to the doctor's "paid" in the main table
+  { key: 'collected_amount', label: t('reports.doctors.detail.collected'), align: 'end' },
   { key: 'remaining_amount', label: t('reports.doctors.detail.remaining'), align: 'end' },
+  // Filled for another doctor's case this doctor only took a payment on
+  { key: 'case_doctor', label: t('reports.doctors.detail.caseDoctor') },
   { key: 'case_date', label: t('reports.doctors.detail.date') }
 ])
 

@@ -1,5 +1,5 @@
 <template>
-  <v-dialog v-model="internalDialog" max-width="700" persistent>
+  <v-dialog v-model="internalDialog" max-width="700" persistent @after-enter="focusNameField">
     <v-card rounded="xl">
       <v-card-title class="d-flex align-center justify-space-between">
         <div class="patient-form-heading">
@@ -19,6 +19,7 @@
             <!-- Name Field with Patient Combobox -->
             <v-col cols="12">
               <v-combobox
+                ref="nameField"
                 v-model="patientData.name"
                 :items="patientSearchList"
                 :loading="loadingPatientSearch"
@@ -27,6 +28,8 @@
                 item-value="value"
                 :rules="[v => !!v || $t('validation.required')]"
                 :label="$t('patients.name') + ' *'"
+                :hint="editMode || existingPatient ? '' : $t('patients.search_existing_hint')"
+                persistent-hint
                 prepend-inner-icon="mdi-account"
                 variant="outlined"
                 clearable
@@ -55,65 +58,107 @@
               </v-combobox>
             </v-col>
 
-            <!-- Birth Date -->
-            <v-col cols="12" md="6">
-              <v-text-field
-                v-model="birthDateDisplay"
-                :label="$t('patients.birth_date')"
-                prepend-inner-icon="mdi-calendar-blank"
-                variant="outlined"
-                placeholder="YYYY or YYYY-MM-DD (optional)"
-                :hint="$t('patients.birth_date_hint')"
-                persistent-hint
-                :error-messages="formErrors.birth_date"
-                @input="handleBirthDateInput"
-                clearable
-              />
-            </v-col>
-
-            <!-- Phone -->
-            <v-col cols="12" md="6">
-              <v-text-field
-                v-model="patientData.phone"
-                :label="$t('patients.phone')"
-                prepend-inner-icon="mdi-phone"
-                variant="outlined"
-                dir="ltr"
-                placeholder="07XX XXX XXXX"
-                maxlength="13"
-                :error-messages="formErrors.phone"
-                @input="formatPhoneNumber"
-              />
-            </v-col>
-
-            <!-- Gender/Sex -->
-            <v-col cols="12" md="6">
-              <div class="text-subtitle-2 mb-2">{{ $t('patients.sex') }}</div>
-              <v-radio-group
-                v-model="patientData.sex"
-                :error-messages="formErrors.sex"
-                inline
-              >
-                <v-radio
-                  v-for="option in genderOptions"
-                  :key="option.value"
-                  :label="option.text"
-                  :value="option.value"
+            <!-- A registered patient was picked: only a booking is added for them -->
+            <v-col v-if="existingPatient" cols="12" class="pt-0">
+              <v-alert type="success" variant="tonal" density="compact" icon="mdi-account-check-outline">
+                <div class="text-body-2 font-weight-medium">{{ $t('patients.existing_patient_selected') }}</div>
+                <div class="existing-patient-meta text-caption">
+                  <span v-if="existingPatient.phone" dir="ltr">
+                    <v-icon size="13">mdi-phone-outline</v-icon>
+                    {{ existingPatient.phone }}
+                  </span>
+                  <span v-if="existingPatient.age">
+                    <v-icon size="13">mdi-cake-variant-outline</v-icon>
+                    {{ existingPatient.age }} {{ $t('patients.years') }}
+                  </span>
+                </div>
+                <v-btn
+                  size="small"
+                  variant="text"
                   color="primary"
-                />
-              </v-radio-group>
+                  prepend-icon="mdi-account-plus-outline"
+                  class="mt-1 px-1"
+                  @click="existingPatient = null"
+                >
+                  {{ $t('patients.register_as_new') }}
+                </v-btn>
+              </v-alert>
             </v-col>
 
-            <!-- Address -->
-            <v-col cols="12">
-              <v-text-field
-                v-model="patientData.address"
-                :label="$t('patients.address')"
-                prepend-inner-icon="mdi-map-marker"
-                variant="outlined"
-                :error-messages="formErrors.address"
-              />
-            </v-col>
+            <template v-if="!existingPatient">
+              <!-- Phone: right after the name, the two things always asked first -->
+              <v-col cols="12" md="6">
+                <v-text-field
+                  v-model="patientData.phone"
+                  :label="$t('patients.phone')"
+                  prepend-inner-icon="mdi-phone"
+                  variant="outlined"
+                  dir="ltr"
+                  placeholder="07XX XXX XXXX"
+                  maxlength="13"
+                  :error-messages="formErrors.phone"
+                  @input="formatPhoneNumber"
+                />
+              </v-col>
+
+              <!-- Birth Date (default) or Age, per the clinic's patient_age_input setting -->
+              <v-col v-if="asksForAge" cols="12" md="6">
+                <v-text-field
+                  v-model.number="patientData.age"
+                  :label="$t('patients.age')"
+                  prepend-inner-icon="mdi-cake-variant-outline"
+                  variant="outlined"
+                  type="number"
+                  min="0"
+                  max="150"
+                  :rules="[ageRule]"
+                  :error-messages="formErrors.age"
+                />
+              </v-col>
+              <v-col v-else cols="12" md="6">
+                <v-text-field
+                  v-model="birthDateDisplay"
+                  :label="$t('patients.birth_date')"
+                  prepend-inner-icon="mdi-calendar-blank"
+                  variant="outlined"
+                  placeholder="YYYY or YYYY-MM-DD (optional)"
+                  :hint="$t('patients.birth_date_hint')"
+                  persistent-hint
+                  :error-messages="formErrors.birth_date"
+                  @input="handleBirthDateInput"
+                  clearable
+                />
+              </v-col>
+
+              <!-- Gender/Sex -->
+              <v-col cols="12" md="6">
+                <div class="text-subtitle-2 mb-2">{{ $t('patients.sex') }}</div>
+                <v-radio-group
+                  v-model="patientData.sex"
+                  :error-messages="formErrors.sex"
+                  inline
+                >
+                  <v-radio
+                    v-for="option in genderOptions"
+                    :key="option.value"
+                    :label="option.text"
+                    :value="option.value"
+                    color="primary"
+                  />
+                </v-radio-group>
+              </v-col>
+
+              <!-- Address -->
+              <v-col cols="12">
+                <v-text-field
+                  v-model="patientData.address"
+                  :label="$t('patients.address')"
+                  prepend-inner-icon="mdi-map-marker"
+                  variant="outlined"
+                  :error-messages="formErrors.address"
+                />
+              </v-col>
+            </template>
 
             <!-- Note -->
             <!-- <v-col cols="12">
@@ -153,6 +198,7 @@
                   </div>
                 </div>
                 <v-switch
+                  v-if="!bookNow && !existingPatient"
                   v-model="bookingEnabled"
                   color="primary"
                   hide-details
@@ -166,7 +212,7 @@
                 <div v-if="bookingEnabled" class="mt-5">
                   <v-row>
                     <!-- Date -->
-                    <v-col cols="12" md="6">
+                    <v-col v-if="!bookNow" cols="12" md="6">
                       <v-text-field
                         v-model="inlineBookingData.date"
                         :label="$t('reservations.date')"
@@ -180,7 +226,7 @@
                     </v-col>
 
                     <!-- Time -->
-                    <v-col cols="12" md="6">
+                    <v-col v-if="!bookNow" cols="12" md="6">
                       <v-text-field
                         v-model="inlineBookingData.from_time"
                         :label="$t('reservations.time')"
@@ -251,7 +297,8 @@
                     class="mt-2"
                     icon="mdi-information-outline"
                   >
-                    <span class="text-caption">
+                    <span v-if="bookNow" class="text-caption">{{ $t('waitingList.bookedNowNote') }}</span>
+                    <span v-else class="text-caption">
                       {{ $t('reservations.date') }}: <strong>{{ inlineBookingData.date }}</strong>
                       &nbsp;·&nbsp;
                       {{ $t('reservations.time') }}: <strong>{{ inlineBookingData.from_time }}</strong>
@@ -277,7 +324,7 @@
           :loading="saving"
           @click="savePatient"
         >
-          {{ editMode ? $t('common.update') : $t('common.save') }}
+          {{ existingPatient ? $t('patients.book_only') : editMode ? $t('common.update') : $t('common.save') }}
         </v-btn>
       </v-card-actions>
     </v-card>
@@ -285,23 +332,29 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch } from 'vue'
+import { ref, reactive, computed, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '@/services/api'
 import reservationService from '@/services/reservation.service'
 import { useAuthStore } from '@/stores/auth'
+import { useClinicSettings } from '@/composables/useClinicSettings'
+import { releaseKeyboard } from '@/utils/mobileKeyboard'
 
 // ==================== Props & Emits ====================
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
   editMode:   { type: Boolean, default: false },
   patient:    { type: Object,  default: null   },
-  doctors:    { type: Array,   default: () => [] }
+  doctors:    { type: Array,   default: () => [] },
+  // Waiting list: always book the new patient for today, at the moment they are saved
+  bookNow:         { type: Boolean, default: false },
+  defaultDoctorId: { type: [Number, String], default: null }
 })
 
 const emit = defineEmits(['update:modelValue', 'saved', 'error'])
 
 const { t } = useI18n()
+const { patientAgeInput, loadSettings } = useClinicSettings()
 const authStore = useAuthStore()
 
 // ==================== Helpers ====================
@@ -313,9 +366,17 @@ function getTodayISO() {
   return `${y}-${m}-${day}`
 }
 
+function getNowTime() {
+  const d = new Date()
+  return [d.getHours(), d.getMinutes(), d.getSeconds()]
+    .map(n => String(n).padStart(2, '0'))
+    .join(':')
+}
+
 // ==================== State ====================
 const saving = ref(false)
 const patientForm = ref(null)
+const nameField = ref(null)
 
 const birthDateDisplay = ref('')
 const yearOnlyMode = ref(false)
@@ -325,6 +386,9 @@ const patientSearchList = ref([])
 const loadingPatientSearch = ref(false)
 const patientNameSearch = ref('')
 let patientSearchTimeout = null
+// Add mode: a registered patient picked from the name search. Saving then
+// only books them, instead of registering the same person a second time.
+const existingPatient = ref(null)
 
 const bookingEnabled = ref(false)
 const reservationTypes = ref([
@@ -355,7 +419,7 @@ const formErrors = reactive({})
 
 const inlineBookingData = reactive({
   date: getTodayISO(),
-  from_time: '09:00',
+  from_time: getNowTime().slice(0, 5),
   doctor_id: null,
   reservation_type_id: 1,
   reservation_type_note: '',
@@ -373,15 +437,29 @@ const genderOptions = computed(() => [
   { text: t('patients.female'), value: 2 }
 ])
 
+// The clinic picks in Settings whether staff type a birth date or an age.
+// Either way the full patient is sent and the API keeps the two consistent.
+const asksForAge = computed(() => patientAgeInput.value === 'age')
+
+const ageRule = v =>
+  v === null || v === '' || (Number.isInteger(Number(v)) && v >= 0 && v <= 150) || t('patients.age_invalid')
+
 // ==================== Watchers ====================
-watch(() => props.modelValue, (opened) => {
+watch(() => props.modelValue, async (opened) => {
   if (opened) {
+    loadSettings(true) // fresh every time: the age setting may have just changed on another device
     loadReservationTypes()
     if (props.editMode && props.patient) {
       populateForm(props.patient)
     } else {
       resetForm()
     }
+    // Take over the keyboard the opener held as soon as the field exists;
+    // @after-enter tries again in case it is not rendered yet.
+    await nextTick()
+    focusNameField()
+  } else {
+    releaseKeyboard()
   }
 })
 
@@ -401,6 +479,13 @@ async function loadReservationTypes() {
 }
 
 // ==================== Methods ====================
+// Adding a patient starts with typing the name, so put the cursor there and,
+// on phones, keep the keyboard the opener held (see utils/mobileKeyboard).
+function focusNameField() {
+  if (props.editMode || !nameField.value) return
+  releaseKeyboard(nameField.value)
+}
+
 function populateForm(patient) {
   Object.assign(patientData, {
     name:                  patient.name,
@@ -435,11 +520,13 @@ function resetForm() {
   birthDateDisplay.value = ''
   patientNameSearch.value = ''
   patientSearchList.value = []
-  bookingEnabled.value = false
+  existingPatient.value = null
+  bookingEnabled.value = props.bookNow
+  // The booking defaults to right now; the time field takes HH:MM
   Object.assign(inlineBookingData, {
     date: getTodayISO(),
-    from_time: '09:00',
-    doctor_id: null,
+    from_time: getNowTime().slice(0, 5),
+    doctor_id: props.defaultDoctorId,
     reservation_type_id: reservationTypes.value[0]?.id || 1,
     reservation_type_note: '',
     notes: ''
@@ -480,13 +567,24 @@ async function searchPatientsByName(searchTerm) {
 }
 
 function handlePatientNameSelect(selectedItem) {
-  if (!selectedItem) return
+  if (!selectedItem) {
+    existingPatient.value = null
+    return
+  }
   if (typeof selectedItem === 'string') {
     patientData.name = selectedItem
+    // Typing a different name goes back to registering a new patient
+    if (existingPatient.value && selectedItem !== existingPatient.value.name) {
+      existingPatient.value = null
+    }
     return
   }
   if (typeof selectedItem === 'object') {
     patientData.name = selectedItem.fullData?.name || selectedItem.name || selectedItem.text || selectedItem
+    if (!props.editMode && selectedItem.fullData) {
+      existingPatient.value = selectedItem.fullData
+      bookingEnabled.value = true
+    }
   }
 }
 
@@ -579,9 +677,51 @@ function handleBirthDateInput(event) {
 }
 
 // ─── Save ────────────────────────────────────────────────────────────────────
+function createBooking(patientId) {
+  let date = inlineBookingData.date
+  let fromTime = inlineBookingData.from_time.split(':').length === 2
+    ? `${inlineBookingData.from_time}:00`
+    : inlineBookingData.from_time
+
+  // Taken at save time, not when the dialog was opened
+  if (props.bookNow) {
+    date = getTodayISO()
+    fromTime = getNowTime()
+  }
+
+  return reservationService.create({
+    patient_id:              patientId,
+    doctor_id:               inlineBookingData.doctor_id,
+    clinics_id:              authStore.clinicInfo?.id || 1,
+    reservation_start_date:  date,
+    reservation_end_date:    date,
+    reservation_from_time:   fromTime,
+    reservation_type_id:     inlineBookingData.reservation_type_id || null,
+    reservation_type_note:   inlineBookingData.reservation_type_id !== 1 ? inlineBookingData.reservation_type_note : '',
+    notes:                   inlineBookingData.notes,
+    is_waiting: false
+  })
+}
+
+async function bookExistingPatient() {
+  saving.value = true
+  try {
+    await createBooking(existingPatient.value.id)
+    emit('saved', { message: t('reservations.booking_success'), color: 'success' })
+    internalDialog.value = false
+    resetForm()
+  } catch (err) {
+    console.error('Failed to book existing patient:', err)
+    emit('error', { message: err.response?.data?.message || t('errors.saveFailed'), color: 'error' })
+  } finally {
+    saving.value = false
+  }
+}
+
 async function savePatient() {
   const { valid } = await patientForm.value.validate()
   if (!valid) return
+  if (existingPatient.value) return bookExistingPatient()
 
   saving.value = true
   Object.keys(formErrors).forEach(key => delete formErrors[key])
@@ -616,26 +756,13 @@ async function savePatient() {
       if (bookingEnabled.value) {
         try {
           const newPatient = response.data || response
-          const fromTime = inlineBookingData.from_time.split(':').length === 2
-            ? `${inlineBookingData.from_time}:00`
-            : inlineBookingData.from_time
-
-          await reservationService.create({
-            patient_id:              newPatient.id,
-            doctor_id:               inlineBookingData.doctor_id,
-            clinics_id:              authStore.clinicInfo?.id || 1,
-            reservation_start_date:  inlineBookingData.date,
-            reservation_end_date:    inlineBookingData.date,
-            reservation_from_time:   fromTime,
-            reservation_type_id:     inlineBookingData.reservation_type_id || null,
-            reservation_type_note:   inlineBookingData.reservation_type_id !== 1 ? inlineBookingData.reservation_type_note : '',
-            notes:                   inlineBookingData.notes,
-            is_waiting: false
-          })
+          await createBooking(newPatient.id)
           emit('saved', { message: t('patients.booking_also_created'), color: 'success' })
         } catch (bookingErr) {
           console.error('Booking failed after patient save:', bookingErr)
-          emit('saved', { message: t('patients.created'), color: 'success' })
+          emit('saved', props.bookNow
+            ? { message: t('waitingList.bookingFailed'), color: 'warning' }
+            : { message: t('patients.created'), color: 'success' })
         }
       } else {
         emit('saved', { message: t('patients.created'), color: 'success' })
@@ -664,6 +791,19 @@ async function savePatient() {
   align-items: center;
   gap: 12px;
   min-width: 0;
+}
+
+.existing-patient-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  margin-top: 2px;
+}
+
+.existing-patient-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .patient-form-heading__title {

@@ -33,9 +33,9 @@
               <v-icon start>mdi-robot</v-icon>
               AI
             </v-tab>
-            <v-tab v-if="canManageTemplates" value="whatsappTemplates">
+            <v-tab v-if="canUseMessaging" value="messaging">
               <v-icon start>mdi-whatsapp</v-icon>
-              {{ $t('settings.whatsappTemplates') }}
+              {{ $t('settings.messaging') }}
             </v-tab>
           </v-tabs>
 
@@ -462,6 +462,55 @@
                             :disabled="!canEdit"
                           ></v-switch>
                         </v-col>
+                        <v-col cols="12">
+                          <v-switch
+                            v-model="clinicForm.enable_departments"
+                            :label="$t('clinicSettings.enableDepartments')"
+                            :hint="$t('clinicSettings.enableDepartmentsHint')"
+                            persistent-hint
+                            color="primary"
+                            :disabled="!canEdit"
+                          ></v-switch>
+                        </v-col>
+                        <v-col cols="12">
+                          <v-select
+                            v-model="clinicForm.dashboard_quick_actions"
+                            :label="$t('clinicSettings.dashboardQuickActions')"
+                            :items="dashboardQuickActionOptions"
+                            :hint="$t('clinicSettings.dashboardQuickActionsHint')"
+                            persistent-hint
+                            multiple
+                            chips
+                            closable-chips
+                            prepend-inner-icon="mdi-lightning-bolt"
+                            variant="outlined"
+                            :disabled="!canEdit"
+                          ></v-select>
+                        </v-col>
+                        <v-col cols="12" md="6">
+                          <v-select
+                            v-model="clinicForm.patient_age_input"
+                            :label="$t('clinicSettings.patientAgeInput')"
+                            :items="patientAgeInputOptions"
+                            :hint="$t('clinicSettings.patientAgeInputHint')"
+                            persistent-hint
+                            prepend-inner-icon="mdi-cake-variant-outline"
+                            variant="outlined"
+                            :disabled="!canEdit"
+                          ></v-select>
+                        </v-col>
+                        <v-col cols="12" md="6">
+                          <v-select
+                            v-model="clinicForm.waiting_list_style"
+                            :label="$t('clinicSettings.waitingListStyle')"
+                            :items="waitingListStyleOptions"
+                            :hint="$t('clinicSettings.waitingListStyleHint')"
+                            persistent-hint
+                            prepend-inner-icon="mdi-format-list-numbered"
+                            variant="outlined"
+                            :disabled="!canEdit"
+                          ></v-select>
+                        </v-col>
 
                         <!-- Dental Chart Subsection -->
                         <v-col cols="12">
@@ -494,6 +543,16 @@
                             variant="outlined"
                             @update:model-value="setDentalChartType"
                           ></v-select>
+                        </v-col>
+                        <v-col v-if="isDentalClinic" cols="12">
+                          <v-switch
+                            v-model="clinicForm.case_dialog_on_category"
+                            :label="$t('clinicSettings.caseDialogOnCategory')"
+                            :hint="$t('clinicSettings.caseDialogOnCategoryHint')"
+                            persistent-hint
+                            color="primary"
+                            :disabled="!canEdit"
+                          ></v-switch>
                         </v-col>
 
                         <!-- Tooth Colors Subsection -->
@@ -890,9 +949,9 @@
               </v-card-text>
             </v-window-item>
 
-            <!-- WhatsApp Templates Tab (the clinic's own message templates) -->
-            <v-window-item v-if="canManageTemplates" value="whatsappTemplates">
-              <TemplatesPage />
+            <!-- Messaging Tab: WhatsApp conversations, templates, automation and settings -->
+            <v-window-item v-if="canUseMessaging" value="messaging">
+              <MessagingSettings :initial-section="route.query.section" />
             </v-window-item>
           </v-window>
         </v-card>
@@ -931,7 +990,7 @@ import { useDisplay } from 'vuetify'
 import SettingsSection from '@/components/SettingsSection.vue'
 import CaseCategories from '@/views/settings/CaseCategories.vue'
 import RxPaperSettings from '@/components/prescription/RxPaperSettings.vue'
-import TemplatesPage from '@/pages/messaging/TemplatesPage.vue'
+import MessagingSettings from '@/views/settings/MessagingSettings.vue'
 import { usePermissions } from '@/composables/usePermissions'
 import aiService from '@/services/ai.service'
 import { useAuthStore } from '@/stores/authNew'
@@ -941,7 +1000,15 @@ import {
   bulkUpdateClinicSettings,
   uploadClinicLogo
 } from '@/services/clinicSettings.service'
-import { useClinicSettings } from '@/composables/useClinicSettings'
+import {
+  useClinicSettings,
+  DEFAULT_PATIENT_AGE_INPUT,
+  normalizePatientAgeInput,
+  DEFAULT_WAITING_LIST_STYLE,
+  normalizeWaitingListStyle,
+  DASHBOARD_QUICK_ACTIONS,
+  normalizeDashboardQuickActions
+} from '@/composables/useClinicSettings'
 import { useRxTemplate } from '@/composables/useRxTemplate'
 import { DEFAULT_RX_TEMPLATE } from '@/utils/rxPaper'
 import { DEFAULT_TOOTH_NOTATION, normalizeToothNotation } from '@/components/teeth/toothNotation'
@@ -956,19 +1023,20 @@ const { dentalChartType, setDentalChartType } = useDentalChartPreference()
 const { resetCache, clinicInfo, loadSettings: loadSharedClinicSettings } = useClinicSettings()
 const { hasAnyPermissionFor } = usePermissions()
 
-// Same keywords that guard the standalone /messaging/templates route.
-const canManageTemplates = computed(() => hasAnyPermissionFor(['message', 'template', 'automation']))
+// Messaging tab: each section inside it is filtered by its own route keywords.
+const canUseMessaging = computed(() => hasAnyPermissionFor(['message', 'whatsapp', 'automation']))
 
 const settingsTabs = computed(() => [
   { value: 'caseCategories', title: t('settings.caseCategories'), icon: 'mdi-tag-multiple-outline' },
   { value: 'clinic', title: t('settings.clinic'), icon: 'mdi-hospital-building' },
   { value: 'rxPaper', title: t('rx.paper.template'), icon: 'mdi-prescription' },
   { value: 'ai', title: 'AI', icon: 'mdi-robot-outline' },
-  ...(canManageTemplates.value
-    ? [{ value: 'whatsappTemplates', title: t('settings.whatsappTemplates'), icon: 'mdi-whatsapp' }]
+  ...(canUseMessaging.value
+    ? [{ value: 'messaging', title: t('settings.messaging'), icon: 'mdi-whatsapp' }]
     : [])
 ])
-// `?tab=` lets other screens deep-link to a tab (e.g. the WhatsApp dialog's "manage templates").
+// `?tab=` lets other screens deep-link to a tab, and `?section=` to a messaging section
+// (e.g. the WhatsApp dialog's "manage templates" opens ?tab=messaging&section=templates).
 const activeTab = ref(
   settingsTabs.value.some(tab => tab.value === route.query.tab) ? route.query.tab : 'caseCategories'
 )
@@ -1085,8 +1153,19 @@ const clinicForm = ref({
   time_format: '12h',
   // Dashboard opens with its numbers hidden behind a show/hide button
   hide_dashboard_numbers: false,
+  // Case categories grouped in departments, with a department filter on cases and bills
+  enable_departments: false,
+  // Keys of the quick actions shown on the dashboard (all of them by default)
+  dashboard_quick_actions: normalizeDashboardQuickActions(null),
+  // Patient form asks for a birth date or an age - 'birth_date' | 'age'
+  patient_age_input: DEFAULT_PATIENT_AGE_INPUT,
+  // Waiting list look - 'table' (the original data table) | 'cards'
+  waiting_list_style: DEFAULT_WAITING_LIST_STYLE,
   // Dental chart: how baby (primary) teeth are labelled - 'fdi' | 'universal' | 'palmer'
   baby_teeth_notation: DEFAULT_TOOTH_NOTATION,
+  // Dental chart: picking a case category opens the add-case dialog instead of
+  // creating the case straight away
+  case_dialog_on_category: false,
   // Social media
   facebook: '',
   instagram: '',
@@ -1165,6 +1244,20 @@ const timeFormatOptions = [
 
 // Baby teeth can be shown as FDI numbers, Universal letters (A-T) or
 // Palmer letters (A-E per quadrant). Permanent teeth stay on FDI numbers.
+const patientAgeInputOptions = computed(() => [
+  { title: t('clinicSettings.patientAgeInputBirthDate'), value: 'birth_date' },
+  { title: t('clinicSettings.patientAgeInputAge'), value: 'age' }
+])
+
+const waitingListStyleOptions = computed(() => [
+  { title: t('clinicSettings.waitingListStyleTable'), value: 'table' },
+  { title: t('clinicSettings.waitingListStyleCards'), value: 'cards' }
+])
+
+const dashboardQuickActionOptions = computed(() =>
+  DASHBOARD_QUICK_ACTIONS.map(action => ({ title: t(action.labelKey), value: action.key }))
+)
+
 const babyTeethNotationOptions = computed(() => [
   { title: `${t('clinicSettings.babyTeethNotationFdi')} (51-85)`, value: 'fdi' },
   { title: `${t('clinicSettings.babyTeethNotationUniversal')} (A - T)`, value: 'universal' },
@@ -1290,7 +1383,12 @@ const loadClinicSettings = async () => {
         date_format: settings.date_format || 'DD/MM/YYYY',
         time_format: settings.time_format || '12h',
         hide_dashboard_numbers: Boolean(settings.hide_dashboard_numbers),
+        enable_departments: settings.enable_departments === true,
+        dashboard_quick_actions: normalizeDashboardQuickActions(settings.dashboard_quick_actions),
+        patient_age_input: normalizePatientAgeInput(settings.patient_age_input),
+        waiting_list_style: normalizeWaitingListStyle(settings.waiting_list_style),
         baby_teeth_notation: normalizeToothNotation(settings.baby_teeth_notation),
+        case_dialog_on_category: settings.case_dialog_on_category === true,
         facebook: settings.facebook || '',
         instagram: settings.instagram || '',
         twitter: settings.twitter || '',
@@ -1495,7 +1593,12 @@ const saveAllSettings = async () => {
       { key: 'date_format', value: clinicForm.value.date_format, type: 'string' },
       { key: 'time_format', value: clinicForm.value.time_format, type: 'string' },
       { key: 'hide_dashboard_numbers', value: clinicForm.value.hide_dashboard_numbers, type: 'boolean' },
+      { key: 'enable_departments', value: clinicForm.value.enable_departments, type: 'boolean' },
+      { key: 'dashboard_quick_actions', value: normalizeDashboardQuickActions(clinicForm.value.dashboard_quick_actions), type: 'json' },
+      { key: 'patient_age_input', value: clinicForm.value.patient_age_input, type: 'string' },
+      { key: 'waiting_list_style', value: clinicForm.value.waiting_list_style, type: 'string' },
       { key: 'baby_teeth_notation', value: clinicForm.value.baby_teeth_notation, type: 'string' },
+      { key: 'case_dialog_on_category', value: clinicForm.value.case_dialog_on_category, type: 'boolean' },
       { key: 'facebook', value: clinicForm.value.facebook, type: 'string' },
       { key: 'instagram', value: clinicForm.value.instagram, type: 'string' },
       { key: 'twitter', value: clinicForm.value.twitter, type: 'string' },

@@ -12,12 +12,22 @@
           </p>
         </div>
         
-        <v-btn
-          icon="mdi-refresh"
-          variant="text"
-          :loading="loading"
-          @click="loadReservations"
-        />
+        <div class="d-flex align-center gap-2">
+          <v-btn
+            v-if="canAddPatient"
+            color="primary"
+            prepend-icon="mdi-account-plus-outline"
+            @click="openPatientDialog"
+          >
+            {{ $t('waitingList.addPatient') }}
+          </v-btn>
+          <v-btn
+            icon="mdi-refresh"
+            variant="text"
+            :loading="loading"
+            @click="loadReservations"
+          />
+        </div>
       </div>
     </div>
 
@@ -26,7 +36,7 @@
       <v-card-text>
         <v-row align="center" dense>
           <!-- Doctor Filter -->
-          <v-col cols="12" sm="6" md="4">
+          <v-col cols="12" sm="6" md="3">
             <v-select
               v-model="selectedDoctor"
               :items="doctorOptions"
@@ -40,9 +50,9 @@
               @update:model-value="loadReservations"
             />
           </v-col>
-          
+
           <!-- Patient Search Filter -->
-          <v-col cols="12" sm="6" md="4">
+          <v-col cols="12" sm="6" md="3">
             <v-text-field
               v-model="patientSearch"
               :label="$t('waitingList.searchPatient') || 'بحث عن مراجع'"
@@ -53,24 +63,55 @@
               clearable
             />
           </v-col>
-          
-          <!-- Results Count -->
-          <v-col cols="12" md="4" class="d-flex align-center justify-md-end">
+
+          <!-- Sort -->
+          <v-col cols="12" sm="6" md="3">
+            <v-select
+              v-model="sortMode"
+              :items="sortOptions"
+              :label="$t('waitingList.sortBy')"
+              prepend-inner-icon="mdi-sort"
+              variant="outlined"
+              density="compact"
+              hide-details
+            />
+          </v-col>
+
+          <!-- Counts -->
+          <v-col cols="12" sm="6" md="3" class="d-flex flex-wrap align-center justify-md-end gap-2">
             <v-chip color="primary" variant="tonal" size="small">
               <v-icon start size="small">mdi-account-group</v-icon>
               {{ filteredReservations.length }} {{ $t('waitingList.reservations') || 'حجز' }}
+            </v-chip>
+            <v-chip color="warning" variant="tonal" size="small">
+              <v-icon start size="small">mdi-timer-sand</v-icon>
+              {{ waitingCount }} {{ $t('waitingList.waiting') }}
+            </v-chip>
+            <v-chip color="success" variant="tonal" size="small">
+              <v-icon start size="small">mdi-check-circle</v-icon>
+              {{ doneCount }} {{ $t('waitingList.markDone') }}
             </v-chip>
           </v-col>
         </v-row>
       </v-card-text>
     </v-card>
 
-    <!-- Reservations: cards on phones, table on larger screens -->
-    <v-card :elevation="smAndDown ? 0 : 2" rounded="xl" :class="{ 'wl-mobile': smAndDown }">
-      <v-progress-linear v-if="loading" indeterminate color="primary" :rounded="smAndDown" />
+    <!-- Reservations: the clinic picks the table or the cards in Settings -->
+    <WaitingListTable
+      v-if="waitingListStyle === 'table'"
+      :items="filteredReservations"
+      :queue-numbers="queueNumbers"
+      :loading="loading"
+      :updating-status="updatingStatus"
+      :date-label="formattedToday"
+      @open="goToPatient"
+      @toggle-done="toggleDone"
+    />
 
-      <!-- Mobile card list -->
-      <div v-if="smAndDown" class="wl-card-list" :aria-busy="loading">
+    <template v-else>
+      <v-progress-linear v-if="loading" indeterminate color="primary" rounded class="mb-3" />
+
+      <div class="wl-card-list" :aria-busy="loading">
         <template v-if="loading && !filteredReservations.length">
           <v-skeleton-loader
             v-for="n in 4"
@@ -95,7 +136,12 @@
             v-for="item in filteredReservations"
             :key="item.id"
             class="wl-card"
-            :class="{ 'wl-card--done': isDone(item), 'wl-card--updating': updatingStatus.has(item.id) }"
+            :class="{
+              'wl-card--next': item.id === nextReservationId,
+              'wl-card--done': isDone(item),
+              'wl-card--cancelled': isCancelled(item),
+              'wl-card--updating': updatingStatus.has(item.id)
+            }"
           >
             <span class="wl-card__accent" v-bind="getStatusAccent(item.status)" aria-hidden="true" />
 
@@ -106,19 +152,42 @@
               @click="goToPatient(item)"
               @keydown.enter="goToPatient(item)"
             >
-              <!-- Identity + time -->
+              <!-- Queue number + identity + time -->
               <div class="wl-card__top">
-                <v-avatar size="46" color="primary" variant="tonal" class="wl-card__avatar">
-                  <span class="font-weight-bold">{{ getPatientInitials(item.patient) }}</span>
-                </v-avatar>
+                <div
+                  class="wl-card__queue"
+                  dir="ltr"
+                  :title="$t('waitingList.queueNumber')"
+                  :aria-label="`${$t('waitingList.queueNumber')} ${queueNumbers.get(item.id)}`"
+                >
+                  <span class="wl-card__queue-hash">#</span>{{ queueNumbers.get(item.id) }}
+                </div>
 
                 <div class="wl-card__identity">
-                  <h2 class="wl-card__name">
-                    {{ item.patient?.name || $t('common.noData') }}
-                  </h2>
+                  <div class="wl-card__name-row">
+                    <h2 class="wl-card__name">
+                      {{ item.patient?.name || $t('common.noData') }}
+                    </h2>
+                    <v-chip
+                      v-if="item.id === nextReservationId"
+                      color="warning"
+                      size="x-small"
+                      variant="flat"
+                      prepend-icon="mdi-bell-ring-outline"
+                      class="font-weight-bold"
+                    >
+                      {{ $t('waitingList.next') }}
+                    </v-chip>
+                  </div>
                   <div class="wl-card__meta">
-                    <span v-if="item.patient?.phone" dir="ltr">{{ item.patient.phone }}</span>
-                    <span v-if="item.patient?.age">{{ item.patient.age }} {{ $t('patients.years') }}</span>
+                    <span v-if="item.patient?.phone" dir="ltr">
+                      <v-icon size="13">mdi-phone-outline</v-icon>
+                      {{ item.patient.phone }}
+                    </span>
+                    <span v-if="item.patient?.age">
+                      <v-icon size="13">mdi-cake-variant-outline</v-icon>
+                      {{ item.patient.age }} {{ $t('patients.years') }}
+                    </span>
                   </div>
                 </div>
 
@@ -128,36 +197,45 @@
                 </div>
               </div>
 
-              <!-- Doctor -->
-              <div class="wl-card__row">
-                <v-icon size="18" color="teal">mdi-doctor</v-icon>
-                <span class="text-truncate">{{ item.doctor?.name || $t('common.noData') }}</span>
-              </div>
+              <!-- Doctor + status/type -->
+              <div class="wl-card__details">
+                <div class="wl-card__doctor">
+                  <span class="wl-card__doctor-icon">
+                    <v-icon size="16">mdi-doctor</v-icon>
+                  </span>
+                  <span class="text-truncate">{{ item.doctor?.name || $t('common.noData') }}</span>
+                </div>
 
-              <!-- Status + type chips -->
-              <div class="wl-card__chips">
-                <v-chip :color="getStatusColor(item.status)" size="small" variant="flat" class="font-weight-medium">
-                  <v-icon start size="14">{{ isDone(item) ? 'mdi-check-circle' : 'mdi-timer-sand' }}</v-icon>
-                  {{ getStatusText(item.status) }}
-                </v-chip>
-                <v-chip
-                  v-if="item.reservation_type"
-                  size="small"
-                  :color="item.reservation_type.id === 1 ? 'teal' : 'purple'"
-                  variant="tonal"
-                >
-                  <v-icon start size="14">{{ item.reservation_type.id === 1 ? 'mdi-stethoscope' : 'mdi-dots-horizontal-circle-outline' }}</v-icon>
-                  {{ item.reservation_type.name }}
-                </v-chip>
+                <div class="wl-card__chips">
+                  <v-chip :color="getStatusColor(item.status)" size="small" variant="tonal" class="wl-card__status-chip font-weight-medium">
+                    <v-icon start size="14">{{ isDone(item) ? 'mdi-check-circle' : 'mdi-timer-sand' }}</v-icon>
+                    {{ getStatusText(item.status) }}
+                  </v-chip>
+                  <v-chip
+                    v-if="item.reservation_type"
+                    size="small"
+                    :color="item.reservation_type.id === 1 ? 'teal' : 'purple'"
+                    variant="tonal"
+                    class="wl-card__type-chip"
+                    :title="typeChipNote(item) || undefined"
+                  >
+                    <v-icon start size="14">{{ item.reservation_type.id === 1 ? 'mdi-stethoscope' : 'mdi-dots-horizontal-circle-outline' }}</v-icon>
+                    <span class="text-truncate">{{ typeChipNote(item) || item.reservation_type.name }}</span>
+                  </v-chip>
+                </div>
               </div>
 
               <!-- Notes -->
-              <div v-if="item.notes || item.reservation_type_note" class="wl-card__notes">
+              <div
+                v-if="item.notes || boxTypeNote(item)"
+                class="wl-card__notes"
+                :title="[item.notes, boxTypeNote(item)].filter(Boolean).join('\n')"
+              >
                 <v-icon size="16" class="wl-card__notes-icon">mdi-note-text-outline</v-icon>
                 <div class="wl-card__notes-text">
                   <div v-if="item.notes">{{ item.notes }}</div>
-                  <div v-if="item.reservation_type_note" class="text-caption text-medium-emphasis">
-                    {{ item.reservation_type_note }}
+                  <div v-if="boxTypeNote(item)" class="text-caption text-medium-emphasis">
+                    {{ boxTypeNote(item) }}
                   </div>
                 </div>
               </div>
@@ -191,171 +269,52 @@
           </article>
         </template>
       </div>
-
-      <!-- Desktop table -->
-      <v-card-text v-else class="pa-0">
-        <v-data-table
-          :headers="headers"
-          :items="filteredReservations"
-          :loading="loading"
-          :items-per-page="150"
-          :items-per-page-options="[10, 15, 25, 50]"
-          :row-props="getReservationRowProps"
-          hover
-          class="waiting-list-table"
-        >
-          <!-- Patient Name Column - Clickable -->
-          <template #item.patient="{ item }">
-            <div 
-              class="patient-link d-flex align-center gap-2 cursor-pointer"
-              @click="goToPatient(item)"
-            >
-              <v-avatar size="32" color="primary">
-                <span class="text-white text-caption font-weight-bold">
-                  {{ getPatientInitials(item.patient) }}
-                </span>
-              </v-avatar>
-              <div>
-                <div class="font-weight-medium text-primary">
-                  {{ item.patient?.name || $t('common.noData') }}
-                </div>
-                <div class="text-caption text-medium-emphasis">
-                  {{ item.patient?.phone || '' }}
-                </div>
-              </div>
-            </div>
-          </template>
-          
-          <!-- Patient Age Column -->
-          <template #item.age="{ item }">
-            <span>{{ item.patient?.age ? item.patient.age + ' ' + $t('patients.years') : $t('common.noData') }}</span>
-          </template>
-          
-          <!-- Doctor Column -->
-          <template #item.doctor="{ item }">
-            <div class="d-flex align-center gap-2">
-              <v-icon size="small" color="teal">mdi-doctor</v-icon>
-              <span>{{ item.doctor?.name || $t('common.noData') }}</span>
-            </div>
-          </template>
-          
-          <!-- Reservation Time Column -->
-          <template #item.reservation_from_time="{ item }">
-            <div class="d-flex align-center gap-2">
-              <v-icon size="small" color="primary">mdi-clock-outline</v-icon>
-              <span>{{ formatTime(item.reservation_from_time) }}</span>
-            </div>
-          </template>
-
-          <!-- Reservation Type Column -->
-          <template #item.reservation_type="{ item }">
-            <v-chip
-              v-if="item.reservation_type"
-              size="small"
-              :color="item.reservation_type.id === 1 ? 'teal' : 'purple'"
-              variant="tonal"
-            >
-              <v-icon start size="14">{{ item.reservation_type.id === 1 ? 'mdi-stethoscope' : 'mdi-dots-horizontal-circle-outline' }}</v-icon>
-              {{ item.reservation_type.name }}
-            </v-chip>
-            <span v-else class="text-medium-emphasis text-caption">-</span>
-          </template>
-          
-          <!-- Notes Column -->
-          <template #item.notes="{ item }">
-            <div class="d-flex flex-column gap-1">
-              <div v-if="item.notes" class="text-body-2" style="max-width: 300px;">
-                <v-tooltip location="top">
-                  <template #activator="{ props }">
-                    <span v-bind="props" class="text-truncate d-inline-block" style="max-width: 200px;">
-                      {{ item.notes }}
-                    </span>
-                  </template>
-                  <span>{{ item.notes }}</span>
-                </v-tooltip>
-              </div>
-              <div v-if="item.reservation_type_note" class="text-caption text-medium-emphasis">
-                {{ item.reservation_type_note }}
-              </div>
-              <span v-if="!item.notes && !item.reservation_type_note" class="text-medium-emphasis text-caption">
-                {{ $t('common.noData') || '-' }}
-              </span>
-            </div>
-          </template>
-          
-          <!-- Status Column -->
-          <template #item.status="{ item }">
-            <v-chip
-              :color="getStatusColor(item.status)"
-              size="small"
-              variant="flat"
-            >
-              {{ getStatusText(item.status) }}
-            </v-chip>
-          </template>
-
-          <!-- Mark as Done Column -->
-          <template #item.done="{ item }">
-            <v-switch
-              :model-value="item.status?.id === 3"
-              :loading="updatingStatus.has(item.id)"
-              :disabled="updatingStatus.has(item.id)"
-              color="success"
-              hide-details
-              density="compact"
-              @update:model-value="val => toggleDone(item, val)"
-            />
-          </template>
-          
-          <!-- Actions Column -->
-          <template #item.actions="{ item }">
-            <v-btn
-              icon="mdi-eye"
-              size="small"
-              variant="text"
-              color="primary"
-              @click="goToPatient(item)"
-            >
-              <v-icon>mdi-eye</v-icon>
-              <v-tooltip activator="parent" location="top">
-                {{ $t('waitingList.viewPatient') || 'عرض المراجع' }}
-              </v-tooltip>
-            </v-btn>
-          </template>
-          
-          <!-- No Data -->
-          <template #no-data>
-            <div class="text-center pa-8">
-              <v-icon size="64" color="grey-lighten-1">mdi-calendar-blank</v-icon>
-              <p class="text-body-1 text-medium-emphasis mt-4">
-                {{ $t('waitingList.noReservations') || 'لا توجد حجوزات اليوم' }}
-              </p>
-            </div>
-          </template>
-        </v-data-table>
-      </v-card-text>
-    </v-card>
+    </template>
 
     <!-- Snackbar for status update feedback -->
     <v-snackbar v-model="snackbar.show" :color="snackbar.color" :timeout="3000" location="top">
       {{ snackbar.text }}
     </v-snackbar>
+
+    <!-- Add patient: booked for today at the current time -->
+    <PatientFormDialog
+      v-model="patientDialog"
+      :doctors="doctors"
+      :default-doctor-id="defaultBookingDoctorId"
+      book-now
+      @saved="handlePatientSaved"
+      @error="handlePatientError"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { useDisplay } from 'vuetify'
 import { reservationService } from '@/services/reservation.service'
 import DoctorService from '@/services/doctor.service'
 import { useAuthStore } from '@/stores/authNew'
+import { PERMISSIONS } from '@/constants/permissions'
+import PatientFormDialog from '@/components/PatientFormDialog.vue'
+import WaitingListTable from '@/components/waitingList/WaitingListTable.vue'
+import { holdKeyboard } from '@/utils/mobileKeyboard'
+import { useClinicSettings } from '@/composables/useClinicSettings'
+import {
+  clockPart,
+  formatClockTime,
+  getStatusColor,
+  getStatusName,
+  isDone,
+  isCancelled,
+  isWaiting,
+  getStatusAccent
+} from '@/utils/waitingList'
 
 const router = useRouter()
 const { t, locale } = useI18n()
 const authStore = useAuthStore()
-const { smAndDown } = useDisplay()
+const { waitingListStyle, loadSettings } = useClinicSettings()
 
 // State
 const loading = ref(false)
@@ -365,11 +324,55 @@ const selectedDoctor = ref(null)
 const patientSearch = ref('')
 const updatingStatus = ref(new Set())
 const snackbar = ref({ show: false, text: '', color: 'success' })
+const patientDialog = ref(false)
 
-// Get today's date in YYYY-MM-DD format
+function openPatientDialog() {
+  holdKeyboard() // phones: keyboard opens with the tap, ready for the name
+  patientDialog.value = true
+}
+
+// Sort choice is remembered per browser
+const SORT_MODES = ['time', 'waiting', 'latest']
+const SORT_STORAGE_KEY = 'waitingList.sort'
+
+function readSortMode() {
+  try {
+    const saved = localStorage.getItem(SORT_STORAGE_KEY)
+    return SORT_MODES.includes(saved) ? saved : 'time'
+  } catch {
+    return 'time'
+  }
+}
+
+const sortMode = ref(readSortMode())
+
+watch(sortMode, (mode) => {
+  try {
+    localStorage.setItem(SORT_STORAGE_KEY, mode)
+  } catch {
+    // Storage blocked (private mode): keep the choice for this visit only
+  }
+})
+
+const sortOptions = computed(() => [
+  { value: 'time', title: t('waitingList.sortTimeAsc') },
+  { value: 'waiting', title: t('waitingList.sortWaitingFirst') },
+  { value: 'latest', title: t('waitingList.sortTimeDesc') }
+])
+
+const canAddPatient = computed(() => authStore.hasPermission(PERMISSIONS.CREATE_PATIENT))
+
+// New patients are booked with the doctor being viewed, or with the doctor adding them
+const defaultBookingDoctorId = computed(() =>
+  selectedDoctor.value || (authStore.isDoctor || authStore.isClinicSuperDoctor ? authStore.user?.id : null)
+)
+
+// Get today's local date in YYYY-MM-DD format (toISOString would give the UTC date)
 function getTodayDate() {
   const today = new Date()
-  return today.toISOString().split('T')[0]
+  const m = String(today.getMonth() + 1).padStart(2, '0')
+  const d = String(today.getDate()).padStart(2, '0')
+  return `${today.getFullYear()}-${m}-${d}`
 }
 
 // Formatted today's date for display
@@ -383,19 +386,6 @@ const formattedToday = computed(() => {
   })
 })
 
-// Table headers (without date and time columns)
-const headers = computed(() => [
-  { title: t('waitingList.patient') || 'المراجع', key: 'patient', sortable: true },
-  { title: t('patients.age') || 'العمر', key: 'age', sortable: false },
-  { title: t('waitingList.doctor') || 'الطبيب', key: 'doctor', sortable: true },
-  { title: t('waitingList.reservationTime') || 'وقت الحجز', key: 'reservation_from_time', sortable: true },
-  { title: t('reservations.reservation_type') || 'نوع الحجز', key: 'reservation_type', sortable: false },
-  { title: t('waitingList.notes') || 'ملاحظات', key: 'notes', sortable: false },
-  { title: t('waitingList.status') || 'الحالة', key: 'status', sortable: true },
-  { title: t('waitingList.markDone') || 'مكتمل', key: 'done', sortable: false, align: 'center' },
-  { title: t('common.actions') || 'الإجراءات', key: 'actions', sortable: false, align: 'center' }
-])
-
 // Doctor options for filter
 const doctorOptions = computed(() => {
   return [
@@ -404,14 +394,42 @@ const doctorOptions = computed(() => {
   ]
 })
 
-// Filtered reservations based on patient search
+// Arrival order: booking time, then creation time (the API returns today's rows unordered)
+function compareArrival(a, b) {
+  return (clockPart(a.reservation_from_time) || '99').localeCompare(clockPart(b.reservation_from_time) || '99')
+    || (a.created_at || '').localeCompare(b.created_at || '')
+    || a.id - b.id
+}
+
+const arrivalOrder = computed(() => [...reservations.value].sort(compareArrival))
+
+// Queue number = position in today's arrival order, so it stays put while searching or re-sorting
+const queueNumbers = computed(() => new Map(arrivalOrder.value.map((r, i) => [r.id, i + 1])))
+
+const nextReservationId = computed(() => arrivalOrder.value.find(isWaiting)?.id ?? null)
+
+const waitingCount = computed(() => reservations.value.filter(isWaiting).length)
+const doneCount = computed(() => reservations.value.filter(isDone).length)
+
+const sortedReservations = computed(() => {
+  const list = [...arrivalOrder.value]
+  if (sortMode.value === 'latest') return list.reverse()
+  if (sortMode.value === 'waiting') {
+    // Finished and cancelled sink to the bottom; arrival order is kept within each group
+    const rank = r => (isDone(r) || isCancelled(r) ? 1 : 0)
+    return list.sort((a, b) => rank(a) - rank(b))
+  }
+  return list
+})
+
+// Sorted reservations narrowed by patient search
 const filteredReservations = computed(() => {
   if (!patientSearch.value) {
-    return reservations.value
+    return sortedReservations.value
   }
-  
+
   const search = patientSearch.value.toLowerCase()
-  return reservations.value.filter(r => {
+  return sortedReservations.value.filter(r => {
     const patientName = r.patient?.name?.toLowerCase() || ''
     const patientPhone = r.patient?.phone || ''
     return patientName.includes(search) || patientPhone.includes(search)
@@ -468,75 +486,24 @@ function goToPatient(item) {
   }
 }
 
-function getPatientInitials(patient) {
-  if (!patient?.name) return '?'
-  return patient.name
-    .split(' ')
-    .map(n => n[0])
-    .join('')
-    .substring(0, 2)
-    .toUpperCase()
-}
-
 function formatTime(timeString) {
-  if (!timeString) return t('common.noData') || '-'
-  
-  try {
-    // If it's a full datetime, extract the time
-    if (timeString.includes('T') || timeString.includes(' ')) {
-      const datePart = timeString.split('T')[1] || timeString.split(' ')[1]
-      timeString = datePart?.split('.')[0] || timeString
-    }
-    
-    // Parse time (format: HH:MM:SS or HH:MM)
-    const [hours, minutes] = timeString.split(':')
-    
-    // Convert to 12-hour format
-    const hour = parseInt(hours, 10)
-    const ampm = hour >= 12 ? 'PM' : 'AM'
-    const hour12 = hour % 12 || 12
-    
-    return `${hour12}:${minutes} ${ampm}`
-  } catch (error) {
-    console.error('Error formatting time:', error)
-    return timeString
-  }
-}
-
-function getStatusColor(status) {
-  if (!status) return 'grey'
-  // Use the color from the API directly if available
-  if (status.color) return status.color
-  const id = status.id
-  if (id === 1) return 'orange'
-  if (id === 2) return 'success'
-  if (id === 3) return 'error'
-  if (id === 4) return 'info'
-  return 'grey'
+  return formatClockTime(timeString) || t('common.noData') || '-'
 }
 
 function getStatusText(status) {
-  if (!status) return t('waitingList.pending') || 'قيد الانتظار'
-  // Prefer localised name from API
-  return status.name_ar || status.name_en || status.name || t('waitingList.pending')
+  return getStatusName(status) || t('waitingList.pending') || 'قيد الانتظار'
 }
 
-function isDone(item) {
-  const statusName = item?.status?.name?.toString().toLowerCase() || ''
-  return item?.status?.id === 3 || statusName === 'completed' || statusName === 'complete'
+// The "Other" type's chip shows what was typed for it, instead of the word "Other"
+// and a notes box that would make the card taller
+function typeChipNote(item) {
+  const type = item.reservation_type
+  return type && type.id !== 1 ? item.reservation_type_note || '' : ''
 }
 
-// Mobile card accent stripe: API colours are CSS values (#hex / rgb), palette names map to Vuetify bg-* classes
-function getStatusAccent(status) {
-  const color = getStatusColor(status)
-  if (/^(#|rgb|hsl)/i.test(color)) return { style: { backgroundColor: color } }
-  return { class: `bg-${color}` }
-}
-
-function getReservationRowProps(rowProps) {
-  // Vuetify passes an object like { item, index, internalItem }
-  const item = rowProps?.item || rowProps
-  return isDone(item) ? { class: 'waiting-list-complete-row' } : {}
+// A type note with no chip to sit on stays in the notes box
+function boxTypeNote(item) {
+  return typeChipNote(item) ? '' : item.reservation_type_note
 }
 
 async function toggleDone(item, isDone) {
@@ -568,28 +535,24 @@ async function toggleDone(item, isDone) {
   }
 }
 
+function handlePatientSaved({ message, color }) {
+  snackbar.value = { show: true, text: message, color: color || 'success' }
+  loadReservations()
+}
+
+function handlePatientError({ message, color }) {
+  snackbar.value = { show: true, text: message, color: color || 'error' }
+}
+
 // Lifecycle
 onMounted(() => {
+  loadSettings(true) // fresh every time: the style may have just changed on another device
   loadDoctors()
   loadReservations()
 })
 </script>
 
 <style scoped>
-
-.patient-link {
-  transition: all 0.2s ease;
-  padding: 4px 8px;
-  border-radius: 8px;
-}
-
-.patient-link:hover {
-  background-color: rgba(var(--v-theme-primary), 0.08);
-}
-
-.cursor-pointer {
-  cursor: pointer;
-}
 
 .gap-2 {
   gap: 8px;
@@ -599,47 +562,34 @@ onMounted(() => {
   gap: 12px;
 }
 
-.waiting-list-table :deep(.v-data-table__tr:hover) {
-  background-color: rgba(var(--v-theme-primary), 0.04) !important;
-}
-
-.waiting-list-table :deep(.v-data-table-header) {
-  background-color: rgba(var(--v-theme-primary), 0.05);
-}
-
-.waiting-list-table :deep(.v-data-table-header th) {
-  font-weight: 600 !important;
-}
-
-.waiting-list-table :deep(.waiting-list-complete-row) {
-  background-color: rgba(46, 125, 50, 0.14) !important;
-}
-
-.waiting-list-table :deep(.waiting-list-complete-row) td {
-  color: rgba(0, 0, 0, 0.85) !important;
-}
-
-/* ==================== Mobile cards (smAndDown) ==================== */
-.wl-mobile {
-  background: transparent;
-  overflow: visible;
-}
-
+/* ==================== Reservation cards ==================== */
 .wl-card-list {
   display: grid;
-  gap: 14px;
-  padding-block: 6px 16px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+  /* Every row takes the tallest card's height, so all cards are the same size */
+  grid-auto-rows: 1fr;
+  gap: 16px;
+  padding-block: 4px 16px;
 }
 
 .wl-card {
   position: relative;
+  display: flex;
+  flex-direction: column;
   min-width: 0;
   overflow: hidden;
   border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-  border-radius: 18px;
+  border-radius: 20px;
   background: rgb(var(--v-theme-surface));
-  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.05);
-  transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.2s ease, border-color 0.2s ease;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.06);
+  transition: transform 0.15s ease, box-shadow 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+}
+
+@media (hover: hover) {
+  .wl-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 26px rgba(15, 23, 42, 0.1);
+  }
 }
 
 .wl-card:active {
@@ -647,6 +597,7 @@ onMounted(() => {
 }
 
 .wl-card--skeleton {
+  flex-direction: row;
   padding: 8px;
 }
 
@@ -658,10 +609,13 @@ onMounted(() => {
   width: 5px;
 }
 
+/* Fills the card's spare height, keeping the footer pinned to the bottom */
 .wl-card__body {
+  flex: 1;
   display: grid;
+  align-content: start;
   gap: 12px;
-  padding: 16px 16px 12px;
+  padding: 16px 16px 14px;
   padding-inline-start: 20px;
   cursor: pointer;
   outline: none;
@@ -677,9 +631,30 @@ onMounted(() => {
   gap: 12px;
 }
 
-.wl-card__avatar {
+/* Queue number badge */
+.wl-card__queue {
+  display: inline-flex;
   flex-shrink: 0;
-  font-size: 0.9rem;
+  align-items: center;
+  justify-content: center;
+  min-width: 52px;
+  height: 52px;
+  padding-inline: 6px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgb(var(--v-theme-primary)), rgba(var(--v-theme-primary), 0.72));
+  color: rgb(var(--v-theme-on-primary));
+  font-size: 1.35rem;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 4px 12px rgba(var(--v-theme-primary), 0.3);
+}
+
+.wl-card__queue-hash {
+  margin-inline-end: 1px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  opacity: 0.75;
 }
 
 .wl-card__identity {
@@ -687,9 +662,16 @@ onMounted(() => {
   min-width: 0;
 }
 
+.wl-card__name-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+
 .wl-card__name {
   margin: 0;
-  font-size: 1.02rem;
+  font-size: 1.05rem;
   font-weight: 700;
   line-height: 1.5;
   color: rgb(var(--v-theme-on-surface));
@@ -699,15 +681,23 @@ onMounted(() => {
 .wl-card__meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 2px 10px;
+  gap: 2px 12px;
+  margin-top: 2px;
   font-size: 0.78rem;
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+}
+
+.wl-card__meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .wl-card__time {
   display: inline-flex;
   flex-shrink: 0;
   align-items: center;
+  align-self: flex-start;
   gap: 4px;
   padding: 6px 10px;
   border-radius: 999px;
@@ -719,18 +709,55 @@ onMounted(() => {
   white-space: nowrap;
 }
 
-.wl-card__row {
+/* Doctor + chips panel */
+.wl-card__details {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(var(--v-theme-on-surface), 0.035);
+}
+
+.wl-card__doctor {
   display: flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
   font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.wl-card__doctor-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  background: rgba(0, 137, 123, 0.14);
+  color: #00897B;
 }
 
 .wl-card__chips {
   display: flex;
-  flex-wrap: wrap;
   gap: 6px;
+  min-width: 0;
+}
+
+/* Chips stay on one row so a long note can't add height: the status keeps its
+   width and the type chip takes what is left, ending in "…" */
+.wl-card__status-chip {
+  flex-shrink: 0;
+}
+
+.wl-card__type-chip {
+  min-width: 0;
+}
+
+.wl-card__type-chip :deep(.v-chip__content) {
+  min-width: 0;
 }
 
 .wl-card__notes {
@@ -738,8 +765,8 @@ onMounted(() => {
   align-items: flex-start;
   gap: 8px;
   padding: 10px 12px;
-  border-radius: 12px;
-  background: rgba(var(--v-theme-on-surface), 0.04);
+  border-radius: 14px;
+  border: 1px dashed rgba(var(--v-border-color), var(--v-border-opacity));
   font-size: 0.85rem;
   line-height: 1.6;
 }
@@ -756,6 +783,16 @@ onMounted(() => {
   white-space: pre-line;
 }
 
+/* Cards share one height, so a long note is cut at two lines rather than
+   stretching every card; the full text is in the tooltip. */
+.wl-card__notes-text > div {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
 .wl-card__footer {
   display: flex;
   align-items: center;
@@ -763,7 +800,7 @@ onMounted(() => {
   gap: 12px;
   padding: 6px 12px 8px;
   padding-inline-start: 16px;
-  border-top: 1px dashed rgba(var(--v-border-color), var(--v-border-opacity));
+  border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
   background: rgba(var(--v-theme-on-surface), 0.02);
 }
 
@@ -790,15 +827,44 @@ onMounted(() => {
   text-transform: none;
 }
 
+/* Next patient to go in */
+.wl-card--next {
+  border-color: rgba(var(--v-theme-warning), 0.6);
+  box-shadow: 0 0 0 3px rgba(var(--v-theme-warning), 0.15), 0 6px 18px rgba(15, 23, 42, 0.08);
+}
+
+.wl-card--next .wl-card__queue {
+  background: linear-gradient(135deg, rgb(var(--v-theme-warning)), rgba(var(--v-theme-warning), 0.72));
+  color: rgb(var(--v-theme-on-warning));
+  box-shadow: 0 4px 14px rgba(var(--v-theme-warning), 0.4);
+}
+
 /* Completed reservation */
 .wl-card--done {
   background: rgba(var(--v-theme-success), 0.06);
   border-color: rgba(var(--v-theme-success), 0.35);
 }
 
+.wl-card--done .wl-card__queue {
+  background: rgba(var(--v-theme-success), 0.14);
+  color: rgb(var(--v-theme-success));
+  box-shadow: none;
+}
+
 .wl-card--done .wl-card__time {
   background: rgba(var(--v-theme-success), 0.14);
   color: rgb(var(--v-theme-success));
+}
+
+/* Cancelled reservation */
+.wl-card--cancelled {
+  opacity: 0.7;
+}
+
+.wl-card--cancelled .wl-card__queue {
+  background: rgba(var(--v-theme-on-surface), 0.08);
+  color: rgba(var(--v-theme-on-surface), 0.55);
+  box-shadow: none;
 }
 
 .wl-card--updating {
@@ -807,7 +873,10 @@ onMounted(() => {
 
 /* Empty state */
 .wl-empty {
+  grid-column: 1 / -1;
   padding: 48px 16px;
+  border: 1px dashed rgba(var(--v-border-color), var(--v-border-opacity));
+  border-radius: 20px;
   text-align: center;
 }
 

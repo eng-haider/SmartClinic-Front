@@ -29,13 +29,25 @@
 
     <!-- App Bar (shown on all screens, hidden in Flutter WebView) -->
     <v-app-bar v-if="!isFlutterApp" color="primary" :height="isMobile ? 56 : 64" :elevation="isMobile ? 0 : 2">
-      <v-btn v-if="isMobile && !isDashboard" :icon="isRtl ? 'mdi-arrow-right' : 'mdi-arrow-left'"
-        :aria-label="t('ui.back')" @click="goBack" />
+      <v-btn v-if="isMobile && showBackButton" :icon="isRtl ? 'mdi-arrow-right' : 'mdi-arrow-left'"
+        :aria-label="t('back')" @click="goBack" />
       <v-app-bar-nav-icon v-else-if="isMobile" :aria-label="t('layout.menu')" @click="drawer = !drawer" />
-      
+
       <v-toolbar-title :class="{ 'mobile-page-title': isMobile }">
         <h1 v-if="isMobile">{{ pageTitle }}</h1>
-        <v-img v-else src="/logo-white.png" alt="SmartClinic" height="76" width="76" class="ms-1" />
+        <div v-else class="d-flex align-center">
+          <v-img src="/logo-white.png" alt="SmartClinic" height="76" width="76" class="ms-1 flex-grow-0" />
+          <v-btn
+            v-if="showBackButton"
+            variant="tonal"
+            rounded="lg"
+            class="ms-3"
+            :prepend-icon="isRtl ? 'mdi-arrow-right' : 'mdi-arrow-left'"
+            @click="goBack"
+          >
+            {{ t('back') }}
+          </v-btn>
+        </div>
       </v-toolbar-title>
       
       <v-spacer v-if="!isMobile"></v-spacer>
@@ -115,6 +127,7 @@
     <v-navigation-drawer
       v-model="drawer"
       :rail="rail"
+      :rail-width="64"
       :permanent="!isMobile"
     >
       <!-- Rail: just the toggle, since a title/append would be clipped away -->
@@ -147,31 +160,48 @@
         <template v-for="item in filteredNavItems" :key="item.key">
           <!-- Group item with children -->
           <v-list-group v-if="item.children && item.children.length" :value="item.key">
-            <template v-slot:activator="{ props }">
+            <template v-slot:activator="{ props, isOpen }">
               <v-list-item
                 v-bind="props"
-                :prepend-icon="item.icon"
                 :title="item.title"
-                color="primary"
-              ></v-list-item>
+                :color="item.color || 'primary'"
+                class="nav-item"
+              >
+                <template #prepend>
+                  <v-avatar :color="item.color" :variant="isOpen ? 'flat' : 'tonal'" size="32" rounded="lg" class="nav-icon">
+                    <v-icon size="18">{{ item.icon }}</v-icon>
+                  </v-avatar>
+                </template>
+              </v-list-item>
             </template>
             <v-list-item
               v-for="child in item.children"
               :key="child.to"
               :to="child.to"
-              :prepend-icon="child.icon"
               :title="child.title"
-              color="primary"
-            ></v-list-item>
+              :color="child.color || 'primary'"
+              class="nav-item"
+            >
+              <template #prepend="{ isActive }">
+                <v-avatar :color="child.color" :variant="isActive ? 'flat' : 'tonal'" size="28" rounded="lg" class="nav-icon">
+                  <v-icon size="16">{{ child.icon }}</v-icon>
+                </v-avatar>
+              </template>
+            </v-list-item>
           </v-list-group>
           <!-- Regular item -->
           <v-list-item
             v-else
             :to="item.to"
-            :prepend-icon="item.icon"
             :title="item.title"
-            color="primary"
+            :color="item.color || 'primary'"
+            class="nav-item"
           >
+            <template #prepend="{ isActive }">
+              <v-avatar :color="item.color" :variant="isActive ? 'flat' : 'tonal'" size="32" rounded="lg" class="nav-icon">
+                <v-icon size="18">{{ item.icon }}</v-icon>
+              </v-avatar>
+            </template>
             <template v-if="item.key === 'booking-requests' && bookingPendingCount > 0" #append>
               <v-badge :content="bookingPendingCount" color="error" inline max="99" />
             </template>
@@ -194,7 +224,8 @@
     </v-main>
 
     <!-- AI Chatbot Widget -->
-    <AiChatWidget ref="aiChatRef" />
+    <!-- Not on the chatbot page, which shows the same chat full size -->
+    <AiChatWidget v-if="route.name !== 'AiChatbot'" ref="aiChatRef" />
 
     <!-- Bottom Tab Bar (mobile only, hidden in Flutter WebView) -->
     <div v-if="isMobile && !isFlutterApp" class="bottom-tab-bar">
@@ -219,7 +250,8 @@
       <!-- AI Chatbot Tab -->
       <button
         class="tab-item"
-        @click="aiChatRef?.openChat()"
+        :class="{ 'tab-active': route.name === 'AiChatbot' }"
+        @click="aiChatRef ? aiChatRef.openChat() : null"
       >
         <v-icon size="22">mdi-robot</v-icon>
         <span class="tab-label">المساعد</span>
@@ -238,6 +270,7 @@ import { getMobileBackTarget } from '@/utils/mobileNavigation'
 import { useAuthStore } from '@/stores/authNew'
 import { usePermissions } from '@/composables/usePermissions'
 import { useBookingRequests } from '@/composables/useBookingRequests'
+import { useMobile } from '@/composables/useMobile'
 import { setupPermissionWatcher } from '@/utils/permissionWatcher'
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
 import NotificationBell from '@/components/NotificationBell.vue'
@@ -264,6 +297,9 @@ const isTablet = ref(false)
 const aiChatRef = ref(null)
 
 const isDashboard = computed(() => ['Dashboard', 'DashboardAlt'].includes(route.name))
+// Back buttons are for the browser only; the native phone app keeps the menu button instead
+const { isNative } = useMobile()
+const showBackButton = computed(() => !isDashboard.value && !isNative)
 const pageTitle = computed(() => {
   if (route.name === 'PatientDetail' || route.name === 'OphthalmologyPatientDetail') return t('patients.patient_details')
   if (route.name === 'CaseDetail') return t('cases.case_details')
@@ -468,6 +504,23 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+/* ==================== Nav Icons ==================== */
+.nav-icon {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.nav-item:hover .nav-icon {
+  transform: scale(1.08);
+}
+
+.nav-icon.v-avatar--variant-flat {
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.18);
+}
+
+.nav-item.v-list-item--active :deep(.v-list-item-title) {
+  font-weight: 700;
 }
 
 .mobile-page-title {

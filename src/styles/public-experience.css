@@ -69,6 +69,7 @@
 .public-card-pad { padding: clamp(18px, 3vw, 28px); }
 .public-card-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-block-end: 18px; }
 .public-card-heading h2 { margin: 0; font-size: 1.08rem; letter-spacing: -.015em; }
+.public-diagnosis-plan { margin: 0; color: var(--public-ink); line-height: 1.8; overflow-wrap: anywhere; white-space: pre-line; }
 .public-section-kicker { margin: 0 0 3px; color: var(--public-muted); font-size: .78rem; font-weight: 650; }
 .public-empty { display: grid; justify-items: start; gap: 8px; padding-block: 6px; color: var(--public-muted); }
 .public-empty p { margin: 0; }

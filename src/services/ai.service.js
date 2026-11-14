@@ -2,14 +2,61 @@ import api from './api'
 
 class AIService {
   /**
-   * Send a question to the RAG-powered AI chatbot.
-   * POST /tenant/ai/chat
-   * @param {string} question - The user's question
-   * @returns {Promise<{success: boolean, question: string, answer: string, sources: Array, answered_at: string}>}
+   * The clinic chatbot. POST /tenant/ai/chat
+   *
+   * chat('question') — one-shot answer, no conversation and no actions
+   *   (used by the patient analysis drawer). Resolves to { data: { answer, sources } }.
+   *
+   * chat({ message, optionId, conversationId, clientMessageId, newConversation }) — the chat
+   *   widget: answers questions and prepares actions (bookings, payments...) that only
+   *   run after confirmAction(). Resolves to { data: { conversation_id, reply, answer } }.
+   *   Resending with the same clientMessageId is safe (same answer, nothing repeated).
    */
-  async chat(question) {
-    const response = await api.post('/ai/chat', { question })
-    return response
+  async chat(input) {
+    if (typeof input === 'string') {
+      return api.post('/ai/chat', { question: input, answer_only: true })
+    }
+
+    const { message = null, optionId = null, conversationId = null, clientMessageId = null, newConversation = false } = input || {}
+    const payload = {}
+    if (message) payload.message = message
+    if (optionId) payload.option_id = optionId
+    if (conversationId) payload.conversation_id = conversationId
+    else if (newConversation) payload.new_conversation = true
+    if (clientMessageId) payload.client_message_id = clientMessageId
+    return api.post('/ai/chat', payload, { timeout: 45000 })
+  }
+
+  /**
+   * Confirm a prepared action. Safe to call twice: the server runs it once.
+   * POST /tenant/ai/chat/actions/{id}/confirm
+   */
+  async confirmAction(actionId, conversationId = null) {
+    return api.post(`/ai/chat/actions/${actionId}/confirm`, conversationId ? { conversation_id: conversationId } : {}, { timeout: 45000 })
+  }
+
+  /**
+   * Cancel a prepared action (nothing is changed).
+   * POST /tenant/ai/chat/actions/{id}/cancel
+   */
+  async cancelAction(actionId, conversationId = null) {
+    return api.post(`/ai/chat/actions/${actionId}/cancel`, conversationId ? { conversation_id: conversationId } : {})
+  }
+
+  /**
+   * An action's status, e.g. after a timeout.
+   * GET /tenant/ai/chat/actions/{id}
+   */
+  async getAction(actionId) {
+    return api.get(`/ai/chat/actions/${actionId}`)
+  }
+
+  /**
+   * The last 50 turns of a conversation, to show it again after a reload.
+   * GET /tenant/ai/chat/conversations/{id} → { conversation_id, language, messages: [{ role, content, reply, created_at }] }
+   */
+  async getConversation(conversationId) {
+    return api.get(`/ai/chat/conversations/${conversationId}`)
   }
 
   /**

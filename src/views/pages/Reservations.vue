@@ -78,10 +78,19 @@
     </div>
 
     <!-- Calendar View -->
-    <v-card elevation="2" rounded="xl">
+    <v-card elevation="2" rounded="xl" class="calendar-card">
       <v-progress-linear v-if="loading" indeterminate color="primary" />
       
       <div class="calendar-container pa-4">
+        <!-- Color Legend -->
+        <div class="color-legend mb-3">
+          <span class="legend-title">{{ $t('reservations.legend.title') }}:</span>
+          <div v-for="item in colorLegend" :key="item.key" class="legend-item">
+            <span class="legend-dot" :style="{ backgroundColor: item.color }" />
+            <span>{{ item.label }}</span>
+          </div>
+        </div>
+
         <!-- Calendar Header (Days of Week) -->
         <div class="calendar-header">
           <div 
@@ -115,7 +124,7 @@
                 :key="event.id"
                 class="event-chip"
                 :style="{ backgroundColor: getEventColor(event) }"
-                @click.stop="openDetailsDialog(event)"
+                @click.stop="compactCalendar ? handleDayClick(day) : openDetailsDialog(event)"
               >
                 <span class="event-time">{{ formatTime(event.reservation_from_time) }}</span>
                 <span class="event-name">{{ event.patient?.name }}</span>
@@ -137,7 +146,7 @@
     />
 
     <!-- Reservation Details Dialog -->
-    <v-dialog v-model="detailsDialog" max-width="500">
+    <v-dialog v-model="detailsDialog" max-width="500" scrollable>
       <v-card rounded="xl" v-if="selectedReservation">
         <v-card-title class="d-flex align-center justify-space-between pa-4 bg-primary">
           <span class="text-white text-h6">
@@ -204,14 +213,12 @@
               </v-list-item-subtitle>
             </v-list-item>
 
-            <v-list-item v-if="selectedReservation.notes">
+            <v-list-item v-if="getReservationNote(selectedReservation)">
               <template v-slot:prepend>
                 <v-icon color="primary">mdi-note-text</v-icon>
               </template>
               <v-list-item-title>{{ $t('reservations.notes') }}</v-list-item-title>
-              <v-list-item-subtitle>
-                {{ selectedReservation.notes }}
-              </v-list-item-subtitle>
+              <div class="reservation-note">{{ getReservationNote(selectedReservation) }}</div>
             </v-list-item>
           </v-list>
 
@@ -290,33 +297,65 @@
       </v-card>
     </v-dialog>
 
-    <!-- All Events Dialog -->
-    <v-dialog v-model="allEventsDialog" max-width="500">
+    <!-- Day List Dialog (phones): every reservation of the tapped day -->
+    <v-dialog v-model="allEventsDialog" max-width="500" scrollable>
       <v-card rounded="xl">
-        <v-card-title class="pa-4 bg-primary text-white">
-          {{ formatDate(selectedDayForEvents?.date) }} - {{ $t('reservations.all_appointments') }}
+        <v-card-title class="d-flex align-center justify-space-between">
+          <span>{{ formatDate(selectedDate) }} ({{ dayEventsCount }})</span>
+          <v-btn
+            icon="mdi-close"
+            variant="text"
+            :aria-label="$t('common.close')"
+            @click="allEventsDialog = false"
+          />
         </v-card-title>
-        <v-card-text class="pa-4">
-          <v-list>
-            <v-list-item
-              v-for="event in selectedDayForEvents?.events"
-              :key="event.id"
-              @click="openDetailsDialog(event); allEventsDialog = false"
-              rounded="lg"
-              class="mb-2"
-            >
-              <template v-slot:prepend>
-                <v-avatar :color="getEventColor(event)" size="40">
-                  <v-icon color="white">mdi-calendar-clock</v-icon>
-                </v-avatar>
-              </template>
-              <v-list-item-title>{{ event.patient?.name }}</v-list-item-title>
-              <v-list-item-subtitle>
-                {{ formatTime(event.reservation_from_time) }} - {{ formatTime(event.reservation_to_time) }}
-              </v-list-item-subtitle>
-            </v-list-item>
-          </v-list>
+
+        <div v-if="dayEventsCount >= DAY_SEARCH_MIN" class="day-search">
+          <v-text-field
+            v-model="daySearch"
+            :label="$t('waitingList.searchPatient')"
+            prepend-inner-icon="mdi-magnify"
+            variant="outlined"
+            density="compact"
+            hide-details
+            clearable
+          />
+        </div>
+
+        <v-card-text class="pa-3">
+          <button
+            v-for="event in selectedDayEvents"
+            :key="event.id"
+            type="button"
+            class="day-row"
+            @click="openDetailsDialog(event)"
+          >
+            <span class="day-row__stripe" :style="{ backgroundColor: getEventColor(event) }" />
+            <span class="day-row__time">{{ formatTime(event.reservation_from_time) }}</span>
+            <span class="day-row__info">
+              <span class="day-row__name">{{ event.patient?.name }}</span>
+              <span class="day-row__meta">{{ event.doctor?.name }}</span>
+              <span v-if="getReservationNote(event)" class="day-row__meta">
+                {{ getReservationNote(event) }}
+              </span>
+            </span>
+          </button>
+          <p v-if="!selectedDayEvents.length" class="text-center text-medium-emphasis py-6 mb-0">
+            {{ $t('common.noData') }}
+          </p>
         </v-card-text>
+
+        <v-card-actions class="pa-3">
+          <v-btn
+            block
+            color="primary"
+            variant="flat"
+            prepend-icon="mdi-plus"
+            @click="bookingDialog = true"
+          >
+            {{ $t('reservations.add') }}
+          </v-btn>
+        </v-card-actions>
       </v-card>
     </v-dialog>
 
@@ -338,16 +377,19 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { useDisplay } from 'vuetify'
 import { useAuthStore } from '@/stores/auth'
 import reservationService from '@/services/reservation.service'
 import BookingDialog from '@/components/BookingDialog.vue'
+import { clockPart } from '@/utils/waitingList'
 
 const router = useRouter()
 const { t, locale } = useI18n()
 const authStore = useAuthStore()
+const { width } = useDisplay()
 
 // ==================== State ====================
 const loading = ref(false)
@@ -369,7 +411,7 @@ const allEventsDialog = ref(false)
 
 const selectedReservation = ref(null)
 const reservationToDelete = ref(null)
-const selectedDayForEvents = ref(null)
+const daySearch = ref('')
 
 const snackbar = ref({
   show: false,
@@ -377,9 +419,50 @@ const snackbar = ref({
   color: 'success'
 })
 
+// Seeded status id (same as WaitingList): 3 = completed
+const STATUS_COMPLETED = 3
+
+const EVENT_COLORS = {
+  pending: '#FFA500',
+  completed: '#4CAF50',
+  overdue: '#E53935'
+}
+
+// A day's list gets a search box once scrolling through it stops being quick
+const DAY_SEARCH_MIN = 6
+
+// Ticks every minute so reservations turn red while the page stays open
+const now = ref(new Date())
+let nowTimer = null
+
 // ==================== Computed ====================
+const colorLegend = computed(() => [
+  { key: 'pending', color: EVENT_COLORS.pending, label: t('reservations.legend.pending') },
+  { key: 'completed', color: EVENT_COLORS.completed, label: t('reservations.legend.completed') },
+  { key: 'overdue', color: EVENT_COLORS.overdue, label: t('reservations.legend.overdue') }
+])
+
 const isRtl = computed(() => {
   return locale.value === 'ar' || locale.value === 'ku'
+})
+
+// Same width as the page's mobile styles: below it a day's chips are too small
+// to tap one by one, so tapping a day lists its reservations instead
+const compactCalendar = computed(() => width.value <= 768)
+
+const dayEventsCount = computed(() => getEventsForDate(selectedDate.value).length)
+
+// The tapped day's reservations, earliest first, narrowed by the search box
+const selectedDayEvents = computed(() => {
+  const search = daySearch.value?.trim().toLowerCase()
+  return getEventsForDate(selectedDate.value)
+    .filter(event => {
+      if (!search) return true
+      const name = event.patient?.name?.toLowerCase() || ''
+      const phone = event.patient?.phone || ''
+      return name.includes(search) || phone.includes(search)
+    })
+    .sort((a, b) => clockPart(a.reservation_from_time).localeCompare(clockPart(b.reservation_from_time)))
 })
 
 const canFilterByDoctor = computed(() => {
@@ -506,19 +589,29 @@ const getEventsForDate = (date) => {
   return reservations.value.filter(r => r.reservation_start_date === date)
 }
 
-const getEventColor = (event) => {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
+// True once the reservation's end time (or start time, or end of day) has passed
+const isReservationTimePassed = (event) => {
+  if (!event.reservation_start_date) return false
   const [year, month, day] = event.reservation_start_date.split('-').map(Number)
-  const eventDate = new Date(year, month - 1, day)
-  eventDate.setHours(0, 0, 0, 0)
+  const timeStr = event.reservation_to_time || event.reservation_from_time || '23:59'
+  const [hours, minutes] = timeStr.split(':').map(Number)
+  return new Date(year, month - 1, day, hours, minutes) < now.value
+}
 
-  // Past reservations always green
-  if (eventDate < today) return '#4CAF50'
+const getEventColor = (event) => {
+  const statusId = event.status?.id ?? event.status_id
 
-  // Today or future: use status color from API if available, otherwise orange
-  if (event.status?.color) return event.status.color
-  return '#FFA500'
+  if (statusId === STATUS_COMPLETED) return EVENT_COLORS.completed
+
+  // Time has passed but the reservation was never completed
+  if (isReservationTimePassed(event)) return EVENT_COLORS.overdue
+
+  return EVENT_COLORS.pending
+}
+
+// The type note is the booking forms' only note input, so staff notes live there
+const getReservationNote = (event) => {
+  return [event.reservation_type_note, event.notes].filter(Boolean).join('\n')
 }
 
 const previousMonth = () => {
@@ -550,6 +643,11 @@ const goToToday = () => {
 
 const handleDayClick = (day) => {
   selectedDate.value = day.date
+  if (compactCalendar.value && day.events.length) {
+    daySearch.value = ''
+    allEventsDialog.value = true
+    return
+  }
   bookingDialog.value = true
 }
 
@@ -561,11 +659,6 @@ const openBookingDialog = () => {
 const openDetailsDialog = (reservation) => {
   selectedReservation.value = reservation
   detailsDialog.value = true
-}
-
-const showAllEvents = (day) => {
-  selectedDayForEvents.value = day
-  allEventsDialog.value = true
 }
 
 const confirmDelete = (reservation) => {
@@ -669,10 +762,20 @@ const showSnackbar = (message, color = 'success') => {
 // ==================== Watchers ====================
 // No longer needed - patient search handled in BookingDialog
 
+// Deleting a day's last reservation leaves nothing to list
+watch(dayEventsCount, (count) => {
+  if (!count) allEventsDialog.value = false
+})
+
 // ==================== Lifecycle ====================
 onMounted(() => {
   loadReservations()
   loadDoctors()
+  nowTimer = setInterval(() => { now.value = new Date() }, 60000)
+})
+
+onUnmounted(() => {
+  clearInterval(nowTimer)
 })
 </script>
 
@@ -783,18 +886,61 @@ onMounted(() => {
   }
 }
 
+/* The weekday row sticks to the top while the month scrolls. A sticky element
+   only works when no ancestor between it and the page scroller is itself a
+   scroll box, so the card and container clip instead of hiding/scrolling
+   (clip keeps the rounded corners). Browsers without `clip` keep the old
+   behaviour. */
+.calendar-card {
+  overflow: clip !important;
+}
+
 .calendar-container {
   overflow-x: auto;
+  overflow-x: clip;
+}
+
+.color-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  font-size: 13px;
+}
+
+.legend-title {
+  font-weight: 600;
+  color: #666;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  flex-shrink: 0;
 }
 
 .calendar-header {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 4px;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  /* Solid backdrop so days scrolling underneath don't show through the gaps */
+  background: rgb(var(--v-theme-surface));
+  padding-block: 4px;
 }
 
 .calendar-header-cell {
+  min-width: 0;
   text-align: center;
   padding: 12px 8px;
   font-weight: 600;
@@ -810,6 +956,8 @@ onMounted(() => {
 }
 
 .calendar-day {
+  /* Columns stay 1/7 wide even with a long name inside (nothing to scroll sideways) */
+  min-width: 0;
   min-height: 140px;
   padding: 10px;
   border: 1px solid #e0e0e0;
@@ -856,11 +1004,41 @@ onMounted(() => {
   padding: 3px 7px;
   border-radius: 4px;
   color: white;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* The columns are a fixed 1/7 wide (so they line up with the weekday row):
+     a long patient name wraps onto another line instead of being cut */
+  white-space: normal;
+  overflow-wrap: break-word;
+  line-height: 1.35;
+  /* time and name are two spans with no space between them: as a wrapping
+     row, the name moves under the time when it doesn't fit beside it */
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
   cursor: pointer;
   transition: transform 0.2s;
+}
+
+/* Phones: a cell is too narrow for time and name, so the chip shows the
+   patient's name (up to two lines); tapping the day lists times and full names */
+@media (max-width: 599px) {
+  .calendar-day .event-chip {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+    padding: 1px 2px;
+    line-height: 1.3;
+    text-align: center;
+  }
+
+  .calendar-day .event-time {
+    display: none;
+  }
+
+  .calendar-day .event-name {
+    margin: 0;
+  }
 }
 
 .event-chip:hover {
@@ -868,6 +1046,7 @@ onMounted(() => {
 }
 
 .event-time {
+  white-space: nowrap;
   font-weight: 600;
   margin-left: 4px;
 }
@@ -886,6 +1065,87 @@ onMounted(() => {
 
 .more-events:hover {
   text-decoration: underline;
+}
+
+/* Day list (phones) */
+.day-search {
+  flex-shrink: 0;
+  padding: 12px 12px 0;
+}
+
+.day-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 64px;
+  margin-bottom: 8px;
+  padding: 10px 12px;
+  padding-inline-start: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-radius: 12px;
+  background: rgb(var(--v-theme-surface));
+  color: rgb(var(--v-theme-on-surface));
+  text-align: start;
+  cursor: pointer;
+}
+
+.day-row:active {
+  background: rgba(var(--v-theme-primary), 0.06);
+}
+
+.day-row:focus-visible {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: -2px;
+}
+
+/* Status colour stripe on the leading edge (flips automatically in RTL) */
+.day-row__stripe {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 5px;
+}
+
+.day-row__time {
+  flex-shrink: 0;
+  min-width: 62px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.day-row__info {
+  display: grid;
+  flex: 1;
+  gap: 1px;
+  min-width: 0;
+}
+
+.day-row__name {
+  font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.day-row__meta {
+  overflow: hidden;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.78rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Details dialog: the note is shown in full, with the line breaks staff typed */
+.reservation-note {
+  margin-top: 2px;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.875rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
 }
 
 /* RTL Support */
@@ -918,6 +1178,17 @@ onMounted(() => {
   .calendar-header-cell {
     padding: 8px 4px;
     font-size: 12px;
+  }
+}
+
+/* Phones: a day name never breaks mid-word in the narrow columns */
+@media (max-width: 599px) {
+  .calendar-header-cell {
+    padding: 8px 1px;
+    font-size: 10.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }
 </style>

@@ -48,12 +48,12 @@ export const useMessagingSettingsStore = defineStore('messagingSettings', () => 
     }
   }
 
-  async function testConnection(phoneId, accessToken) {
+  async function testConnection(data) {
     testingConnection.value = true
     error.value = ''
 
     try {
-      const result = await api.testConnection(phoneId, accessToken)
+      const result = await api.testConnection(data)
       testResult.value = result?.data || result
       return testResult.value
     } catch (err) {

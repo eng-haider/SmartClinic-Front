@@ -1,8 +1,9 @@
 <template>
-  <div class="ai-chat-widget">
-    <!-- Floating Action Button -->
+  <div class="ai-chat-widget" :class="{ 'ai-chat-embedded': embedded }">
+    <!-- Floating Action Button (not on the full chatbot page) -->
     <transition name="fab-bounce">
       <button
+        v-if="!embedded"
         v-show="!isOpen"
         class="chat-fab"
         @click="openChat"
@@ -23,7 +24,7 @@
 
     <!-- Chat Window -->
     <transition name="chat-slide">
-      <div v-show="isOpen" class="chat-window" :class="{ 'chat-mobile': isMobile }">
+      <div v-show="isOpen || embedded" class="chat-window" :class="{ 'chat-mobile': isMobile && !embedded, 'chat-embedded': embedded }">
         <!-- Header -->
         <div class="chat-header">
           <div class="header-left">
@@ -48,7 +49,7 @@
                 <path d="M17.65 6.35A7.96 7.96 0 0012 4C7.58 4 4.01 7.58 4.01 12S7.58 20 12 20c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z" fill="currentColor"/>
               </svg>
             </button>
-            <button class="header-btn" @click="closeChat" title="إغلاق">
+            <button v-if="!embedded" class="header-btn" @click="closeChat" title="إغلاق">
               <svg viewBox="0 0 24 24" fill="none" width="18" height="18">
                 <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z" fill="currentColor"/>
               </svg>
@@ -112,8 +113,78 @@
                   <circle cx="15" cy="14" r="1.5" fill="white"/>
                 </svg>
               </div>
-              <div class="message-bubble ai-bubble" :class="{ 'error-bubble': msg.isError }">
+              <div
+                class="message-bubble ai-bubble"
+                :class="[{ 'error-bubble': msg.isError }, msg.reply ? `kind-${msg.reply.kind}` : '']"
+                :dir="msg.reply?.dir || null"
+              >
+                <span v-if="kindBadge(msg)" class="kind-badge" :class="`badge-${msg.reply.kind}`">{{ kindBadge(msg) }}</span>
                 <div class="message-text" v-html="parseMarkdown(msg.content)"></div>
+
+                <template v-if="msg.reply">
+                  <!-- Details (confirmation summary, balances, results) -->
+                  <dl v-if="msg.reply.fields?.length" class="reply-fields">
+                    <div v-for="(f, i) in msg.reply.fields" :key="'f' + i" class="reply-field">
+                      <dt>{{ f.label }}</dt>
+                      <dd>{{ f.value }}</dd>
+                    </div>
+                  </dl>
+
+                  <!-- Lists (appointments, unpaid invoices, free times) -->
+                  <ul v-if="msg.reply.items?.length" class="reply-items">
+                    <li v-for="(item, i) in msg.reply.items" :key="'i' + i">
+                      <span class="item-title">{{ item.title }}</span>
+                      <span v-if="item.subtitle" class="item-sub">{{ item.subtitle }}</span>
+                      <span v-if="item.meta" class="item-meta">{{ item.meta }}</span>
+                    </li>
+                  </ul>
+
+                  <p v-if="msg.reply.question" class="reply-question">{{ msg.reply.question }}</p>
+                  <p v-for="(note, i) in msg.reply.notes || []" :key="'n' + i" class="reply-note">{{ note }}</p>
+
+                  <!-- Confirm / cancel: nothing changes until the user presses confirm -->
+                  <div v-if="msg.reply.action" class="action-bar">
+                    <template v-if="msg.actionState === 'pending' || msg.actionState === 'loading'">
+                      <button
+                        class="action-btn action-confirm"
+                        :disabled="msg.actionState === 'loading' || isTyping"
+                        @click="confirmAction(msg)"
+                      >
+                        <span v-if="msg.actionState === 'loading' && msg.pressed === 'confirm'" class="btn-spinner"></span>
+                        {{ msg.reply.action.confirm_label }}
+                      </button>
+                      <button
+                        class="action-btn action-cancel"
+                        :disabled="msg.actionState === 'loading' || isTyping"
+                        @click="cancelAction(msg)"
+                      >
+                        <span v-if="msg.actionState === 'loading' && msg.pressed === 'cancel'" class="btn-spinner dark"></span>
+                        {{ msg.reply.action.cancel_label }}
+                      </button>
+                    </template>
+                    <template v-else-if="msg.actionState === 'unknown'">
+                      <span class="action-status status-unknown">{{ actionStatusLabel(msg) }}</span>
+                      <button class="action-btn action-cancel" :disabled="isTyping" @click="confirmAction(msg)">
+                        {{ replyT(msg, 'aiChat.checkAgain') }}
+                      </button>
+                    </template>
+                    <span v-else class="action-status" :class="`status-${msg.actionState}`">{{ actionStatusLabel(msg) }}</span>
+                  </div>
+
+                  <!-- Choices (patients with the same name, free times, invoices...) -->
+                  <div v-if="msg.reply.options?.length && !msg.optionsUsed && isLatestAi(index)" class="reply-options">
+                    <button
+                      v-for="opt in msg.reply.options"
+                      :key="opt.id"
+                      class="option-chip"
+                      :disabled="isTyping"
+                      @click="chooseOption(msg, opt)"
+                    >
+                      {{ opt.label }}
+                    </button>
+                  </div>
+                </template>
+
                 <div class="message-meta">
                   <span class="message-time">{{ formatTime(msg.timestamp) }}</span>
                   <span v-if="msg.sources && msg.sources.length" class="source-badge">
@@ -246,15 +317,22 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
+import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/authNew'
 import aiService from '@/services/ai.service'
 import { formatXrayAnalysis } from '@/utils/aiFormat'
 
 // Store state
 const authStore = useAuthStore()
+const { t } = useI18n()
 
 // State
+const props = defineProps({
+  // true on the full chatbot page: the chat fills its container, always open
+  embedded: { type: Boolean, default: false }
+})
+
 const showUpsellDialog = ref(false)
 const snackbar = ref(false)
 const snackbarText = ref('')
@@ -272,12 +350,27 @@ const fileInput = ref(null)
 const selectedImage = ref(null)
 const imagePreview = ref(null)
 
+// Chat conversation. Kept in sessionStorage so a page reload can show it again;
+// cleared by "new chat".
+const CONVERSATION_KEY = 'ai_chat_conversation_id'
+const readStoredConversation = () => {
+  try { return sessionStorage.getItem(CONVERSATION_KEY) } catch { return null }
+}
+const conversationId = ref(readStoredConversation())
+let historyRestored = false
+watch(conversationId, (id) => {
+  try {
+    if (id) sessionStorage.setItem(CONVERSATION_KEY, id)
+    else sessionStorage.removeItem(CONVERSATION_KEY)
+  } catch { /* storage blocked: the chat still works, it just isn't restored */ }
+})
+
 // Suggested prompts
 const suggestedPrompts = [
-  { icon: '📅', text: 'ما هي مواعيد اليوم؟' },
-  { icon: '💰', text: 'أظهر المراجعين الذين لديهم مدفوعات مفقودة' },
-  { icon: '📋', text: 'كم عدد الحالات الجارية؟' },
-  { icon: '📊', text: 'أعطني ملخص إيرادات اليوم' }
+  { icon: '📅', text: 'شنو مواعيد اليوم؟' },
+  { icon: '🗓️', text: 'شوفلي أوقات فارغة باچر' },
+  { icon: '💰', text: 'طلعلي الفواتير غير المدفوعة' },
+  { icon: '📊', text: 'ملخص اليوم' }
 ]
 
 // Computed
@@ -298,6 +391,7 @@ const openChat = () => {
     chatInput.value?.focus()
     scrollToBottom()
   })
+  restoreConversation()
 }
 
 const closeChat = () => {
@@ -306,11 +400,21 @@ const closeChat = () => {
 
 const clearChat = () => {
   messages.value = []
+  conversationId.value = null
+  historyRestored = true
 }
 
 const sendSuggested = (text) => {
   inputText.value = text
   sendMessage()
+}
+
+/** Put a command in the box (to finish typing it), or send it right away */
+const useCommand = (text, { send = false } = {}) => {
+  if (isTyping.value) return
+  if (send) return sendSuggested(text)
+  inputText.value = text
+  nextTick(() => chatInput.value?.focus())
 }
 
 // Image handling
@@ -372,58 +476,42 @@ const sendMessage = async () => {
   await nextTick()
   scrollToBottom()
 
+  if (!hasImage) {
+    // The chatbot answers questions and prepares actions in the same conversation.
+    // runAgentTurn maps its errors (409 still processing, 403 no permission...).
+    await runAgentTurn(() => sendToAgent({ message: text }))
+    if (!isOpen.value) unreadCount.value++
+    return
+  }
+
   // Show typing indicator
   isTyping.value = true
 
   try {
-    let response
+    // X-ray analysis path
+    const response = await aiService.analyzeXray(msgImage)
+    const payload = response.data || response
 
-    if (hasImage) {
-      // X-ray analysis path
-      response = await aiService.analyzeXray(msgImage)
-      const payload = response.data || response
+    if (response.success !== false) {
+      const analysis = payload.analysis || payload.data?.analysis
+      const rawResponse = payload.raw_response || payload.data?.raw_response
 
-      if (response.success !== false) {
-        const analysis = payload.analysis || payload.data?.analysis
-        const rawResponse = payload.raw_response || payload.data?.raw_response
+      const content = analysis
+        ? formatXrayAnalysis(analysis)
+        : (rawResponse || 'تم تحليل الصورة بنجاح.')
 
-        const content = analysis
-          ? formatXrayAnalysis(analysis)
-          : (rawResponse || 'تم تحليل الصورة بنجاح.')
-
-        messages.value.push({
-          role: 'ai',
-          content,
-          timestamp: new Date()
-        })
-      } else {
-        messages.value.push({
-          role: 'ai',
-          content: response.message || 'حدث خطأ في تحليل الصورة.',
-          isError: true,
-          timestamp: new Date()
-        })
-      }
+      messages.value.push({
+        role: 'ai',
+        content,
+        timestamp: new Date()
+      })
     } else {
-      // Regular text chat path
-      response = await aiService.chat(text)
-      const payload = response.data || response
-
-      if (response.success) {
-        messages.value.push({
-          role: 'ai',
-          content: payload.answer || 'لم أتمكن من العثور على إجابة.',
-          sources: payload.sources || [],
-          timestamp: new Date()
-        })
-      } else {
-        messages.value.push({
-          role: 'ai',
-          content: response.message || 'حدث خطأ في معالجة طلبك.',
-          isError: true,
-          timestamp: new Date()
-        })
-      }
+      messages.value.push({
+        role: 'ai',
+        content: response.message || 'حدث خطأ في تحليل الصورة.',
+        isError: true,
+        timestamp: new Date()
+      })
     }
   } catch (error) {
     console.error('AI Chat Error:', error)
@@ -457,6 +545,256 @@ const sendMessage = async () => {
       unreadCount.value++
     }
   }
+}
+
+// ====================== Chatbot actions (same /ai/chat) ======================
+
+const newMessageId = () =>
+  (window.crypto?.randomUUID ? window.crypto.randomUUID() : `m-${Date.now()}-${Math.random().toString(16).slice(2)}`)
+
+const isTimeoutError = (error) => error?.code === 'ECONNABORTED' || error?.message?.includes('timeout') || !error?.response
+
+const STATUS_STATE = {
+  pending: 'pending',
+  executing: 'unknown',
+  unknown: 'unknown',
+  executed: 'executed',
+  failed: 'failed',
+  cancelled: 'cancelled',
+  expired: 'expired'
+}
+
+const STATE_LABELS = ['executed', 'cancelled', 'failed', 'expired', 'replaced', 'unknown']
+const KIND_BADGES = ['info', 'confirmation', 'success', 'error', 'cancelled']
+
+// Badges and status lines follow the reply's own language (an English reply in
+// an Arabic UI gets English labels), not the UI language
+const replyT = (msg, key) => t(key, {}, { locale: msg.reply?.language === 'en' ? 'en' : 'ar' })
+
+const kindBadge = (msg) =>
+  msg.reply && KIND_BADGES.includes(msg.reply.kind) ? replyT(msg, `aiChat.badge.${msg.reply.kind}`) : null
+
+const actionStatusLabel = (msg) =>
+  STATE_LABELS.includes(msg.actionState) ? replyT(msg, `aiChat.status.${msg.actionState}`) : ''
+
+const isLatestAi = (index) => {
+  for (let i = messages.value.length - 1; i >= 0; i--) {
+    if (messages.value[i].role === 'ai') return i === index
+  }
+  return false
+}
+
+/**
+ * Older confirmation cards stop being clickable once the server answers
+ * another turn: a typed "yes"/"no" settled them, or a newer request replaced them.
+ */
+const retirePendingCards = (reply, keepId = null) => {
+  const settled = { success: 'executed', cancelled: 'cancelled', error: 'failed' }
+  messages.value.forEach((m) => {
+    if (m.reply?.action && m.actionState === 'pending' && m.reply.action.id !== keepId) {
+      m.actionState = settled[reply.kind] || 'replaced'
+    }
+  })
+}
+
+const pushAgentReply = (reply, { fromCard = null } = {}) => {
+  if (!fromCard) retirePendingCards(reply, null)
+  messages.value.push({
+    role: 'ai',
+    content: reply.text,
+    reply,
+    actionState: reply.action ? 'pending' : null,
+    isError: reply.kind === 'error',
+    sources: reply.sources || [],
+    timestamp: new Date()
+  })
+}
+
+const pushAgentError = (text) => {
+  messages.value.push({ role: 'ai', content: text, isError: true, timestamp: new Date() })
+}
+
+/** One message or option to the agent. A timed-out request is resent with the same id, so it is never applied twice. */
+const sendToAgent = async ({ message = null, optionId = null }) => {
+  const clientMessageId = message ? newMessageId() : null
+  // A fresh chat starts its own conversation, so an earlier card can't be confirmed by mistake
+  const send = () =>
+    aiService.chat({ message, optionId, conversationId: conversationId.value, clientMessageId, newConversation: true })
+
+  let response
+  try {
+    response = await send()
+  } catch (error) {
+    if (error.response?.status === 404 && conversationId.value && message) {
+      // Conversation gone (new login, other clinic): start a fresh one
+      conversationId.value = null
+      response = await send()
+    } else if (isTimeoutError(error) && clientMessageId) {
+      response = await send()
+    } else {
+      throw error
+    }
+  }
+
+  const data = response?.data || {}
+  if (data.conversation_id) conversationId.value = data.conversation_id
+  if (data.reply) {
+    pushAgentReply(data.reply)
+  } else if (data.answer) {
+    // Question-only answer: the server falls back to it when the clinic's
+    // chatbot tables aren't migrated yet (no actions, no conversation)
+    messages.value.push({ role: 'ai', content: data.answer, sources: data.sources || [], timestamp: new Date() })
+  } else {
+    pushAgentError(response?.message || 'حدث خطأ في معالجة طلبك.')
+  }
+}
+
+const runAgentTurn = async (task) => {
+  isTyping.value = true
+  try {
+    await task()
+  } catch (error) {
+    console.error('AI Agent Error:', error)
+    if (error.response?.status === 409) {
+      pushAgentError(error.response.data?.message_ar || 'الرسالة قيد المعالجة، لحظة.')
+    } else if (error.response?.status === 403) {
+      pushAgentError(error.response.data?.message_ar || error.response.data?.message || 'ما عندك صلاحية لهذا الطلب.')
+    } else {
+      pushAgentError('عذراً، حدث خطأ في الاتصال بالخادم. يرجى المحاولة مرة أخرى.')
+    }
+  } finally {
+    isTyping.value = false
+    await nextTick()
+    scrollToBottom()
+  }
+}
+
+/**
+ * After a page reload, show the conversation again (GET /ai/chat/conversations/{id}).
+ * Cards are settled the same way as live: a newer reply retires an older card,
+ * and the one card that may still be waiting is asked about (GET actions/{id}).
+ */
+const restoreConversation = async () => {
+  if (historyRestored || !conversationId.value || messages.value.length) return
+  historyRestored = true
+  const id = conversationId.value
+
+  let turns
+  try {
+    const response = await aiService.getConversation(id)
+    turns = response?.data?.messages || []
+  } catch (error) {
+    if (error.response?.status === 404 && conversationId.value === id) conversationId.value = null
+    return
+  }
+  // The user started chatting while this loaded: keep what they have
+  if (messages.value.length || conversationId.value !== id) return
+
+  const restored = []
+  const optionLabels = {}
+  let pressedCard = null
+  const settledBy = { success: 'executed', cancelled: 'cancelled', error: 'failed' }
+
+  for (const turn of turns) {
+    const timestamp = turn.created_at ? new Date(turn.created_at) : new Date()
+    if (turn.role === 'user') {
+      const content = turn.content || ''
+      const press = content.match(/^\[(confirm|cancel) action (.+)\]$/)
+      if (press) {
+        pressedCard = press[2]
+        continue
+      }
+      const option = content.match(/^\[option (.+)\]$/)
+      if (option && !optionLabels[option[1]]) continue
+      restored.push({ role: 'user', content: option ? optionLabels[option[1]] : content, timestamp })
+      continue
+    }
+    const reply = turn.reply
+    if (!reply) continue
+    restored.forEach((m) => {
+      if (m.reply?.action && m.actionState === 'pending' && m.reply.action.id !== reply.action?.id) {
+        m.actionState = m.reply.action.id === pressedCard ? (settledBy[reply.kind] || 'failed') : (settledBy[reply.kind] || 'replaced')
+      }
+    })
+    pressedCard = null
+    ;(reply.options || []).forEach((o) => { optionLabels[o.id] = o.label })
+    restored.push({
+      role: 'ai',
+      content: reply.text,
+      reply,
+      actionState: reply.action ? 'pending' : null,
+      isError: reply.kind === 'error',
+      sources: reply.sources || [],
+      timestamp
+    })
+  }
+  messages.value = restored
+
+  // Ask the server about any card still shown as waiting (a reload can come after it ran or expired)
+  for (const m of restored.filter((x) => x.actionState === 'pending')) {
+    try {
+      const check = await aiService.getAction(m.reply.action.id)
+      m.actionState = STATUS_STATE[check?.data?.status] || 'unknown'
+    } catch (_) { /* leave it pending: confirm re-checks on the server */ }
+  }
+  await nextTick()
+  scrollToBottom()
+}
+
+const chooseOption = (msg, option) => {
+  msg.optionsUsed = true
+  messages.value.push({ role: 'user', content: option.label, timestamp: new Date() })
+  nextTick(scrollToBottom)
+  runAgentTurn(() => sendToAgent({ optionId: option.id }))
+}
+
+const confirmAction = (msg) => {
+  const actionId = msg.reply.action.id
+  msg.pressed = 'confirm'
+  msg.actionState = 'loading'
+
+  runAgentTurn(async () => {
+    try {
+      const response = await aiService.confirmAction(actionId, conversationId.value)
+      const data = response?.data || {}
+      msg.actionState = STATUS_STATE[data.action?.status] || 'failed'
+      if (data.reply) pushAgentReply(data.reply, { fromCard: msg })
+    } catch (error) {
+      if (!isTimeoutError(error)) {
+        msg.actionState = error.response?.status === 404 ? 'failed' : 'pending'
+        throw error
+      }
+      // No answer: ask the server what happened instead of guessing (or repeating)
+      let status = 'unknown'
+      try {
+        const check = await aiService.getAction(actionId)
+        status = check?.data?.status || 'unknown'
+      } catch (_) { /* still unknown */ }
+      msg.actionState = STATUS_STATE[status] || 'unknown'
+      if (msg.actionState === 'executed') {
+        messages.value.push({ role: 'ai', content: '✅ تأكدت من النظام: العملية تنفذت.', timestamp: new Date() })
+      } else if (msg.actionState === 'unknown') {
+        pushAgentError('ما وصل رد من الخادم. اضغط «تحقق مرة ثانية» قبل لا تعيد الطلب حتى ما يتكرر.')
+      }
+    }
+  })
+}
+
+const cancelAction = (msg) => {
+  msg.pressed = 'cancel'
+  msg.actionState = 'loading'
+
+  runAgentTurn(async () => {
+    try {
+      const response = await aiService.cancelAction(msg.reply.action.id, conversationId.value)
+      const data = response?.data || {}
+      msg.actionState = STATUS_STATE[data.action?.status] || 'cancelled'
+      if (data.reply) pushAgentReply(data.reply, { fromCard: msg })
+    } catch (error) {
+      msg.actionState = 'pending'
+      throw error
+    }
+  })
 }
 
 const scrollToBottom = () => {
@@ -524,13 +862,18 @@ const checkMobile = () => {
 onMounted(() => {
   checkMobile()
   window.addEventListener('resize', checkMobile)
+  if (props.embedded && isAiEnabled.value) {
+    unreadCount.value = 0
+    restoreConversation()
+    nextTick(() => chatInput.value?.focus())
+  }
 })
 
 onUnmounted(() => {
   window.removeEventListener('resize', checkMobile)
 })
 
-defineExpose({ openChat })
+defineExpose({ openChat, useCommand, isAiEnabled, isTyping })
 </script>
 
 <style scoped>
@@ -958,6 +1301,217 @@ defineExpose({ openChat })
   font-weight: 600;
 }
 
+/* ====================== Agent replies ====================== */
+.ai-bubble[dir="ltr"] { text-align: left; }
+.ai-bubble[dir="rtl"] { text-align: right; }
+
+.ai-bubble.kind-confirmation {
+  background: rgba(255, 251, 235, 0.95);
+  border-color: rgba(245, 158, 11, 0.45);
+  border-inline-start: 3px solid #f59e0b;
+}
+
+.ai-bubble.kind-success {
+  background: rgba(240, 253, 244, 0.95);
+  border-color: rgba(34, 197, 94, 0.35);
+  border-inline-start: 3px solid #22c55e;
+}
+
+.ai-bubble.kind-info {
+  border-inline-start: 3px solid #0ea5e9;
+}
+
+.ai-bubble.kind-cancelled {
+  background: rgba(248, 250, 252, 0.95);
+  border-inline-start: 3px solid #94a3b8;
+}
+
+.ai-bubble.kind-error {
+  border-inline-start: 3px solid #ef4444;
+}
+
+.kind-badge {
+  display: inline-block;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 1px 8px;
+  border-radius: 999px;
+  margin-bottom: 6px;
+  font-family: 'Cairo', sans-serif;
+}
+
+.badge-info { background: rgba(14, 165, 233, 0.12); color: #0369a1; }
+.badge-confirmation { background: rgba(245, 158, 11, 0.16); color: #92400e; }
+.badge-success { background: rgba(34, 197, 94, 0.15); color: #166534; }
+.badge-error { background: rgba(239, 68, 68, 0.12); color: #991b1b; }
+.badge-cancelled { background: rgba(148, 163, 184, 0.2); color: #334155; }
+
+.reply-fields {
+  margin: 8px 0 2px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 10px;
+  display: grid;
+  gap: 4px;
+  font-family: 'Cairo', sans-serif;
+}
+
+.reply-field {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.reply-field dt {
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.reply-field dd {
+  margin: 0;
+  font-weight: 700;
+  color: #0f172a;
+  text-align: end;
+  word-break: break-word;
+}
+
+.reply-items {
+  list-style: none;
+  padding: 0;
+  margin: 6px 0 2px;
+  display: grid;
+  gap: 4px;
+  font-family: 'Cairo', sans-serif;
+}
+
+.reply-items li {
+  font-size: 12.5px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+}
+
+.item-title { font-weight: 700; color: #0f172a; }
+.item-sub { color: #475569; }
+.item-meta { color: #94a3b8; margin-inline-start: auto; }
+
+.reply-question {
+  margin: 8px 0 0;
+  font-weight: 700;
+  font-size: 13.5px;
+  font-family: 'Cairo', sans-serif;
+}
+
+.reply-note {
+  margin: 6px 0 0;
+  font-size: 11.5px;
+  color: #64748b;
+  font-family: 'Cairo', sans-serif;
+}
+
+.action-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+  align-items: center;
+}
+
+.action-btn {
+  flex: 1 1 140px;
+  min-height: 38px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: 'Cairo', sans-serif;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: transform 0.15s, opacity 0.2s, background 0.2s;
+}
+
+.action-btn:active:not(:disabled) { transform: scale(0.97); }
+.action-btn:disabled { opacity: 0.55; cursor: default; }
+
+.action-confirm {
+  border: none;
+  color: white;
+  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+}
+
+.action-cancel {
+  border: 1.5px solid rgba(203, 213, 225, 0.9);
+  background: white;
+  color: #334155;
+}
+
+.action-status {
+  font-size: 12px;
+  font-weight: 700;
+  font-family: 'Cairo', sans-serif;
+  color: #475569;
+}
+
+.status-executed { color: #15803d; }
+.status-failed, .status-unknown { color: #b91c1c; }
+.status-expired, .status-replaced, .status-cancelled { color: #64748b; }
+
+.btn-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.btn-spinner.dark {
+  border-color: rgba(51, 65, 85, 0.25);
+  border-top-color: #334155;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.reply-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.option-chip {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(14, 165, 233, 0.35);
+  background: rgba(14, 165, 233, 0.06);
+  color: #0369a1;
+  font-size: 12.5px;
+  font-family: 'Cairo', sans-serif;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+}
+
+.option-chip:hover:not(:disabled) { background: rgba(14, 165, 233, 0.14); }
+.option-chip:active:not(:disabled) { transform: scale(0.97); }
+.option-chip:disabled { opacity: 0.5; cursor: default; }
+
+@media (max-width: 639px) {
+  .message-bubble { max-width: 88%; }
+  .action-btn { flex-basis: 100%; }
+}
+
 /* ====================== Typing Indicator ====================== */
 .typing-bubble {
   padding: 12px 16px;
@@ -1219,6 +1773,65 @@ defineExpose({ openChat })
   }
 }
 
+/* ====================== Dark theme ======================
+   Vuetify puts .v-theme--dark on v-app, which wraps the widget */
+.v-theme--dark .chat-window {
+  background: rgba(15, 23, 42, 0.92);
+  border-color: rgba(148, 163, 184, 0.18);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+.v-theme--dark .chat-body::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); }
+.v-theme--dark .empty-title { color: #f1f5f9; }
+.v-theme--dark .empty-subtitle { color: #94a3b8; }
+.v-theme--dark .prompt-chip { background: rgba(14, 165, 233, 0.08); border-color: rgba(14, 165, 233, 0.25); }
+.v-theme--dark .prompt-text { color: #cbd5e1; }
+.v-theme--dark .ai-avatar-sm { background: linear-gradient(135deg, #0c4a6e, #312e81); }
+
+.v-theme--dark .ai-bubble {
+  background: rgba(30, 41, 59, 0.95);
+  border-color: rgba(71, 85, 105, 0.6);
+  color: #e2e8f0;
+}
+.v-theme--dark .error-bubble { background: rgba(127, 29, 29, 0.35); border-color: rgba(248, 113, 113, 0.35); color: #fecaca; }
+.v-theme--dark .ai-bubble.kind-confirmation { background: rgba(120, 53, 15, 0.38); border-color: rgba(245, 158, 11, 0.45); }
+.v-theme--dark .ai-bubble.kind-success { background: rgba(20, 83, 45, 0.42); border-color: rgba(34, 197, 94, 0.4); }
+.v-theme--dark .ai-bubble.kind-cancelled { background: rgba(30, 41, 59, 0.95); }
+.v-theme--dark .message-text :deep(code) { background: rgba(255, 255, 255, 0.08) !important; }
+
+.v-theme--dark .badge-info { background: rgba(14, 165, 233, 0.2); color: #7dd3fc; }
+.v-theme--dark .badge-confirmation { background: rgba(245, 158, 11, 0.22); color: #fcd34d; }
+.v-theme--dark .badge-success { background: rgba(34, 197, 94, 0.2); color: #86efac; }
+.v-theme--dark .badge-error { background: rgba(239, 68, 68, 0.2); color: #fca5a5; }
+.v-theme--dark .badge-cancelled { background: rgba(148, 163, 184, 0.2); color: #cbd5e1; }
+
+.v-theme--dark .reply-fields,
+.v-theme--dark .reply-items li { background: rgba(15, 23, 42, 0.55); border-color: rgba(71, 85, 105, 0.6); }
+.v-theme--dark .reply-field dt { color: #94a3b8; }
+.v-theme--dark .reply-field dd,
+.v-theme--dark .item-title { color: #f1f5f9; }
+.v-theme--dark .item-sub { color: #cbd5e1; }
+.v-theme--dark .item-meta,
+.v-theme--dark .reply-note { color: #94a3b8; }
+
+.v-theme--dark .action-cancel { background: #1e293b; border-color: #475569; color: #e2e8f0; }
+.v-theme--dark .btn-spinner.dark { border-color: rgba(226, 232, 240, 0.25); border-top-color: #e2e8f0; }
+.v-theme--dark .action-status { color: #cbd5e1; }
+.v-theme--dark .status-executed { color: #4ade80; }
+.v-theme--dark .status-failed,
+.v-theme--dark .status-unknown { color: #f87171; }
+.v-theme--dark .status-expired,
+.v-theme--dark .status-replaced,
+.v-theme--dark .status-cancelled { color: #94a3b8; }
+.v-theme--dark .option-chip { background: rgba(14, 165, 233, 0.12); border-color: rgba(56, 189, 248, 0.4); color: #7dd3fc; }
+.v-theme--dark .option-chip:hover:not(:disabled) { background: rgba(14, 165, 233, 0.22); }
+
+.v-theme--dark .chat-footer { background: rgba(15, 23, 42, 0.7); border-top-color: rgba(71, 85, 105, 0.5); }
+.v-theme--dark .chat-input,
+.v-theme--dark .upload-btn { background: rgba(30, 41, 59, 0.9); border-color: #334155; color: #e2e8f0; }
+.v-theme--dark .chat-input::placeholder { color: #64748b; }
+.v-theme--dark .preview-name { color: #cbd5e1; }
+.v-theme--dark .image-preview-bar { background: rgba(14, 165, 233, 0.1); }
+
 /* RTL adjustments */
 [dir="rtl"] .send-btn svg {
   transform: scaleX(-1);
@@ -1242,5 +1855,21 @@ defineExpose({ openChat })
   [dir="rtl"] .chat-window.chat-mobile {
     left: 0;
   }
+}
+
+/* ====================== Full page (embedded) ======================
+   Same chat, filling its container instead of floating */
+.ai-chat-embedded {
+  height: 100%;
+}
+
+[dir] .chat-window.chat-embedded {
+  position: relative;
+  inset: auto;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  z-index: auto;
+  border-radius: 20px;
 }
 </style>

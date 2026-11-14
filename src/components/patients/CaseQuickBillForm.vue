@@ -18,6 +18,7 @@
     <div class="text-caption text-grey-darken-1 mb-2">{{ $t('patients.payFullRemaining') }}</div>
 
     <v-text-field
+      ref="amountField"
       :model-value="modelValue ? formatNumberWithCommas(modelValue) : ''"
       @update:model-value="$emit('update:modelValue', parseFormattedNumber($event))"
       @keyup.enter="canSubmit && $emit('submit')"
@@ -31,7 +32,6 @@
       suffix="IQD"
       :error="exceeds"
       :error-messages="exceeds ? ($t('patients.exceedsRemaining') || 'المبلغ أكبر من المتبقي') : []"
-      :autofocus="autofocus"
       class="mb-2"
     />
 
@@ -61,7 +61,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 
 const props = defineProps({
   /** Amount typed so far (integer IQD). */
@@ -78,6 +78,27 @@ defineEmits(['update:modelValue', 'submit', 'cancel'])
 
 const exceeds = computed(() => props.modelValue > props.remaining)
 const canSubmit = computed(() => props.modelValue > 0 && !exceeds.value && !props.loading)
+
+// Focus the amount on mount instead of using Vuetify's `autofocus`: that waits
+// for an IntersectionObserver, which runs after the tap that opened the form,
+// so mobile browsers refuse to focus/open the keyboard. Mounting happens in the
+// same tap, so the field is ready to type into right away.
+const amountField = ref(null)
+
+function focusAmount(framesLeft = 10) {
+  const input = amountField.value?.$el?.querySelector('input')
+  if (!input) return
+  input.focus({ preventScroll: true })
+  // A menu's open transition keeps its content `visibility: hidden` for a few
+  // frames, and focusing a hidden input is a no-op — retry until it shows.
+  if (document.activeElement !== input && framesLeft > 0) {
+    requestAnimationFrame(() => focusAmount(framesLeft - 1))
+  }
+}
+
+onMounted(() => {
+  if (props.autofocus) focusAmount()
+})
 
 const formatNumberWithCommas = (value) => {
   if (!value) return ''

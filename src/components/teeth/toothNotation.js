@@ -51,16 +51,65 @@ export function normalizeToothNotation(notation) {
   return TOOTH_NOTATIONS.includes(notation) ? notation : DEFAULT_TOOTH_NOTATION
 }
 
+// Numbers typed into the old free-text tooth field, e.g. "11, 12" or "11 12"
+const TOOTH_LIST_TEXT = /^\s*\d+(?:\s*[,،\-\s]\s*\d+)*\s*$/
+
+/**
+ * Teeth a case covers. One case can cover several teeth: cases.tooth_num
+ * then holds a JSON list ("[11,12,13]", the format the old system saved),
+ * while a single tooth stays a plain number ("16").
+ *
+ * @param {number|string|Array|null} value - tooth_num as stored, or a list
+ * @returns {number[]} FDI numbers, empty for free text that isn't numbers
+ */
+export function parseToothNumbers(value) {
+  if (value === null || value === undefined || value === '') return []
+
+  let list = value
+  if (!Array.isArray(value)) {
+    const text = String(value).trim()
+    try {
+      list = JSON.parse(text)
+    } catch {
+      list = TOOTH_LIST_TEXT.test(text) ? text.split(/[,،\-\s]+/) : []
+    }
+    if (!Array.isArray(list)) list = [list]
+  }
+
+  const nums = list.map(n => parseInt(n, 10)).filter(Number.isInteger)
+  return [...new Set(nums)]
+}
+
+/**
+ * Value to save in tooth_num for the selected teeth - the plain number for
+ * one tooth, a JSON list for several, null for none.
+ *
+ * @param {number|string|Array|null} teeth
+ * @returns {string|null}
+ */
+export function serializeToothNumbers(teeth) {
+  const nums = parseToothNumbers(teeth).sort((a, b) => a - b)
+  if (!nums.length) return null
+  return nums.length === 1 ? String(nums[0]) : JSON.stringify(nums)
+}
+
 /**
  * Label for a tooth number. Permanent teeth are always shown as their FDI
- * number - the setting only re-labels the baby (primary) chart.
+ * number - the setting only re-labels the baby (primary) chart. A case that
+ * covers several teeth reads "11 - 12 - 13".
  *
- * @param {number|string} toothNum - FDI tooth number as stored
+ * @param {number|string|Array} toothNum - FDI tooth number(s) as stored
  * @param {string} notation - 'fdi' | 'universal' | 'palmer'
  * @returns {string} label to display
  */
 export function formatToothNumber(toothNum, notation = DEFAULT_TOOTH_NOTATION) {
   if (toothNum === null || toothNum === undefined || toothNum === '') return ''
+
+  const isList = Array.isArray(toothNum) || String(toothNum).trim().startsWith('[')
+  const teeth = parseToothNumbers(toothNum)
+  if (teeth.length > 1 || (isList && teeth.length)) {
+    return teeth.map(num => formatToothNumber(num, notation)).join(' - ')
+  }
 
   const num = Number(toothNum)
   if (!isBabyToothNumber(num)) return String(toothNum)

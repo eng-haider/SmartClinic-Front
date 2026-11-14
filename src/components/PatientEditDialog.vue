@@ -67,8 +67,22 @@
           <v-radio :label="$t('patients.female')" :value="2" />
         </v-radio-group>
 
-        <!-- Birth Date -->
+        <!-- Birth Date (default) or Age, per the clinic's patient_age_input setting -->
         <v-text-field
+          v-if="asksForAge"
+          v-model.number="form.age"
+          :label="$t('patients.age')"
+          :rules="[rules.age]"
+          type="number"
+          min="0"
+          max="150"
+          variant="outlined"
+          density="comfortable"
+          prepend-inner-icon="mdi-cake-variant-outline"
+          class="mb-3"
+        />
+        <v-text-field
+          v-else
           v-model="form.birth_date"
           :label="$t('patients.birthDate')"
           type="date"
@@ -142,9 +156,10 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '@/services/api'
+import { useClinicSettings } from '@/composables/useClinicSettings'
 
 const props = defineProps({
   patient: {
@@ -156,6 +171,12 @@ const props = defineProps({
 const emit = defineEmits(['close', 'saved'])
 
 const { t } = useI18n()
+
+// The clinic picks in Settings whether staff type a birth date or an age.
+// Either way the full patient is sent and the API keeps the two consistent.
+const { patientAgeInput, loadSettings } = useClinicSettings()
+const asksForAge = computed(() => patientAgeInput.value === 'age')
+loadSettings(true) // fresh every time: the age setting may have just changed on another device
 
 // Form
 const formRef = ref(null)
@@ -181,7 +202,8 @@ const rules = {
   minLength: (min) => v => !v || v.length >= min || t('validation.minLength', { min }),
   maxLength: (max) => v => !v || v.length <= max || t('validation.maxLength', { max }),
   phone: v => !v || /^[\d\s+()-]{7,20}$/.test(v) || t('validation.phone'),
-  email: v => !v || /.+@.+\..+/.test(v) || t('validation.email')
+  email: v => !v || /.+@.+\..+/.test(v) || t('validation.email'),
+  age: v => v === null || v === '' || (Number.isInteger(Number(v)) && v >= 0 && v <= 150) || t('patients.age_invalid')
 }
 
 // Initialize form with patient data
@@ -193,7 +215,7 @@ const initForm = () => {
       phone2: props.patient.phone2 || '',
       email: props.patient.email || '',
       sex: props.patient.sex || 1,
-      age: props.patient.age || null,
+      age: props.patient.age ?? null,
       birth_date: props.patient.birth_date || '',
       address: props.patient.address || '',
       systemic_conditions: props.patient.systemic_conditions || '',

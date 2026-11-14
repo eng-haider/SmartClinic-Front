@@ -180,7 +180,8 @@
           <article v-for="patient in patients" :key="patient.id" class="patient-card">
             <div class="patient-card__header">
               <v-avatar color="primary" variant="tonal" size="44">
-                <span class="font-weight-bold">{{ getInitials(patient.name) }}</span>
+                <v-img v-if="patient.profile_photo_url" :src="patient.profile_photo_url" :alt="patient.name" cover />
+                <span v-else class="font-weight-bold">{{ getInitials(patient.name) }}</span>
               </v-avatar>
               <div class="patient-card__identity">
                 <h2 class="patient-card__name">{{ patient.name }}</h2>
@@ -205,6 +206,7 @@
                   <v-list-item prepend-icon="mdi-whatsapp" :title="$t('patients.send_whatsapp')"
                     :disabled="!patient.phone" @click="openWhatsAppDialog(patient)" />
                   <v-list-item prepend-icon="mdi-qrcode" :title="$t('patientIdCard.title')" @click="openQrCard(patient)" />
+                  <v-list-item v-if="canMergePatients" prepend-icon="mdi-account-multiple-check" :title="$t('patients.merge.button')" @click="openMerge(patient)" />
                   <v-divider class="my-1" />
                   <v-list-item prepend-icon="mdi-delete-outline" :title="$t('common.delete')" class="text-error" @click="confirmDelete(patient)" />
                 </v-list>
@@ -264,7 +266,8 @@
         <template v-slot:item.name="{ item }">
           <div class="d-flex align-center ga-3 py-2">
             <v-avatar :color="getAvatarColor(item.name)" size="42">
-              <span class="text-white font-weight-bold">{{ getInitials(item.name) }}</span>
+              <v-img v-if="item.profile_photo_url" :src="item.profile_photo_url" :alt="item.name" cover />
+              <span v-else class="text-white font-weight-bold">{{ getInitials(item.name) }}</span>
             </v-avatar>
             <div>
               <div class="font-weight-medium">{{ item.name }}</div>
@@ -371,6 +374,19 @@
               @click.stop="editPatient(item)"
             />
             <v-btn
+              v-if="canMergePatients"
+              icon="mdi-account-multiple-check"
+              size="small"
+              variant="text"
+              color="deep-purple"
+              @click.stop="openMerge(item)"
+            >
+              <v-icon>mdi-account-multiple-check</v-icon>
+              <v-tooltip activator="parent" location="top">
+                {{ $t('patients.merge.button') }}
+              </v-tooltip>
+            </v-btn>
+            <v-btn
               icon="mdi-delete"
               size="small"
               variant="text"
@@ -444,7 +460,8 @@
           <!-- Patient Header -->
           <div class="text-center mb-6">
             <v-avatar :color="getAvatarColor(selectedPatient.name)" size="80">
-              <span class="text-h4 text-white">{{ getInitials(selectedPatient.name) }}</span>
+              <v-img v-if="selectedPatient.profile_photo_url" :src="selectedPatient.profile_photo_url" :alt="selectedPatient.name" cover />
+              <span v-else class="text-h4 text-white">{{ getInitials(selectedPatient.name) }}</span>
             </v-avatar>
             <h2 class="text-h5 mt-3">{{ selectedPatient.name }}</h2>
             <v-chip
@@ -574,6 +591,14 @@
       </v-card>
     </v-dialog>
 
+    <!-- Merge a duplicate record into this patient -->
+    <PatientMergeDialog
+      v-if="mergePatient"
+      v-model="mergeDialog"
+      :patient="mergePatient"
+      @merged="onPatientsMerged"
+    />
+
     <!-- Booking Dialog -->
     <BookingDialog
       v-model="bookingDialog"
@@ -659,10 +684,13 @@ import { useRouter, useRoute } from 'vue-router'
 import api from '@/services/api'
 import BookingDialog from '@/components/BookingDialog.vue'
 import PatientFormDialog from '@/components/PatientFormDialog.vue'
+import { holdKeyboard } from '@/utils/mobileKeyboard'
 import PatientIdCard from '@/components/PatientIdCard.vue'
 import WhatsAppMessageDialog from '@/components/WhatsAppMessageDialog.vue'
 import QrScanner from '@/components/QrScanner.vue'
+import PatientMergeDialog from '@/components/PatientMergeDialog.vue'
 import { useClinicSettings } from '@/composables/useClinicSettings'
+import { useAuthStore } from '@/stores/auth'
 
 const { t } = useI18n()
 const { smAndDown } = useDisplay()
@@ -737,6 +765,26 @@ const snackbar = reactive({
   message: '',
   color: 'success'
 })
+
+// Merging two patient records: clinics the platform enabled it for (can_merge_patients),
+// secretaries only (the API checks the same). Same rule as on the patient page.
+const authStore = useAuthStore()
+const canMergePatients = computed(() =>
+  !!(authStore.clinic || authStore.clinicInfo)?.can_merge_patients &&
+  !!(authStore.hasRole ? authStore.hasRole('secretary') : authStore.isSecretary)
+)
+const mergeDialog = ref(false)
+const mergePatient = ref(null)
+
+function openMerge(patient) {
+  mergePatient.value = patient
+  mergeDialog.value = true
+}
+
+function onPatientsMerged() {
+  showSnackbar(t('patients.merge.success'), 'success')
+  loadPatients()
+}
 
 // ==================== Options ====================
 const sortOptions = computed(() => [
@@ -899,6 +947,7 @@ async function loadDoctors() {
 
 // Open Add Dialog
 function openAddDialog() {
+  holdKeyboard() // phones: keyboard opens with the tap, ready for the name
   editMode.value = false
   selectedPatient.value = null
   patientDialog.value = true

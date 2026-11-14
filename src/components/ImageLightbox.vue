@@ -9,6 +9,8 @@
       <div class="ilb-topbar">
         <span class="ilb-counter">{{ index + 1 }} / {{ images.length }}</span>
         <div class="ilb-actions">
+          <!-- Extra per-image controls supplied by the caller -->
+          <slot name="actions" :image="current" :index="index" />
           <v-btn icon variant="text" color="white" size="small" @click="zoomOut" :disabled="scale <= MIN_SCALE">
             <v-icon size="20">mdi-magnify-minus-outline</v-icon>
           </v-btn>
@@ -16,13 +18,13 @@
           <v-btn icon variant="text" color="white" size="small" @click="zoomIn" :disabled="scale >= MAX_SCALE">
             <v-icon size="20">mdi-magnify-plus-outline</v-icon>
           </v-btn>
-          <v-btn icon variant="text" color="white" size="small" @click="resetZoom" :disabled="scale === 1">
+          <v-btn icon variant="text" color="white" size="small" class="ilb-narrow-hide" @click="resetZoom" :disabled="scale === 1">
             <v-icon size="20">mdi-backup-restore</v-icon>
           </v-btn>
           <v-btn icon variant="text" color="white" size="small" @click="download">
             <v-icon size="20">mdi-download</v-icon>
           </v-btn>
-          <v-btn icon variant="text" color="white" size="small" @click="toggleFullscreen">
+          <v-btn icon variant="text" color="white" size="small" class="ilb-narrow-hide" @click="toggleFullscreen">
             <v-icon size="20">{{ isFullscreen ? 'mdi-fullscreen-exit' : 'mdi-fullscreen' }}</v-icon>
           </v-btn>
           <v-btn icon variant="text" color="white" size="small" @click="close">
@@ -54,6 +56,7 @@
         @pointerdown="onPointerDown"
         @pointermove="onPointerMove"
         @pointerup="onPointerUp"
+        @pointercancel="onPointerUp"
         @pointerleave="onPointerUp"
         @dblclick="onDoubleClick"
       >
@@ -123,38 +126,64 @@ const setIndex = (i) => {
 const prev = () => setIndex(props.index - 1)
 const next = () => setIndex(props.index + 1)
 
-const zoomIn = () => {
-  scale.value = Math.min(MAX_SCALE, +(scale.value + 0.5).toFixed(2))
-}
-const zoomOut = () => {
-  scale.value = Math.max(MIN_SCALE, +(scale.value - 0.5).toFixed(2))
+const setScale = (value) => {
+  scale.value = Math.min(MAX_SCALE, Math.max(MIN_SCALE, +value.toFixed(2)))
   if (scale.value === MIN_SCALE) translate.value = { x: 0, y: 0 }
 }
 
+const zoomIn = () => setScale(scale.value + 0.5)
+const zoomOut = () => setScale(scale.value - 0.5)
+
+// Proportional to the scroll distance, so a mouse wheel steps (~20% a notch)
+// while a trackpad scroll or pinch zooms smoothly
 const onWheel = (e) => {
-  if (e.deltaY < 0) zoomIn()
-  else zoomOut()
+  setScale(scale.value * Math.exp(-e.deltaY * 0.002))
 }
 
 const onDoubleClick = () => {
   if (scale.value > 1) resetZoom()
-  else scale.value = 2
+  else setScale(2)
+}
+
+// Active pointers, so two fingers pinch-zoom on touch screens
+const pointers = new Map()
+let pinchStartDistance = 0
+let pinchStartScale = 1
+
+const pointerDistance = () => {
+  const [a, b] = [...pointers.values()]
+  return Math.hypot(a.x - b.x, a.y - b.y)
 }
 
 const onPointerDown = (e) => {
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+  if (pointers.size === 2) {
+    dragging.value = false
+    pinchStartDistance = pointerDistance()
+    pinchStartScale = scale.value
+    return
+  }
   if (scale.value <= 1) return
   dragging.value = true
   dragStart.value = { x: e.clientX, y: e.clientY }
   translateStart.value = { ...translate.value }
 }
 const onPointerMove = (e) => {
+  if (!pointers.has(e.pointerId)) return
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+  if (pointers.size === 2 && pinchStartDistance) {
+    setScale(pinchStartScale * (pointerDistance() / pinchStartDistance))
+    return
+  }
   if (!dragging.value) return
   translate.value = {
     x: translateStart.value.x + (e.clientX - dragStart.value.x),
     y: translateStart.value.y + (e.clientY - dragStart.value.y),
   }
 }
-const onPointerUp = () => {
+const onPointerUp = (e) => {
+  pointers.delete(e.pointerId)
+  if (pointers.size < 2) pinchStartDistance = 0
   dragging.value = false
 }
 
@@ -193,6 +222,8 @@ const onFullscreenChange = () => {
 
 const onKeydown = (e) => {
   if (!props.modelValue) return
+  // Leave keys alone while typing, or inside a dialog opened from the lightbox
+  if (e.target?.closest?.('input, textarea, select, [contenteditable], .v-overlay')) return
   if (e.key === 'Escape') close()
   else if (e.key === 'ArrowLeft') prev()
   else if (e.key === 'ArrowRight') next()
@@ -200,11 +231,16 @@ const onKeydown = (e) => {
   else if (e.key === '-') zoomOut()
 }
 
+// A different picture (navigation, or the caller swapping in a new one, e.g.
+// a just-saved drawing) starts unzoomed
+watch(() => current.value?.url, () => resetZoom())
+
 watch(
   () => props.modelValue,
   async (open) => {
     if (open) {
       resetZoom()
+      pointers.clear()
       await nextTick()
       document.addEventListener('keydown', onKeydown)
       document.addEventListener('fullscreenchange', onFullscreenChange)
@@ -250,6 +286,21 @@ watch(
   display: flex;
   align-items: center;
   gap: 2px;
+  /* Never push the close button off a narrow screen: wrap instead */
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  min-width: 0;
+}
+/* Phones: drop the extras (pinch and double-tap cover zoom/reset, and
+   fullscreen isn't available on iPhone) so the bar fits one row */
+@media (max-width: 480px) {
+  .ilb-topbar {
+    padding: 8px;
+  }
+  .ilb-zoom-label,
+  .ilb-narrow-hide {
+    display: none;
+  }
 }
 .ilb-zoom-label {
   color: rgba(255, 255, 255, 0.75);

@@ -244,7 +244,7 @@ async function loadClinicTemplates() {
 
 function goToTemplates() {
   close(false)
-  router.push({ name: 'Settings', query: { tab: 'whatsappTemplates' } })
+  router.push({ name: 'Settings', query: { tab: 'messaging', section: 'templates' } })
 }
 
 // ==================== Built-in suggestions ====================

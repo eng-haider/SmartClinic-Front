@@ -7,7 +7,7 @@
  */
 
 import { ref, computed, readonly } from 'vue'
-import { getClinicSettings } from '@/services/clinicSettings.service'
+import { getClinicSettings, getClinicDisplaySettings } from '@/services/clinicSettings.service'
 import {
   BABY_TEETH_NOTATION_KEY,
   DEFAULT_TOOTH_NOTATION,
@@ -85,6 +85,61 @@ const nearestColor = (hex, palette) => {
   return best ? best.name : null
 }
 
+/**
+ * What the patient form asks for: 'birth_date' (the API works the age out from
+ * it) or 'age' (a plain number of years). Clinics without the setting get
+ * 'birth_date', which is what the form always asked for.
+ */
+export const PATIENT_AGE_INPUT_KEY = 'patient_age_input'
+export const PATIENT_AGE_INPUTS = ['birth_date', 'age']
+export const DEFAULT_PATIENT_AGE_INPUT = 'birth_date'
+
+export const normalizePatientAgeInput = (value) =>
+  PATIENT_AGE_INPUTS.includes(value) ? value : DEFAULT_PATIENT_AGE_INPUT
+
+/**
+ * When on, case categories can be put in departments (e.g. Orthodontics,
+ * Cosmetic) and the cases and bills pages filter by department. Off by default.
+ */
+export const DEPARTMENTS_ENABLED_KEY = 'enable_departments'
+
+/**
+ * When on, picking a case category on the patient's dental chart opens the
+ * add-case dialog (prefilled with the category, tooth and price) instead of
+ * creating the case straight away. Off by default.
+ */
+export const CASE_DIALOG_ON_CATEGORY_KEY = 'case_dialog_on_category'
+
+/**
+ * How the waiting list shows today's reservations: 'table' (the original data
+ * table) or 'cards' (queue numbers and the next patient highlighted). Clinics
+ * without the setting get 'table'.
+ */
+export const WAITING_LIST_STYLE_KEY = 'waiting_list_style'
+export const WAITING_LIST_STYLES = ['table', 'cards']
+export const DEFAULT_WAITING_LIST_STYLE = 'table'
+
+export const normalizeWaitingListStyle = (value) =>
+  WAITING_LIST_STYLES.includes(value) ? value : DEFAULT_WAITING_LIST_STYLE
+
+/**
+ * The dashboard's quick actions, in the order they are shown. The clinic picks
+ * which of them appear (a list of keys); clinics without the setting get all.
+ */
+export const DASHBOARD_QUICK_ACTIONS_KEY = 'dashboard_quick_actions'
+export const DASHBOARD_QUICK_ACTIONS = [
+  { key: 'patient', path: '/patients', icon: 'mdi-account-plus', color: 'primary', labelKey: 'dashboard.add_patient' },
+  { key: 'reservation', path: '/reservations', icon: 'mdi-calendar-plus', color: 'success', labelKey: 'dashboard.add_reservation' },
+  { key: 'waiting-list', path: '/waiting-list', icon: 'mdi-clipboard-list', color: 'warning', labelKey: 'waitingList.title' },
+  { key: 'case', path: '/cases', icon: 'mdi-folder-plus', color: 'info', labelKey: 'dashboard.add_case' },
+  { key: 'bill', path: '/bills', icon: 'mdi-receipt', color: 'error', labelKey: 'dashboard.add_bill' }
+]
+
+export const normalizeDashboardQuickActions = (value) => {
+  const keys = DASHBOARD_QUICK_ACTIONS.map(action => action.key)
+  return Array.isArray(value) ? keys.filter(key => value.includes(key)) : keys
+}
+
 // Shared state (singleton pattern)
 const settings = ref(null)
 const loading = ref(false)
@@ -156,11 +211,35 @@ export function useClinicSettings() {
           console.error('Error parsing cached settings:', e)
         }
       }
+
+      // Secretaries can't read the full list, but the display settings shape their screens too
+      if (err.response?.status === 403) {
+        await loadDisplaySettings()
+      }
       
       return settings.value
     } finally {
       loading.value = false
     }
+  }
+
+  /**
+   * Merge in the display settings, for staff who can't read the full list. A cached
+   * copy keeps its other categories; `lastFetched` is left alone, as this isn't a full load.
+   */
+  const loadDisplaySettings = async () => {
+    try {
+      const response = await getClinicDisplaySettings()
+
+      if (response.success && response.data) {
+        settings.value = { ...settings.value, ...response.data }
+        localStorage.setItem('clinic_settings', JSON.stringify(settings.value))
+      }
+    } catch (err) {
+      console.error('Error loading display settings:', err)
+    }
+
+    return settings.value
   }
 
   /**
@@ -333,6 +412,13 @@ export function useClinicSettings() {
   const language = computed(() => getSetting('display', 'language') || 'ar')
   const dateFormat = computed(() => getSetting('display', 'date_format') || 'DD/MM/YYYY')
   const timeFormat = computed(() => getSetting('display', 'time_format') || '12h')
+  const patientAgeInput = computed(() => normalizePatientAgeInput(getSettingByKey(PATIENT_AGE_INPUT_KEY)))
+  const dashboardQuickActions = computed(() =>
+    normalizeDashboardQuickActions(getSettingByKey(DASHBOARD_QUICK_ACTIONS_KEY))
+  )
+  const departmentsEnabled = computed(() => getSettingByKey(DEPARTMENTS_ENABLED_KEY) === true)
+  const caseDialogOnCategory = computed(() => getSettingByKey(CASE_DIALOG_ON_CATEGORY_KEY) === true)
+  const waitingListStyle = computed(() => normalizeWaitingListStyle(getSettingByKey(WAITING_LIST_STYLE_KEY)))
 
   // ==================== NOTIFICATION SETTINGS ====================
 
@@ -443,7 +529,12 @@ export function useClinicSettings() {
     language,
     dateFormat,
     timeFormat,
-    
+    patientAgeInput,
+    dashboardQuickActions,
+    departmentsEnabled,
+    caseDialogOnCategory,
+    waitingListStyle,
+
     // Notification Settings
     enableSms,
     enableEmail,

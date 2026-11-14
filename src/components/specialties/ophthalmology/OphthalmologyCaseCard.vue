@@ -656,7 +656,6 @@ const submitAddBill = async () => {
       billable_type: 'Case',
       billable_id:   props.caseItem.id,
       price:         billForm.price,
-      doctor_id:     props.caseItem.doctor?.id || null,
       bill_date:     billForm.bill_date + ' 00:00:00',
     })
     const newBill = res?.data || res

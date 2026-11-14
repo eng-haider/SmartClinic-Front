@@ -74,6 +74,23 @@
             />
           </v-col>
 
+          <!-- Department Filter (only when departments are on in Settings) -->
+          <v-col v-if="departmentsEnabled" cols="12" sm="6" md="2">
+            <v-select
+              v-model="filters.department_id"
+              :label="$t('departments.department')"
+              :items="departments"
+              item-title="name"
+              item-value="id"
+              variant="outlined"
+              density="comfortable"
+              hide-details
+              clearable
+              prepend-inner-icon="mdi-domain"
+              @update:model-value="applyDateFilters"
+            />
+          </v-col>
+
           <!-- Per Page -->
           <v-col cols="6" sm="6" md="1">
             <v-select
@@ -634,11 +651,13 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter, useRoute } from 'vue-router'
 import { billService } from '@/services/bill.service'
 import DoctorService from '@/services/doctor.service'
+import { getDepartments } from '@/services/department.service'
+import { useClinicSettings } from '@/composables/useClinicSettings'
 
 // Custom debounce function
 const debounce = (fn, delay) => {
@@ -652,6 +671,7 @@ const debounce = (fn, delay) => {
 const { t, locale } = useI18n()
 const router = useRouter()
 const route = useRoute()
+const { departmentsEnabled, loadSettings } = useClinicSettings()
 
 // ==================== Reactive State ====================
 const loading = ref(false)
@@ -663,6 +683,7 @@ const successMessage = ref('')
 // Data
 const bills = ref([])
 const doctors = ref([])
+const departments = ref([])
 const stats = ref({})
 
 // Pagination
@@ -675,8 +696,14 @@ const search = ref(route.query.search || '')
 const filters = ref({
   date_from: route.query.date_from || '',
   date_to: route.query.date_to || '',
-  doctor_id: route.query.doctor_id ? Number(route.query.doctor_id) : null
+  doctor_id: route.query.doctor_id ? Number(route.query.doctor_id) : null,
+  department_id: route.query.department_id ? Number(route.query.department_id) : null
 })
+
+// Department filter, applied only while departments are on in Settings
+const departmentFilter = computed(() =>
+  departmentsEnabled.value ? filters.value.department_id : null
+)
 
 function syncUrl() {
   const q = {}
@@ -686,6 +713,7 @@ function syncUrl() {
   if (filters.value.date_from) q.date_from = filters.value.date_from
   if (filters.value.date_to) q.date_to = filters.value.date_to
   if (filters.value.doctor_id) q.doctor_id = String(filters.value.doctor_id)
+  if (departmentFilter.value) q.department_id = String(departmentFilter.value)
   if (showRemaining.value) q.view = 'remaining'
   router.replace({ query: q })
 }
@@ -762,6 +790,9 @@ const loadBills = async () => {
     if (filters.value.doctor_id) {
       params['filter[doctor_id]'] = filters.value.doctor_id
     }
+    if (departmentFilter.value) {
+      params['filter[department_id]'] = departmentFilter.value
+    }
     
     // Add date filters to bills API
     if (filters.value.date_from) {
@@ -795,6 +826,9 @@ const loadStatistics = async () => {
     }
     if (filters.value.doctor_id) {
       params.doctor_id = filters.value.doctor_id
+    }
+    if (departmentFilter.value) {
+      params.department_id = departmentFilter.value
     }
 
     const response = await billService.getStatistics(params)
@@ -878,9 +912,12 @@ const loadRemaining = async () => {
       params.search = remainingSearch.value
     }
 
-    // Same scope as the statistics cards: doctor + cases created in the date range
+    // Same scope as the statistics cards: doctor + department + cases created in the date range
     if (filters.value.doctor_id) {
       params.doctor_id = filters.value.doctor_id
+    }
+    if (departmentFilter.value) {
+      params.department_id = departmentFilter.value
     }
     if (filters.value.date_from) {
       params.case_date_from = filters.value.date_from
@@ -987,8 +1024,24 @@ const getBillableLabel = (type) => {
   return type.includes('Case') ? t('bills.case') : t('bills.reservation')
 }
 
+const loadDepartments = async () => {
+  try {
+    const response = await getDepartments()
+    departments.value = response.data || []
+  } catch (err) {
+    console.error('Error loading departments:', err)
+    departments.value = []
+  }
+}
+
+watch(departmentsEnabled, (enabled) => {
+  if (enabled) loadDepartments()
+}, { immediate: true })
+
 // ==================== Lifecycle ====================
 onMounted(async () => {
+  // Settings first: they decide whether the department filter applies
+  await loadSettings()
   await loadDoctors()
   await loadStatistics()
   await loadBills()

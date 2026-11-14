@@ -14,7 +14,7 @@
     <v-card class="toolbar-card mb-4" elevation="1" rounded="lg">
       <v-card-text class="pa-3">
         <v-row align="center" dense>
-          <v-col cols="12" md="3">
+          <v-col cols="12" :md="departmentsEnabled ? 2 : 3">
             <v-text-field
               v-model="search"
               prepend-inner-icon="mdi-magnify"
@@ -54,11 +54,25 @@
               @update:model-value="loadCases"
             />
           </v-col>
+          <v-col v-if="departmentsEnabled" cols="6" md="2">
+            <v-select
+              v-model="filters.department_id"
+              :label="$t('departments.department')"
+              :items="departments"
+              item-title="name"
+              item-value="id"
+              variant="outlined"
+              density="compact"
+              hide-details
+              clearable
+              @update:model-value="onDepartmentChange"
+            />
+          </v-col>
           <v-col cols="6" md="2">
             <v-select
               v-model="filters.case_categores_id"
               :label="$t('cases.category')"
-              :items="categories"
+              :items="categoryOptions"
               item-title="name"
               item-value="id"
               variant="outlined"
@@ -257,7 +271,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter, useRoute } from 'vue-router'
 import api from '@/services/api'
@@ -265,11 +279,14 @@ import { useAuthStore } from '@/stores/auth'
 import { getSmartCaseColumns } from '@/config/specialties'
 import CaseDrawer from '@/components/CaseDrawer.vue'
 import WhatsAppMessageDialog from '@/components/WhatsAppMessageDialog.vue'
+import { useClinicSettings } from '@/composables/useClinicSettings'
+import { getDepartments } from '@/services/department.service'
 
 const { t } = useI18n()
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
+const { departmentsEnabled, loadSettings } = useClinicSettings()
 
 // ==================== State ====================
 const loading = ref(false)
@@ -277,6 +294,7 @@ const error = ref('')
 const search = ref(route.query.search || '')
 const cases = ref([])
 const categories = ref([])
+const departments = ref([])
 const doctors = ref([])
 const currentPage = ref(Number(route.query.page) || 1)
 const perPage = ref(Number(route.query.per_page) || 15)
@@ -305,6 +323,7 @@ const filters = reactive({
   status_id: route.query.status_id ? Number(route.query.status_id) : null,
   is_paid: route.query.is_paid !== undefined ? Number(route.query.is_paid) : null,
   case_categores_id: route.query.case_categores_id ? Number(route.query.case_categores_id) : null,
+  department_id: route.query.department_id ? Number(route.query.department_id) : null,
   doctor_id: route.query.doctor_id ? Number(route.query.doctor_id) : null,
 })
 
@@ -316,6 +335,7 @@ function syncUrl() {
   if (filters.status_id !== null) q.status_id = String(filters.status_id)
   if (filters.is_paid !== null) q.is_paid = String(filters.is_paid)
   if (filters.case_categores_id !== null) q.case_categores_id = String(filters.case_categores_id)
+  if (departmentsEnabled.value && filters.department_id !== null) q.department_id = String(filters.department_id)
   if (filters.doctor_id !== null) q.doctor_id = String(filters.doctor_id)
   router.replace({ query: q })
 }
@@ -330,6 +350,13 @@ const paymentOptions = computed(() => [
   { text: t('cases.paid'), value: 1 },
   { text: t('cases.unpaid'), value: 0 },
 ])
+
+// With a department picked, only its categories are offered
+const categoryOptions = computed(() =>
+  departmentsEnabled.value && filters.department_id !== null
+    ? categories.value.filter(c => c.department_id === filters.department_id)
+    : categories.value
+)
 
 const columns = computed(() => getSmartCaseColumns(authStore.specialty, t))
 
@@ -411,6 +438,15 @@ function onPageChange(page) {
   loadCases()
 }
 
+function onDepartmentChange() {
+  // A category from another department would leave the list empty
+  if (filters.case_categores_id !== null && !categoryOptions.value.some(c => c.id === filters.case_categores_id)) {
+    filters.case_categores_id = null
+  }
+  currentPage.value = 1
+  loadCases()
+}
+
 function onPerPageChange(val) {
   perPage.value = val
   currentPage.value = 1
@@ -433,6 +469,7 @@ async function loadCases() {
     if (filters.status_id !== null) params['filter[status_id]'] = filters.status_id
     if (filters.is_paid !== null) params['filter[is_paid]'] = filters.is_paid
     if (filters.case_categores_id !== null) params['filter[case_categores_id]'] = filters.case_categores_id
+    if (departmentsEnabled.value && filters.department_id !== null) params['filter[department_id]'] = filters.department_id
     if (filters.doctor_id !== null) params['filter[doctor_id]'] = filters.doctor_id
     params.sort = '-created_at'
 
@@ -462,6 +499,16 @@ async function loadCategories() {
   } catch (err) {
     console.error('Error loading categories:', err)
     categories.value = []
+  }
+}
+
+async function loadDepartments() {
+  try {
+    const response = await getDepartments()
+    departments.value = response.data || []
+  } catch (err) {
+    console.error('Error loading departments:', err)
+    departments.value = []
   }
 }
 
@@ -499,11 +546,17 @@ async function fetchCaseNotes(caseId) {
   }
 }
 
+watch(departmentsEnabled, (enabled) => {
+  if (enabled) loadDepartments()
+}, { immediate: true })
+
 // ==================== Lifecycle ====================
-onMounted(() => {
-  loadCases()
+onMounted(async () => {
   loadCategories()
   loadDoctors()
+  // Settings first: they decide whether the department filter applies
+  await loadSettings()
+  loadCases()
 })
 </script>
 

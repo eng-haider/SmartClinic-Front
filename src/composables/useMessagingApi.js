@@ -58,11 +58,8 @@ export function useMessagingApi() {
     // Settings
     getSettings: () => request(() => messagingApiClient.get('/settings')),
     saveSettings: (data) => request(() => messagingApiClient.post('/settings', { ...data, provider: 'whatsapp' })),
-    testConnection: (phone_id, token) =>
-      request(() => messagingApiClient.post('/settings/test-connection', { 
-        whatsapp_phone_number_id: phone_id, 
-        whatsapp_access_token: token 
-      })),
+    // Same fields as saveSettings; meta.driver picks Meta or Gupshup
+    testConnection: (data) => request(() => messagingApiClient.post('/settings/test-connection', data)),
     getWebhookInfo: () => request(() => messagingApiClient.get('/settings/webhook-info')),
 
     // Templates

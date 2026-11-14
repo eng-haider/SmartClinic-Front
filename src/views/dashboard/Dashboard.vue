@@ -78,6 +78,29 @@
       </div>
     </div>
 
+    <!-- Quick Actions -->
+    <div v-if="quickActionsReady && quickActions.length" class="quick-actions mb-6">
+      <div class="section-title mb-3">
+        <v-icon color="primary" class="me-2">mdi-lightning-bolt</v-icon>
+        {{ $t('dashboard.quick_actions') }}
+      </div>
+      <div class="quick-actions-grid">
+        <v-card
+          v-for="action in quickActions"
+          :key="action.key"
+          class="quick-action"
+          variant="flat"
+          :style="{ '--qa-color': `var(--v-theme-${action.color})` }"
+          @click="action.open ? action.open() : goTo(action.path)"
+        >
+          <div class="quick-action-icon">
+            <v-icon color="white" size="28">{{ action.icon }}</v-icon>
+          </div>
+          <div class="quick-action-label">{{ action.label }}</div>
+        </v-card>
+      </div>
+    </div>
+
     <!-- Today's Quick Stats -->
     <v-row class="mb-6 today-stats">
       <v-col cols="12">
@@ -248,7 +271,7 @@
 
     <!-- Profit/Loss Summary -->
     <v-row class="mb-6">
-      <v-col cols="12" md="4">
+      <v-col cols="12" md="6">
         <v-card class="profit-card" :class="{ 'profit': !numbersHidden && profitLoss?.is_profit, 'loss': !numbersHidden && !profitLoss?.is_profit }" :loading="loading.profitLoss">
           <div class="profit-card-content">
             <div class="profit-icon">
@@ -282,7 +305,7 @@
       </v-col>
 
       <!-- Reservations Summary -->
-      <v-col cols="12" md="4">
+      <v-col cols="12" md="6">
         <v-card class="summary-card" :loading="loading.overview">
           <div class="summary-header">
             <v-icon color="info" class="me-2">mdi-calendar-clock</v-icon>
@@ -298,34 +321,6 @@
               <div class="summary-item-value text-warning">{{ formatNumber(overview?.reservations?.waiting) }}</div>
               <div class="summary-item-label">{{ $t('dashboard.waiting') }}</div>
             </div>
-          </div>
-        </v-card>
-      </v-col>
-
-      <!-- Quick Actions -->
-      <v-col cols="12" md="4">
-        <v-card class="actions-card">
-          <div class="actions-header">
-            <v-icon color="primary" class="me-2">mdi-lightning-bolt</v-icon>
-            {{ $t('dashboard.quick_actions') }}
-          </div>
-          <div class="actions-grid">
-            <v-btn color="primary" variant="tonal" @click="goTo('/patients')" class="action-btn">
-              <v-icon start>mdi-account-plus</v-icon>
-              {{ $t('dashboard.add_patient') }}
-            </v-btn>
-            <v-btn color="success" variant="tonal" @click="goTo('/reservations')" class="action-btn">
-              <v-icon start>mdi-calendar-plus</v-icon>
-              {{ $t('dashboard.add_reservation') }}
-            </v-btn>
-            <v-btn color="warning" variant="tonal" @click="goTo('/cases')" class="action-btn">
-              <v-icon start>mdi-folder-plus</v-icon>
-              {{ $t('dashboard.add_case') }}
-            </v-btn>
-            <v-btn color="info" variant="tonal" @click="goTo('/bills')" class="action-btn">
-              <v-icon start>mdi-receipt</v-icon>
-              {{ $t('dashboard.add_bill') }}
-            </v-btn>
           </div>
         </v-card>
       </v-col>
@@ -585,6 +580,27 @@
         </v-card>
       </v-col>
     </v-row>
+
+    <!-- Quick Action Dialogs -->
+    <PatientFormDialog
+      v-model="patientDialog"
+      :doctors="doctors"
+      :default-doctor-id="defaultDoctorId"
+      @saved="handlePatientSaved"
+      @error="handlePatientError"
+    />
+    <BookingDialog
+      v-model="bookingDialog"
+      :selected-date="bookingDate"
+      :doctors="doctors"
+      :default-doctor-id="defaultDoctorId"
+      @saved="handleBookingSaved"
+      @error="handleBookingError"
+    />
+
+    <v-snackbar v-model="snackbar.show" :color="snackbar.color" :timeout="3000" location="top">
+      {{ snackbar.message }}
+    </v-snackbar>
   </v-container>
 </template>
 
@@ -593,10 +609,17 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
+import { useClinicSettings, DASHBOARD_QUICK_ACTIONS } from '@/composables/useClinicSettings'
+import { checkRoutePermission } from '@/router'
+import permissionHelper from '@/services/permission.helper'
 import reportsService from '@/services/reports.service'
 import expensesSummaryService from '@/services/expensesSummary.service'
+import reservationService from '@/services/reservation.service'
 import TrendChart from '@/components/dashboard/TrendChart.vue'
 import DonutChart from '@/components/dashboard/DonutChart.vue'
+import PatientFormDialog from '@/components/PatientFormDialog.vue'
+import { holdKeyboard } from '@/utils/mobileKeyboard'
+import BookingDialog from '@/components/BookingDialog.vue'
 
 const router = useRouter()
 const { t, locale } = useI18n()
@@ -659,6 +682,29 @@ const expensesSummary = ref(null)
 // Period selector for revenue — default to 'day' so a month-to-date range
 // renders a daily line (monthly grouping collapses it to a single point).
 const revenuePeriod = ref('day')
+
+// Quick Actions — the clinic picks which ones appear (Settings → display), and
+// since the dashboard is open to every role, each is also hidden from users who
+// may not open the page it belongs to. Hidden until the clinic settings arrive,
+// so actions the clinic turned off never flash.
+const { dashboardQuickActions, loadSettings: loadClinicSettings } = useClinicSettings()
+const quickActionsReady = ref(false)
+const quickActionOpeners = { patient: openPatientDialog, reservation: openBookingDialog }
+const quickActions = computed(() => DASHBOARD_QUICK_ACTIONS
+  .filter(action => dashboardQuickActions.value.includes(action.key))
+  .filter(action => checkRoutePermission(router.resolve(action.path).meta))
+  .map(action => ({ ...action, label: t(action.labelKey), open: quickActionOpeners[action.key] })))
+
+const patientDialog = ref(false)
+const bookingDialog = ref(false)
+const bookingDate = ref(null)
+const doctors = ref([])
+const doctorsLoaded = ref(false)
+// A doctor books for themself; staff pick the doctor in the dialog.
+const defaultDoctorId = computed(() =>
+  authStore.isDoctor || permissionHelper.hasAnyRole(['doctor', 'clinic_super_doctor']) ? authStore.user?.id : null
+)
+const snackbar = reactive({ show: false, message: '', color: 'success' })
 
 // Doctor Table Headers
 const doctorHeaders = computed(() => [
@@ -803,6 +849,54 @@ function applyDateRange() {
 
 function goTo(path) {
   router.push(path)
+}
+
+function showSnackbar(message, color = 'success') {
+  Object.assign(snackbar, { show: true, message, color })
+}
+
+// Doctors are only needed by the quick-action dialogs, so load them on first use.
+async function loadDoctors() {
+  if (doctorsLoaded.value) return
+  try {
+    const response = await reservationService.getDoctors()
+    doctors.value = Array.isArray(response) ? response : (response?.data || [])
+    doctorsLoaded.value = true
+  } catch (e) {
+    console.error('Failed to load doctors:', e)
+  }
+}
+
+function openPatientDialog() {
+  holdKeyboard() // phones: keyboard opens with the tap, ready for the name
+  loadDoctors()
+  patientDialog.value = true
+}
+
+function openBookingDialog() {
+  loadDoctors()
+  bookingDate.value = formatDate(new Date())
+  bookingDialog.value = true
+}
+
+function handlePatientSaved({ message, color }) {
+  showSnackbar(message, color || 'success')
+  fetchToday()
+  fetchOverview()
+}
+
+function handlePatientError({ message, color }) {
+  showSnackbar(message, color || 'error')
+}
+
+function handleBookingSaved() {
+  showSnackbar(t('reservations.booking_success'), 'success')
+  fetchToday()
+  fetchOverview()
+}
+
+function handleBookingError(error) {
+  showSnackbar(error.response?.data?.message || t('errors.saveFailed'), 'error')
 }
 
 // API Fetch Functions
@@ -1022,6 +1116,7 @@ onMounted(() => {
   // Match the initial grouping to the default range.
   revenuePeriod.value = pickPeriod(dateRange.from, dateRange.to)
   fetchAll()
+  loadClinicSettings().finally(() => { quickActionsReady.value = true })
 })
 </script>
 
@@ -1311,34 +1406,62 @@ onMounted(() => {
   color: #6b7280;
 }
 
-/* Actions Card */
-.actions-card {
-  border-radius: 16px;
-  padding: 20px;
-  height: 100%;
-  border: 1px solid #e5e7eb;
+/* Quick Actions */
+/* Each action is a big tile tinted in its own color (--qa-color is an RGB
+   triplet from the Vuetify theme), so it reads as a button at a glance. */
+.quick-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 14px;
 }
 
-.actions-header {
+.quick-action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 128px;
+  padding: 18px 12px;
+  text-align: center;
+  border-radius: 16px;
+  background: rgba(var(--qa-color), 0.08) !important;
+  border: 2px solid rgba(var(--qa-color), 0.28);
+  border-bottom-width: 4px;
+  box-shadow: 0 2px 6px rgba(var(--qa-color), 0.12);
+  transition: background-color 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+}
+
+.quick-action:hover,
+.quick-action:focus-visible {
+  background: rgba(var(--qa-color), 0.15) !important;
+  border-color: rgb(var(--qa-color));
+  box-shadow: 0 8px 20px rgba(var(--qa-color), 0.25);
+  transform: translateY(-3px);
+}
+
+.quick-action:active {
+  transform: translateY(0);
+}
+
+.quick-action-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #6b7280;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 16px;
+  justify-content: center;
+  flex-shrink: 0;
+  background: rgb(var(--qa-color));
+  box-shadow: 0 4px 12px rgba(var(--qa-color), 0.4);
 }
 
-.actions-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-.action-btn {
-  text-transform: none;
-  font-weight: 500;
+.quick-action-label {
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.3;
+  color: #1f2937;
+  min-width: 0;
 }
 
 /* Chart Card */
@@ -1498,8 +1621,7 @@ onMounted(() => {
 
   .kpi-card,
   .profit-card,
-  .summary-card,
-  .actions-card {
+  .summary-card {
     padding: 14px;
     box-shadow: none;
   }
@@ -1568,22 +1690,34 @@ onMounted(() => {
     margin-top: 12px;
   }
   
-  .actions-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .quick-actions {
+    margin-bottom: 16px !important;
+  }
+
+  .quick-actions .section-title {
+    margin-bottom: 8px !important;
+  }
+
+  .quick-actions-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 8px;
   }
 
-  .action-btn {
-    min-width: 0;
-    min-height: 48px;
-    height: auto;
-    padding: 10px 8px;
-    font-size: 0.75rem;
-    letter-spacing: 0;
+  .quick-action {
+    gap: 8px;
+    min-height: 104px;
+    padding: 12px 6px;
+    border-radius: 14px;
   }
 
-  .action-btn :deep(.v-btn__content) {
-    white-space: normal;
+  .quick-action-icon {
+    width: 46px;
+    height: 46px;
+  }
+
+  .quick-action-label {
+    font-size: 0.85rem;
+    overflow-wrap: anywhere;
   }
 }
 

@@ -258,7 +258,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, watch } from 'vue'
 import OphthalmologyCaseCard from './OphthalmologyCaseCard.vue'
 import OphthalmologyAddCaseModal from './OphthalmologyAddCaseModal.vue'
 import { selectableCategories } from '@/utils/caseCategories'
@@ -331,6 +331,13 @@ const defaultForm = () => ({
 })
 
 const form = reactive(defaultForm())
+
+// Picking a category fills in its default price, when it has one
+watch(() => form.category_id, (categoryId) => {
+  if (!categoryId) return
+  const category = allCategories.value.find(c => c.id === categoryId)
+  if (category?.item_cost) form.price = category.item_cost
+})
 
 const toggleForm = () => {
   showForm.value = !showForm.value

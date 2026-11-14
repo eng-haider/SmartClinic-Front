@@ -38,6 +38,7 @@
           <router-link to="/about">عن المنصة</router-link>
           <router-link to="/support">الدعم والتواصل</router-link>
           <router-link to="/privacy">سياسة الخصوصية</router-link>
+          <router-link to="/delete-account">حذف الحساب</router-link>
           <a href="mailto:en.haider1@gmail.com">en.haider1@gmail.com</a>
         </div>
 

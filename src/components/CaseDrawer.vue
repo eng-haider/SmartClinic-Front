@@ -84,6 +84,9 @@
                 <v-icon size="14" color="success">mdi-check-circle</v-icon>
                 <span class="font-weight-medium">{{ formatCurrency(bill.price) }}</span>
                 <span class="text-caption text-grey">{{ formatDate(bill.created_at) }}</span>
+                <span v-if="bill.creator?.name" class="bill-creator text-caption">
+                  <v-icon size="14">mdi-account-edit-outline</v-icon><span class="text-truncate">{{ bill.creator.name }}</span>
+                </span>
               </div>
             </div>
           </div>
@@ -255,6 +258,9 @@
             <v-icon size="14" color="success">mdi-check-circle</v-icon>
             <span class="font-weight-medium">{{ formatCurrency(bill.price) }}</span>
             <span class="text-caption text-grey">{{ formatDate(bill.created_at) }}</span>
+            <span v-if="bill.creator?.name" class="bill-creator text-caption">
+              <v-icon size="14">mdi-account-edit-outline</v-icon><span class="text-truncate">{{ bill.creator.name }}</span>
+            </span>
           </div>
         </div>
       </div>
@@ -467,6 +473,15 @@ function formatDate(dateString) {
   background: #f8fdf8;
   border-radius: 6px;
   font-size: 13px;
+}
+/* Who registered the payment, pushed to the row's end. */
+.bill-creator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  margin-inline-start: auto;
+  color: #64748b;
 }
 
 .materials-list {

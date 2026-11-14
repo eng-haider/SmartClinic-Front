@@ -1,6 +1,6 @@
 <template>
   <div class="warehouse-items-picker">
-    <label class="picker-label">{{ $t('warehouse.materials') }}</label>
+    <label v-if="!hideLabel" class="picker-label">{{ $t('warehouse.materials') }}</label>
     <div class="picker-hint">{{ $t('warehouse.materialsHint') }}</div>
 
     <!-- Selected rows -->
@@ -82,6 +82,11 @@ const props = defineProps({
   reserved: {
     type: Array,
     default: () => []
+  },
+  // Hide the "Materials used" label when the host already titles the section.
+  hideLabel: {
+    type: Boolean,
+    default: false
   }
 })
 

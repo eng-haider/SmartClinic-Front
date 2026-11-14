@@ -118,7 +118,12 @@
                 <span class="text-white text-caption font-weight-bold">{{ initials(item.name) }}</span>
               </v-avatar>
               <div>
-                <div class="font-weight-medium">{{ item.name }}</div>
+                <div class="font-weight-medium">
+                  {{ item.name }}
+                  <v-chip v-if="item.source === 'whatsapp'" color="green" size="x-small" variant="tonal" prepend-icon="mdi-whatsapp" class="ms-1">
+                    {{ t('bookingRequests.sourceWhatsApp') }}
+                  </v-chip>
+                </div>
                 <div class="text-caption text-medium-emphasis">
                   <v-icon size="12">mdi-phone</v-icon> {{ item.phone }}
                 </div>
@@ -185,7 +190,7 @@
                   <v-tooltip activator="parent" location="top">{{ t('bookingRequests.reject') }}</v-tooltip>
                 </v-btn>
               </template>
-              <v-btn icon="mdi-delete" size="small" variant="text" color="grey" @click="openDelete(item)">
+              <v-btn icon="mdi-delete" size="small" variant="text" color="error" @click="openDelete(item)">
                 <v-icon>mdi-delete</v-icon>
                 <v-tooltip activator="parent" location="top">{{ t('common.delete') }}</v-tooltip>
               </v-btn>
@@ -207,104 +212,112 @@
             <p class="text-body-1 text-medium-emphasis mt-4">{{ t('bookingRequests.empty') }}</p>
           </div>
 
-          <v-card
-            v-for="item in requests"
-            :key="item.id"
-            class="mb-3 booking-request-card"
-            variant="outlined"
-            rounded="lg"
-            @click="openDetails(item)"
-          >
-            <v-card-text class="pa-3">
-              <!-- Requester + status -->
-              <div class="d-flex align-center gap-2 mb-3">
-                <v-avatar size="40" color="primary">
-                  <span class="text-white text-caption font-weight-bold">{{ initials(item.name) }}</span>
-                </v-avatar>
-                <div class="booking-request-card__info">
-                  <div class="font-weight-medium text-truncate">{{ item.name }}</div>
-                  <div class="text-caption text-medium-emphasis text-truncate" dir="ltr">{{ item.phone }}</div>
+          <div v-else class="booking-request-grid">
+            <v-card
+              v-for="item in requests"
+              :key="item.id"
+              class="booking-request-card"
+              variant="outlined"
+              rounded="lg"
+              @click="openDetails(item)"
+            >
+              <v-card-text class="pa-3 booking-request-card__body">
+                <!-- Requester + status -->
+                <div class="d-flex align-center gap-2 mb-3">
+                  <v-avatar size="40" color="primary">
+                    <span class="text-white text-caption font-weight-bold">{{ initials(item.name) }}</span>
+                  </v-avatar>
+                  <div class="booking-request-card__info">
+                    <div class="font-weight-medium text-truncate">{{ item.name }}</div>
+                    <div class="text-caption text-medium-emphasis text-truncate" dir="ltr">
+                      <v-icon v-if="item.source === 'whatsapp'" size="14" color="green">mdi-whatsapp</v-icon>
+                      {{ item.phone }}
+                    </div>
+                  </div>
+                  <v-chip :color="statusColor(item.status)" size="small" variant="flat">
+                    <v-icon start size="14">{{ statusIcon(item.status) }}</v-icon>
+                    {{ t('bookingRequests.status.' + item.status) }}
+                  </v-chip>
                 </div>
-                <v-chip :color="statusColor(item.status)" size="small" variant="flat">
-                  <v-icon start size="14">{{ statusIcon(item.status) }}</v-icon>
-                  {{ t('bookingRequests.status.' + item.status) }}
-                </v-chip>
-              </div>
 
-              <!-- Preferred slot + submission time -->
-              <div class="d-flex flex-wrap gap-2">
-                <v-chip size="small" color="primary" variant="tonal">
-                  <v-icon start size="14">mdi-calendar</v-icon>
-                  {{ item.preferred_date }}
-                </v-chip>
-                <v-chip v-if="item.preferred_time" size="small" color="primary" variant="tonal">
-                  <v-icon start size="14">mdi-clock-outline</v-icon>
-                  {{ formatTime(item.preferred_time) }}
-                </v-chip>
-                <v-chip size="small" variant="outlined">
-                  <v-icon start size="14">mdi-send-clock-outline</v-icon>
-                  {{ formatDateTime(item.created_at) }}
-                </v-chip>
-              </div>
+                <!-- Preferred slot + submission time -->
+                <div class="d-flex flex-wrap gap-2">
+                  <v-chip size="small" color="primary" variant="tonal">
+                    <v-icon start size="14">mdi-calendar</v-icon>
+                    {{ item.preferred_date }}
+                  </v-chip>
+                  <v-chip v-if="item.preferred_time" size="small" color="primary" variant="tonal">
+                    <v-icon start size="14">mdi-clock-outline</v-icon>
+                    {{ formatTime(item.preferred_time) }}
+                  </v-chip>
+                  <v-chip size="small" variant="outlined">
+                    <v-icon start size="14">mdi-send-clock-outline</v-icon>
+                    {{ formatDateTime(item.created_at) }}
+                  </v-chip>
+                </div>
 
-              <!-- Note -->
-              <div v-if="item.note" class="text-caption text-medium-emphasis mt-2 booking-request-card__note">
-                {{ item.note }}
-              </div>
+                <!-- Note -->
+                <div v-if="item.note" class="text-caption text-medium-emphasis mt-2 booking-request-card__note">
+                  {{ item.note }}
+                </div>
 
-              <v-divider class="my-3" />
+                <!-- Actions stay pinned to the bottom so every card lines up. -->
+                <div class="booking-request-card__footer">
+                  <v-divider class="my-3" />
 
-              <!-- Actions -->
-              <div class="d-flex align-center gap-2">
-                <v-btn
-                  icon="mdi-whatsapp"
-                  size="small"
-                  variant="tonal"
-                  color="green"
-                  :disabled="!item.phone"
-                  @click.stop="openWhatsAppChat(item)"
-                />
-                <v-btn
-                  icon="mdi-delete"
-                  size="small"
-                  variant="tonal"
-                  color="grey"
-                  @click.stop="openDelete(item)"
-                />
-                <v-spacer />
-                <template v-if="item.status === 'pending'">
-                  <v-btn
-                    color="success"
-                    variant="tonal"
-                    size="small"
-                    prepend-icon="mdi-check"
-                    @click.stop="openApprove(item)"
-                  >
-                    {{ t('bookingRequests.approve') }}
-                  </v-btn>
-                  <v-btn
-                    color="error"
-                    variant="tonal"
-                    size="small"
-                    prepend-icon="mdi-close"
-                    @click.stop="openReject(item)"
-                  >
-                    {{ t('bookingRequests.reject') }}
-                  </v-btn>
-                </template>
-                <v-btn
-                  v-else
-                  color="primary"
-                  variant="text"
-                  size="small"
-                  prepend-icon="mdi-eye"
-                  @click.stop="openDetails(item)"
-                >
-                  {{ t('bookingRequests.view') }}
-                </v-btn>
-              </div>
-            </v-card-text>
-          </v-card>
+                  <div class="d-flex align-center gap-2">
+                    <v-btn
+                      icon="mdi-whatsapp"
+                      size="small"
+                      variant="tonal"
+                      color="green"
+                      :disabled="!item.phone"
+                      @click.stop="openWhatsAppChat(item)"
+                    />
+                    <v-btn
+                      icon="mdi-delete"
+                      size="small"
+                      variant="tonal"
+                      color="error"
+                      :aria-label="t('common.delete')"
+                      @click.stop="openDelete(item)"
+                    />
+                    <v-spacer />
+                    <template v-if="item.status === 'pending'">
+                      <v-btn
+                        color="success"
+                        variant="tonal"
+                        size="small"
+                        prepend-icon="mdi-check"
+                        @click.stop="openApprove(item)"
+                      >
+                        {{ t('bookingRequests.approve') }}
+                      </v-btn>
+                      <v-btn
+                        color="error"
+                        variant="tonal"
+                        size="small"
+                        prepend-icon="mdi-close"
+                        @click.stop="openReject(item)"
+                      >
+                        {{ t('bookingRequests.reject') }}
+                      </v-btn>
+                    </template>
+                    <v-btn
+                      v-else
+                      color="primary"
+                      variant="text"
+                      size="small"
+                      prepend-icon="mdi-eye"
+                      @click.stop="openDetails(item)"
+                    >
+                      {{ t('bookingRequests.view') }}
+                    </v-btn>
+                  </div>
+                </div>
+              </v-card-text>
+            </v-card>
+          </div>
         </div>
       </v-card-text>
 
@@ -377,7 +390,12 @@
             auto-grow
             hide-details
           />
+          <!-- Requests from the WhatsApp bot hear back automatically (BookingRequestMessenger) -->
+          <v-alert v-if="approveDialog.item?.source === 'whatsapp'" type="success" variant="tonal" density="compact" icon="mdi-whatsapp" class="mt-3">
+            {{ t('bookingRequests.autoWhatsAppApproved') }}
+          </v-alert>
           <v-switch
+            v-else
             v-model="approveSendWhatsApp"
             :label="t('bookingRequests.sendWhatsApp')"
             :disabled="approveDialog.loading"
@@ -424,7 +442,11 @@
             counter="1000"
             :rules="[v => !v || v.length <= 1000 || t('publicBooking.tooLong')]"
           />
+          <v-alert v-if="rejectDialog.item?.source === 'whatsapp'" type="success" variant="tonal" density="compact" icon="mdi-whatsapp">
+            {{ t('bookingRequests.autoWhatsAppRejected') }}
+          </v-alert>
           <v-switch
+            v-else
             v-model="rejectSendWhatsApp"
             :label="t('bookingRequests.sendWhatsApp')"
             :disabled="rejectDialog.loading"
@@ -488,6 +510,12 @@
             <v-list-item prepend-icon="mdi-account" :title="detailsDialog.item.name" :subtitle="t('publicBooking.name')" />
             <v-list-item prepend-icon="mdi-phone" :title="detailsDialog.item.phone" :subtitle="t('publicBooking.phone')" />
             <v-list-item
+              v-if="detailsDialog.item.source === 'whatsapp'"
+              prepend-icon="mdi-whatsapp"
+              :title="t('bookingRequests.sourceWhatsApp')"
+              :subtitle="t('bookingRequests.source')"
+            />
+            <v-list-item
               prepend-icon="mdi-calendar"
               :title="detailsDialog.item.preferred_date + (detailsDialog.item.preferred_time ? ' — ' + formatTime(detailsDialog.item.preferred_time) : '')"
               :subtitle="t('bookingRequests.preferred')"
@@ -545,6 +573,14 @@
             {{ t('bookingRequests.reject') }}
           </v-btn>
           <v-spacer />
+          <v-btn
+            color="error"
+            variant="text"
+            prepend-icon="mdi-delete"
+            @click="() => { detailsDialog.show = false; openDelete(detailsDialog.item) }"
+          >
+            {{ t('common.delete') }}
+          </v-btn>
           <v-btn variant="text" @click="detailsDialog.show = false">{{ t('common.close') }}</v-btn>
         </v-card-actions>
       </v-card>
@@ -737,10 +773,21 @@ const approveForm = reactive({
 })
 const approveSendWhatsApp = ref(false)
 const approveWhatsAppPhone = computed(() => formatWhatsAppPhone(approveDialog.item?.phone))
+// Sunday first. Browsers can lack Sorani date names and fall back to English without saying so
+const SORANI_WEEKDAYS = ['یەکشەممە', 'دووشەممە', 'سێشەممە', 'چوارشەممە', 'پێنجشەممە', 'ھەینی', 'شەممە']
+
+// The weekday of a YYYY-MM-DD date, read as a local date ('' when there is none)
+function weekdayName(date) {
+  const [year, month, day] = String(date).split('-').map(Number)
+  if (!year || !month || !day) return ''
+  const parsed = new Date(year, month - 1, day)
+  return locale.value === 'ku' ? SORANI_WEEKDAYS[parsed.getDay()] : parsed.toLocaleDateString(locale.value, { weekday: 'long' })
+}
+
 const approveWhatsAppMessage = computed(() => {
   const lines = [
     t('bookingRequests.approvedWhatsAppMessage', { name: approveDialog.item?.name || '' }),
-    `${t('bookingRequests.date')}: ${approveForm.reservation_date}`,
+    `${t('bookingRequests.date')}: ${[weekdayName(approveForm.reservation_date), approveForm.reservation_date].filter(Boolean).join(' ')}`,
   ]
   lines.push(approveForm.reservation_time
     ? `${t('bookingRequests.time')}: ${formatTime(approveForm.reservation_time)}`
@@ -1069,10 +1116,29 @@ onMounted(() => {
   font-weight: 600 !important;
 }
 
-/* Mobile cards */
+/* Mobile cards: 1fr rows make every row as tall as the tallest card. */
+.booking-request-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
+  grid-auto-rows: 1fr;
+  gap: 12px;
+}
+
 .booking-request-card {
+  display: flex;
+  flex-direction: column;
   cursor: pointer;
   transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.booking-request-card__body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.booking-request-card__footer {
+  margin-top: auto;
 }
 
 .booking-request-card:active {

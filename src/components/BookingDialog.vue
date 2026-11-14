@@ -133,8 +133,22 @@
             class="mb-4"
           />
 
-          <!-- WhatsApp Reminder -->
+          <!-- The server sends the confirmation itself (WhatsApp settings, step 3),
+               so WhatsApp is not opened on this device -->
+          <v-alert
+            v-if="autoConfirm"
+            type="success"
+            variant="tonal"
+            density="compact"
+            icon="mdi-whatsapp"
+            class="mb-2"
+          >
+            {{ $t('reservations.whatsapp_auto_confirm') }}
+          </v-alert>
+
+          <!-- WhatsApp Reminder (opens WhatsApp on this device) -->
           <v-switch
+            v-else
             v-model="bookingData.sendWhatsApp"
             :label="$t('reservations.send_whatsapp')"
             color="success"
@@ -143,7 +157,7 @@
           />
 
           <v-alert
-            v-if="bookingData.sendWhatsApp && !whatsAppPhone"
+            v-if="sendsFromDevice && !whatsAppPhone"
             type="warning"
             variant="tonal"
             density="compact"
@@ -154,7 +168,7 @@
 
           <!-- WhatsApp Message Preview -->
           <v-alert
-            v-if="bookingData.sendWhatsApp && bookingData.patient"
+            v-if="sendsFromDevice && bookingData.patient"
             type="success"
             variant="tonal"
             density="compact"
@@ -180,7 +194,7 @@
           color="primary"
           variant="elevated"
           :loading="saving"
-          :disabled="!bookingFormValid || saving || (bookingData.sendWhatsApp && !whatsAppPhone)"
+          :disabled="!bookingFormValid || saving || (sendsFromDevice && !whatsAppPhone)"
           @click="handleSave"
         >
           {{ $t('common.save') }}
@@ -195,6 +209,7 @@ import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import reservationService from '@/services/reservation.service'
+import { useBookingWhatsAppConfirmation } from '@/composables/useBookingWhatsAppConfirmation'
 import api from '@/services/api'
 
 const props = defineProps({
@@ -223,6 +238,9 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue', 'saved', 'error'])
 
 const { t, locale } = useI18n()
+const { autoConfirm, refresh: refreshWhatsAppConfirmation } = useBookingWhatsAppConfirmation()
+// Known before the dialog is first opened; re-read on every open (see watcher)
+refreshWhatsAppConfirmation()
 const authStore = useAuthStore()
 
 // ==================== State ====================
@@ -278,6 +296,10 @@ const whatsAppMessage = computed(() => {
   
   return `مرحباً ${patientName}،\n\nنود تذكيرك بموعدك في ${clinicName}\n📅 التاريخ: ${date}\n🕐 الوقت: ${time}\n\nنتطلع لرؤيتك!`
 })
+
+// The manual reminder opens WhatsApp here; never while the server already
+// sends the confirmation, or the patient would get it twice.
+const sendsFromDevice = computed(() => bookingData.value.sendWhatsApp && !autoConfirm.value)
 
 const whatsAppPhone = computed(() => {
   const rawPhone = String(bookingData.value.patient?.phone || '').trim()
@@ -351,10 +373,10 @@ const handleClose = () => {
 
 const handleSave = async () => {
   if (!bookingFormValid.value || saving.value || !bookingData.value.patient) return
-  if (bookingData.value.sendWhatsApp && !whatsAppPhone.value) return
+  if (sendsFromDevice.value && !whatsAppPhone.value) return
 
   // Capture the reminder before waiting so it matches the booking being saved.
-  const whatsAppUrl = bookingData.value.sendWhatsApp
+  const whatsAppUrl = sendsFromDevice.value
     ? `https://wa.me/${whatsAppPhone.value}?text=${encodeURIComponent(whatsAppMessage.value)}`
     : null
   let whatsAppWindow = null
@@ -486,6 +508,7 @@ watch(patientSearch, (newVal) => {
 
 watch(() => props.modelValue, (newVal) => {
   if (newVal) {
+    refreshWhatsAppConfirmation()
     loadReservationTypes()
     resetForm()
   }

@@ -56,6 +56,26 @@ export const patientService = {
   },
 
   /**
+   * Both records side by side before merging (clinics with can_merge_patients)
+   * @param {number} id - Patient that is kept
+   * @param {number} otherId - Duplicate that is merged into it
+   * @returns {Promise}
+   */
+  async mergePreview(id, otherId) {
+    return await api.get(`/patients/${id}/merge/${otherId}`)
+  },
+
+  /**
+   * Merge the duplicate into the kept patient; the duplicate is deleted
+   * @param {number} id - Patient that is kept
+   * @param {number} mergeId - Duplicate that is merged into it
+   * @returns {Promise}
+   */
+  async merge(id, mergeId) {
+    return await api.post(`/patients/${id}/merge`, { merge_id: mergeId })
+  },
+
+  /**
    * Search patients by name or phone
    * @param {string} query - Search query
    * @param {Object} params - Additional parameters

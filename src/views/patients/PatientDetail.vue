@@ -16,16 +16,57 @@
       <v-card class="mb-4" elevation="2">
         <v-card-text>
           <div class="patient-header">
-            <!-- Patient Avatar (hidden on mobile) -->
-            <v-avatar size="100" class="patient-avatar d-none d-sm-block">
-              <v-img
-                v-if="patient.photo"
-                :src="getPhotoUrl(patient.photo)"
-                :alt="patient.name"
-                cover
-              />
-              <v-icon v-else size="60" color="grey-lighten-1">mdi-account</v-icon>
-            </v-avatar>
+            <!-- Patient Avatar - tap the photo to enlarge it, the camera button to change it -->
+            <div class="patient-avatar-wrap">
+              <v-avatar :size="isPhone ? 72 : 100" class="patient-avatar">
+                <v-img
+                  v-if="patientPhotoUrl"
+                  :src="patientPhotoUrl"
+                  :alt="patient.name"
+                  cover
+                  class="cursor-pointer"
+                  @click="openLightbox([{ url: patientPhotoUrl, name: patient.name }], 0)"
+                  @error="photoFailed = true"
+                />
+                <v-icon v-else :size="isPhone ? 44 : 60" color="grey-lighten-1">mdi-account</v-icon>
+              </v-avatar>
+              <!-- No photo yet: the button opens the file picker; with one it offers change/remove -->
+              <v-menu v-if="canEditPatient" location="bottom" :disabled="!patient.profile_photo_url">
+                <template #activator="{ props: menuProps }">
+                  <v-btn
+                    v-bind="menuProps"
+                    icon
+                    size="x-small"
+                    color="primary"
+                    class="patient-avatar-edit"
+                    :loading="photoBusy"
+                    :title="patient.profile_photo_url ? $t('patients.changePhoto') : $t('patients.addPhoto')"
+                    @click="!patient.profile_photo_url && patientPhotoInput?.click()"
+                  >
+                    <v-icon size="16">mdi-camera</v-icon>
+                  </v-btn>
+                </template>
+                <v-list density="compact">
+                  <v-list-item
+                    prepend-icon="mdi-camera-plus-outline"
+                    :title="$t('patients.changePhoto')"
+                    @click="patientPhotoInput?.click()"
+                  />
+                  <v-list-item
+                    prepend-icon="mdi-image-remove-outline"
+                    :title="$t('patients.removePhoto')"
+                    @click="removePatientPhoto"
+                  />
+                </v-list>
+              </v-menu>
+              <input
+                ref="patientPhotoInput"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                hidden
+                @change="onPatientPhotoSelected"
+              >
+            </div>
 
             <!-- Patient Info -->
             <div class="patient-info flex-grow-1">
@@ -122,6 +163,16 @@
                 prepend-icon="mdi-pencil"
               >
                 {{ $t('common.edit') }}
+              </v-btn>
+              <v-btn
+                v-if="canMergePatients"
+                color="deep-purple"
+                variant="tonal"
+                rounded="lg"
+                @click="mergeDialog = true"
+                prepend-icon="mdi-account-multiple-check"
+              >
+                {{ $t('patients.merge.button') }}
               </v-btn>
               <v-btn
                 v-if="canCreateReservation"
@@ -228,6 +279,7 @@
         :patient-cases="patientCases"
         :patient-data="patient"
         :beauty-categories="beautyCategories"
+        :defer-case-creation="caseDialogOnCategory"
         @tooth-selected="handleToothSelected"
         @tooth-right-click="handleToothRightClick"
         @case-added="handleCaseAdded"
@@ -457,12 +509,15 @@
                 </v-chip>
                 <span v-if="!(item.bills || []).length" class="text-grey text-caption">لاتوجد</span>
 
-                <!-- Quick add-bill: inline popover with a price field -->
+                <!-- Quick add-bill: inline popover with a price field.
+                     A CSS transition keeps the content focusable while it opens,
+                     so the amount field is focused within the tap (iPad keyboard). -->
                 <v-menu
                   v-if="canCreateBill && hasPrice(item) && getCaseRemainingAmount(item) > 0"
                   :model-value="quickBill.open && quickBill.caseId === item.id"
                   @update:model-value="val => val ? openQuickBill(item) : (quickBill.open = false)"
                   :close-on-content-click="false"
+                  transition="scale-transition"
                   location="bottom"
                 >
                   <template #activator="{ props: mp }">
@@ -1035,7 +1090,9 @@
                   <span v-else class="text-grey text-body-2">{{ $t('patients.general') }}</span>
                 </template>
                 <template #item.doctor="{ item }">
-                  <span v-if="item.billable?.doctor" class="text-body-2">{{ item.billable.doctor.name }}</span>
+                  <!-- The doctor who added the bill; older bills without one show the case's doctor -->
+                  <span v-if="item.doctor?.id" class="text-body-2">{{ item.doctor.name }}</span>
+                  <span v-else-if="item.billable?.doctor" class="text-body-2">{{ item.billable.doctor.name }}</span>
                   <span v-else class="text-grey text-body-2">-</span>
                 </template>
                 <template #item.price="{ item }">
@@ -1090,6 +1147,14 @@
       />
     </v-dialog>
 
+    <!-- Merge a duplicate record into this patient -->
+    <PatientMergeDialog
+      v-if="patient && canMergePatients"
+      v-model="mergeDialog"
+      :patient="patient"
+      @merged="onPatientsMerged"
+    />
+
     <!-- Dynamic Add Case Modal -->
     <component
       v-if="addCaseModalComponent"
@@ -1099,6 +1164,7 @@
       :doctors="doctors"
       :categories="categories"
       :editing-case="editingCase"
+      :preset="addCasePreset"
       @success="onCaseSaved"
       @category-created="onCategoryCreated"
     />
@@ -1141,41 +1207,52 @@
       </v-card>
     </v-dialog>
 
-    <!-- Case Photo Viewer Dialog -->
-    <v-dialog v-model="casePhotoViewerDialog" max-width="900">
-      <v-card>
-        <v-toolbar color="transparent" flat>
-          <v-toolbar-title>{{ $t('patients.casePhoto') || 'Case Photo' }}</v-toolbar-title>
-          <v-spacer />
-          <v-chip
-            v-if="isDentalClinic && selectedCasePhoto"
-            :color="selectedCasePhoto.tooth_num ? 'info' : undefined"
-            :variant="selectedCasePhoto.tooth_num ? 'flat' : 'outlined'"
-            size="small"
-            class="me-2"
-            @click="openPhotoToothDialog(selectedCasePhoto)"
-          >
-            <v-icon start size="14">mdi-tooth</v-icon>
-            {{ selectedCasePhoto.tooth_num ? formatToothLabel(selectedCasePhoto.tooth_num) : $t('patients.toothNumber') }}
-            <v-icon end size="14">mdi-pencil</v-icon>
-          </v-chip>
-          <v-btn icon @click="casePhotoViewerDialog = false">
-            <v-icon>mdi-close</v-icon>
-          </v-btn>
-        </v-toolbar>
-        <v-card-text class="pa-0">
-          <v-img
-            v-if="selectedCasePhoto"
-            :src="getCasePhotoUrl(selectedCasePhoto)"
-            max-height="600"
-            contain
-          />
-        </v-card-text>
-      </v-card>
-    </v-dialog>
+    <!-- Case Photo Viewer (zoom / pan / pinch / navigate / download / fullscreen) -->
+    <ImageLightbox
+      v-model="casePhotoViewerDialog"
+      :images="casePhotoLightboxImages"
+      :index="casePhotoIndex"
+      @update:index="casePhotoIndex = $event"
+    >
+      <template #actions="{ index }">
+        <v-btn
+          v-if="canCreateImage && casePhotos[index]"
+          icon
+          variant="text"
+          color="white"
+          size="small"
+          class="me-1"
+          :title="$t('imageAnnotator.draw')"
+          :aria-label="$t('imageAnnotator.draw')"
+          @click="openAnnotator(casePhotos[index])"
+        >
+          <v-icon size="20">mdi-draw</v-icon>
+        </v-btn>
+        <v-chip
+          v-if="isDentalClinic && casePhotos[index]"
+          :color="casePhotos[index].tooth_num ? 'info' : 'white'"
+          :variant="casePhotos[index].tooth_num ? 'flat' : 'outlined'"
+          size="small"
+          class="me-2"
+          @click="openPhotoToothDialog(casePhotos[index])"
+        >
+          <v-icon start size="14">mdi-tooth</v-icon>
+          {{ casePhotos[index].tooth_num ? formatToothLabel(casePhotos[index].tooth_num) : $t('patients.toothNumber') }}
+          <v-icon end size="14">mdi-pencil</v-icon>
+        </v-chip>
+      </template>
+    </ImageLightbox>
 
-    <!-- Case Photo Tooth Number Dialog -->
-    <v-dialog v-model="photoToothDialog.show" max-width="360">
+    <!-- Draw over a case photo; saved as a new photo, the original is kept -->
+    <ImageAnnotator
+      v-model="annotatorOpen"
+      :src="annotatorSrc"
+      :saving="annotatorSaving"
+      @save="saveAnnotatedPhoto"
+    />
+
+    <!-- Case Photo Tooth Number Dialog (above the photo viewer, which sits at z-index 3000) -->
+    <v-dialog v-model="photoToothDialog.show" max-width="360" :z-index="3100">
       <v-card>
         <v-card-title>{{ $t('patients.toothNumber') }}</v-card-title>
         <v-card-text>
@@ -1351,6 +1428,7 @@ import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
 import api from '@/services/api'
 import PatientEditDialog from '@/components/PatientEditDialog.vue'
+import PatientMergeDialog from '@/components/PatientMergeDialog.vue'
 import BookingDialog from '@/components/BookingDialog.vue'
 import RecipeDialog from '@/components/RecipeDialog.vue'
 import RecipePrint from '@/components/RecipePrint.vue'
@@ -1360,13 +1438,16 @@ import CaseDrawer from '@/components/CaseDrawer.vue'
 import SmartTable from '@/components/SmartTable.vue'
 import AiInsightDrawer from '@/components/ai/AiInsightDrawer.vue'
 import ImageLightbox from '@/components/ImageLightbox.vue'
+// Trial: marker.js editor (move/resize marks). The in-house version is
+// ImageAnnotator.vue, with the same props and events; swap this import back to use it.
+import ImageAnnotator from '@/components/MarkerjsAnnotator.vue'
 import CaseNoteCard from '@/components/patients/CaseNoteCard.vue'
 import NoteImageAttachments from '@/components/patients/NoteImageAttachments.vue'
 import OrthoMetaBadges from '@/components/patients/OrthoMetaBadges.vue'
 import CaseQuickBillForm from '@/components/patients/CaseQuickBillForm.vue'
 import aiService from '@/services/ai.service'
 import { formatXrayAnalysis } from '@/utils/aiFormat'
-import { extractImageFiles, isSupportedImage, makeImageKey } from '@/utils/imageFiles'
+import { downscaleImage, extractImageFiles, isSupportedImage, makeImageKey } from '@/utils/imageFiles'
 import { buildOrthoLine } from '@/utils/orthoNote'
 import { parseImageTag, setImageTag } from '@/utils/noteImageTag'
 import RecipeService from '@/services/recipe.service'
@@ -1376,6 +1457,7 @@ import { useAuthStore } from '@/stores/auth'
 import { usePermissions } from '@/composables/usePermissions'
 import { PERMISSIONS } from '@/constants/permissions'
 import { addCaseModals, specialtyViews, getSmartPatientCaseColumns } from '@/config/specialties'
+import { serializeToothNumbers } from '@/components/teeth/toothNotation'
 import { useClinicSettings } from '@/composables/useClinicSettings'
 import { useWhatsAppSender } from '@/composables/useWhatsAppSender'
 
@@ -1422,6 +1504,14 @@ const canViewBills = computed(() => {
 })
 const canViewRecipes = computed(() => hasPermissionFor('recipe'))
 const canEditPatient = computed(() => hasPermission(PERMISSIONS.EDIT_PATIENT))
+// Merging two patient records: clinics the platform enabled it for (can_merge_patients),
+// secretaries only (the API checks the same). The app's auth store (stores/authNew.js,
+// registered under the same id) keeps the login's clinic in `clinic`.
+const canMergePatients = computed(() =>
+  !!(authStore.clinic || authStore.clinicInfo)?.can_merge_patients &&
+  !!(authStore.hasRole ? authStore.hasRole('secretary') : authStore.isSecretary)
+)
+const mergeDialog = ref(false)
 
 // Open a WhatsApp chat with the patient (Iraq number formatting handled by the composable).
 const { formatPhoneNumber: formatWhatsAppNumber, openWhatsApp } = useWhatsAppSender()
@@ -1475,7 +1565,7 @@ const recipeViewDialog = ref(false)
 const recipePrintRef = ref(null)
 const recipeToPrint = ref(null)
 // Clinic identity (name / logo / phone / address) for print + preview dialogs
-const { clinicInfo: clinicSettings, loadSettings: loadClinicSettings, formatToothLabel } = useClinicSettings()
+const { clinicInfo: clinicSettings, loadSettings: loadClinicSettings, formatToothLabel, caseDialogOnCategory } = useClinicSettings()
 
 // Dialogs
 const editDialog = ref(false)
@@ -1505,6 +1595,9 @@ const billReservation = ref(null)
 
 // Case
 const editingCase = ref(null)
+// Prefill ({ category, toothNumber }) for the add-case dialog when it is opened
+// from the teeth chart; null for a blank "Add case".
+const addCasePreset = ref(null)
 const deletingCase = ref(false)
 const savingCase = ref(false)
 const caseToDelete = ref(null)
@@ -1983,6 +2076,16 @@ const getStatusLabel = (item) => {
 
 const openAddCaseModal = () => {
   editingCase.value = null
+  addCasePreset.value = null
+  showAddCaseModal.value = true
+}
+
+// With the clinic setting on, a category picked on the teeth chart (or a beauty
+// chip) opens the add-case dialog prefilled with that category, its price and
+// the picked teeth, so the case details can be entered before anything is saved.
+const openAddCaseWithPreset = (category, toothNumber = null) => {
+  editingCase.value = null
+  addCasePreset.value = { category: category || null, toothNumber }
   showAddCaseModal.value = true
 }
 
@@ -2011,7 +2114,7 @@ const casePhotoInput = ref(null)
 const isDragging = ref(false)
 const uploadingCasePhoto = ref(false)
 const casePhotoViewerDialog = ref(false)
-const selectedCasePhoto = ref(null)
+const casePhotoIndex = ref(0)
 const photoToothDialog = ref({ show: false, photo: null, value: '', saving: false })
 const isDentalClinic = computed(() => authStore.specialty === 'dental')
 
@@ -2319,10 +2422,58 @@ const parseFormattedNumber = (value) => {
   return parseInt(value.toString().replace(/,/g, ''), 10) || 0
 }
 
-const getPhotoUrl = (photo) => {
-  if (!photo) return ''
-  if (photo.startsWith('http')) return photo
-  return `${import.meta.env.VITE_API_URL || 'http://127.0.0.1:8002'}/storage/${photo}`
+// Profile photo - the API returns a short-lived signed URL, so a failed load
+// falls back to the placeholder icon instead of a broken image.
+const patientPhotoInput = ref(null)
+const photoBusy = ref(false)
+const photoFailed = ref(false)
+const patientPhotoUrl = computed(() => photoFailed.value ? '' : (patient.value?.profile_photo_url || ''))
+watch(() => patient.value?.profile_photo_url, () => { photoFailed.value = false })
+
+const applyPatientPhoto = (response) => {
+  const updated = response.data?.data || response.data
+  patient.value.profile_photo_url = updated?.profile_photo_url || null
+}
+
+const onPatientPhotoSelected = async (event) => {
+  const file = event.target.files?.[0]
+  event.target.value = ''
+  if (!file || !patient.value) return
+  if (!isSupportedImage(file)) {
+    showSnackbar(t('patients.photoInvalid'), 'error')
+    return
+  }
+
+  try {
+    photoBusy.value = true
+    const formData = new FormData()
+    formData.append('photo', await downscaleImage(file))
+    const response = await api.post(`/patients/${patient.value.id}/photo`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+    applyPatientPhoto(response)
+    showSnackbar(t('patients.photoUpdated'), 'success')
+  } catch (err) {
+    console.error('Error uploading patient photo:', err)
+    showSnackbar(err.response?.data?.message || t('patients.photoFailed'), 'error')
+  } finally {
+    photoBusy.value = false
+  }
+}
+
+const removePatientPhoto = async () => {
+  if (!patient.value) return
+  try {
+    photoBusy.value = true
+    const response = await api.delete(`/patients/${patient.value.id}/photo`)
+    applyPatientPhoto(response)
+    showSnackbar(t('patients.photoRemoved'), 'success')
+  } catch (err) {
+    console.error('Error removing patient photo:', err)
+    showSnackbar(err.response?.data?.message || t('errors.deleteFailed'), 'error')
+  } finally {
+    photoBusy.value = false
+  }
 }
 
 const getImageUrl = (image) => {
@@ -2358,6 +2509,21 @@ const onPatientSaved = (updatedPatient) => {
   patient.value = updatedPatient
   editDialog.value = false
   showSnackbar(t('messages.patientUpdated'), 'success')
+}
+
+// The kept record now has both patients' cases, bills and photos. If the other one
+// was kept, open it (the route watcher loads it); otherwise reload this one.
+const onPatientsMerged = (keptId) => {
+  showSnackbar(t('patients.merge.success'), 'success')
+  if (String(keptId) !== String(route.params.id)) {
+    router.replace({ name: 'PatientDetail', params: { id: keptId } })
+    return
+  }
+  fetchPatient()
+  fetchPatientCases()
+  fetchPatientBills()
+  fetchCasePhotos()
+  fetchPatientRecipes()
 }
 
 const openBooking = () => {
@@ -2543,23 +2709,14 @@ const handleToothColorChanged = async (toothDetailsJson) => {
   }
 }
 
-const handleCaseAdded = async ({ toothNumber, category }) => {
-  // Create and immediately save the case to backend
+// Saves a case picked on the chart straight away (the default), with the
+// category's default price. Used when the clinic hasn't turned on the
+// add-case dialog for chart picks.
+const createCaseDirectly = async (payload) => {
   try {
     savingCase.value = true
-    const payload = {
-      patient_id: patient.value?.id,
-      case_categores_id: category?.id || null,
-      tooth_num: toothNumber ? String(toothNumber) : null,
-      notes: '',
-      price: category?.default_cost || 0,
-      is_paid: 0
-    }
-
-    const response = await api.post('/cases', payload)
+    await api.post('/cases', { patient_id: patient.value?.id, is_paid: 0, ...payload })
     showSnackbar(t('messages.caseCreated') || 'Case created successfully', 'success')
-    
-    // Refresh cases list to show the new case
     await fetchPatientCases()
   } catch (err) {
     console.error('Error creating case:', err)
@@ -2567,6 +2724,23 @@ const handleCaseAdded = async ({ toothNumber, category }) => {
   } finally {
     savingCase.value = false
   }
+}
+
+const handleCaseAdded = ({ toothNumber, category }) => {
+  // Clinic setting (Settings → Dental chart): open the dialog to enter the
+  // case details first, instead of saving the case right away.
+  if (caseDialogOnCategory.value) {
+    openAddCaseWithPreset(category, toothNumber)
+    return
+  }
+  createCaseDirectly({
+    case_categores_id: category?.id || null,
+    // One tooth, or the list of teeth picked in multi-select mode
+    tooth_num: serializeToothNumbers(toothNumber),
+    notes: '',
+    // The category's default price (set in Settings → Case Categories)
+    price: category?.item_cost || 0
+  })
 }
 
 const handleCaseRemoved = async (caseId) => {
@@ -2606,30 +2780,18 @@ const openGeneralExamination = async () => {
   }
 }
 
-// Handle beauty category click - create case with default price
-const handleBeautyCategoryClick = async (category) => {
-  try {
-    savingCase.value = true
-    const payload = {
-      patient_id: patient.value?.id,
-      case_categores_id: category.id,
-      tooth_num: null, // Beauty categories don't require tooth number
-      notes: category.name || '',
-      price: category.item_cost || 0,
-      is_paid: 0
-    }
-
-    const response = await api.post('/cases', payload)
-    showSnackbar(t('messages.caseCreated') || 'Case created successfully', 'success')
-    
-    // Refresh cases list to show the new case
-    await fetchPatientCases()
-  } catch (err) {
-    console.error('Error creating beauty case:', err)
-    showSnackbar(err.response?.data?.message || t('errors.saveFailed'), 'error')
-  } finally {
-    savingCase.value = false
+// Beauty category chip - a case for that category (no tooth)
+const handleBeautyCategoryClick = (category) => {
+  if (caseDialogOnCategory.value) {
+    openAddCaseWithPreset(category)
+    return
   }
+  createCaseDirectly({
+    case_categores_id: category.id,
+    tooth_num: null, // Beauty categories don't require tooth number
+    notes: category.name || '',
+    price: category.item_cost || 0
+  })
 }
 
 // Case CRUD
@@ -2662,6 +2824,7 @@ const addNewCase = async () => {
 const editCase = (caseItem) => {
   console.log('🔧 Editing case:', caseItem)
   editingCase.value = caseItem
+  addCasePreset.value = null
   showAddCaseModal.value = true
 }
 
@@ -3295,7 +3458,8 @@ const fetchCasePhotos = async () => {
         imageable_id: id
       }
     })
-    casePhotos.value = response.data.data || response.data || []
+    // The profile photo is shown in the header, not among the patient's photos
+    casePhotos.value = (response.data.data || response.data || []).filter(img => img.type !== 'profile')
     console.log('Fetched case photos:', casePhotos.value)
   } catch (err) {
     console.error('Error fetching case photos:', err)
@@ -3404,9 +3568,75 @@ const getCasePhotoUrl = (photo) => {
   return fullUrl
 }
 
+// The viewer steps through every case photo, starting at the one clicked
+const casePhotoLightboxImages = computed(() =>
+  casePhotos.value.map((photo) => ({ url: getCasePhotoUrl(photo), name: photo.alt_text || '' }))
+)
+
 const viewCasePhoto = (photo) => {
-  selectedCasePhoto.value = photo
+  casePhotoIndex.value = Math.max(0, casePhotos.value.indexOf(photo))
   casePhotoViewerDialog.value = true
+}
+
+// Drawing over a case photo
+const annotatorOpen = ref(false)
+const annotatorPhoto = ref(null)
+const annotatorSrc = ref('')
+const annotatorSaving = ref(false)
+
+const openAnnotator = async (photo) => {
+  annotatorPhoto.value = photo
+  annotatorSrc.value = ''
+  annotatorOpen.value = true
+  // Photo URLs are signed for 10 minutes, so ask for a fresh one
+  let url = getCasePhotoUrl(photo)
+  try {
+    const res = await api.get(`/images/${photo.id}`)
+    url = (res.data?.data || res.data)?.url || url
+  } catch (err) {
+    console.warn('Could not refresh photo URL, using the cached one:', err)
+  }
+  if (annotatorPhoto.value === photo) annotatorSrc.value = url
+}
+
+const saveAnnotatedPhoto = async (blob) => {
+  const original = annotatorPhoto.value
+  if (!original || annotatorSaving.value) return
+  annotatorSaving.value = true
+  try {
+    const formData = new FormData()
+    formData.append('image', new File([blob], `drawing-${original.id}-${Date.now()}.jpg`, { type: 'image/jpeg' }))
+    formData.append('imageable_type', 'Patient')
+    formData.append('imageable_id', route.params.id)
+    formData.append('type', original.type || 'document')
+    if (original.alt_text) formData.append('alt_text', original.alt_text)
+
+    const res = await api.post('/images', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+    const created = res.data?.data || res.data
+
+    // Upload ignores tooth_num, so carry the original's tag over separately
+    if (original.tooth_num && created?.id) {
+      try {
+        await api.put(`/images/${created.id}`, { tooth_num: original.tooth_num })
+      } catch (err) {
+        console.warn('Saved drawing but could not copy its tooth number:', err)
+      }
+    }
+
+    await fetchCasePhotos()
+    // Show the new photo in the viewer underneath
+    const newIndex = casePhotos.value.findIndex((p) => p.id === created?.id)
+    if (newIndex >= 0) casePhotoIndex.value = newIndex
+    annotatorOpen.value = false
+    showSnackbar(t('imageAnnotator.saved'), 'success')
+  } catch (err) {
+    console.error('Error saving drawing:', err)
+    showSnackbar(err.response?.data?.message || t('imageAnnotator.saveFailed'), 'error')
+  } finally {
+    annotatorSaving.value = false
+  }
 }
 
 // Tag a photo with the tooth it shows (e.g. an X-ray of #36)
@@ -3702,9 +3932,21 @@ const setDefaultTab = () => {
   flex-wrap: wrap;
 }
 
+.patient-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
 .patient-avatar {
   border: 3px solid #e0e0e0;
   flex-shrink: 0;
+}
+
+.patient-avatar-edit {
+  position: absolute;
+  bottom: 2px;
+  inset-inline-end: 2px;
+  box-shadow: 0 0 0 2px #fff;
 }
 
 .patient-info {

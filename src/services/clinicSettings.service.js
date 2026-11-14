@@ -114,6 +114,15 @@ export const deleteClinicSetting = async (key) => {
 }
 
 /**
+ * Get the display settings, which every signed-in staff member can read
+ * (the full list needs view-clinic-settings, which secretaries don't have)
+ * @returns {Promise} Same grouped shape as getClinicSettings, display category only
+ */
+export const getClinicDisplaySettings = async () => {
+  return await apiClient.get(`${BASE_URL}/display`)
+}
+
+/**
  * Helper function to convert settings object to bulk update format
  * @param {Object} settingsObj - Object with key-value pairs
  * @param {Object} typeMap - Object mapping keys to their types
@@ -141,6 +150,7 @@ const inferSettingType = (value) => {
 
 export default {
   getClinicSettings,
+  getClinicDisplaySettings,
   getClinicSetting,
   updateClinicSetting,
   bulkUpdateClinicSettings,
