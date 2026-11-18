@@ -4,7 +4,7 @@
     <v-card rounded="xl">
       <v-card-title class="d-flex align-center ga-2 pa-4">
         <v-icon color="primary">{{ icon }}</v-icon>
-        <span>{{ title }}</span>
+        <span>{{ title || t('filePicker.chooseFile') }}</span>
         <v-spacer />
         <v-btn icon="mdi-close" variant="text" size="small" @click="open = false" />
       </v-card-title>
@@ -15,7 +15,7 @@
             v-if="kinds.length > 1"
             v-model="uploadKind"
             :items="kindItems"
-            label="نوع الملف"
+            :label="t('filePicker.fileType')"
             variant="outlined"
             density="comfortable"
             class="mb-2"
@@ -34,20 +34,20 @@
           />
           <v-progress-linear v-if="uploading" :model-value="progress * 100" color="primary" height="6" rounded class="mt-2" />
           <div class="d-flex justify-end mt-2">
-            <v-btn color="primary" :loading="uploading" :disabled="!file" prepend-icon="mdi-cloud-upload" @click="upload">رفع</v-btn>
+            <v-btn color="primary" :loading="uploading" :disabled="!file" prepend-icon="mdi-cloud-upload" @click="upload">{{ t('filePicker.upload') }}</v-btn>
           </div>
         </div>
         <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mb-3">{{ error }}</v-alert>
-        <div class="text-subtitle-2 mb-2">الملفات المرفوعة لهذه الحالة</div>
+        <div class="text-subtitle-2 mb-2">{{ t('filePicker.uploadedFiles') }}</div>
         <v-progress-linear v-if="loading" indeterminate color="primary" />
         <v-list v-else-if="files.length" density="compact" lines="two">
           <v-list-item v-for="f in files" :key="f.id" :title="f.meta?.label || f.original_name" @click="choose(f)">
             <template #prepend><v-icon>{{ kindIcon(f.kind) }}</v-icon></template>
             <v-list-item-subtitle>{{ kindLabel(f.kind) }} · {{ fmtDate(f.meta?.captured_at || f.created_at) }} · {{ bytes(f.size) }}</v-list-item-subtitle>
-            <template #append><v-icon>mdi-chevron-left</v-icon></template>
+            <template #append><v-icon>{{ forwardIcon }}</v-icon></template>
           </v-list-item>
         </v-list>
-        <div v-else class="text-center text-medium-emphasis py-6">لا توجد ملفات بعد</div>
+        <div v-else class="text-center text-medium-emphasis py-6">{{ t('filePicker.noFiles') }}</div>
       </v-card-text>
     </v-card>
   </v-dialog>
@@ -57,20 +57,18 @@
 import { computed, ref, watch } from 'vue'
 import { orthoApi, orthoError } from '../api.js'
 import { bytes, fmtDate } from '../utils/format.js'
+import { useOrthoI18n } from '../i18n.js'
 
-const KIND_LABELS = {
-  ceph_xray: 'أشعة سيفالومترية جانبية', face_frontal: 'صورة أمامية للوجه', face_smile: 'صورة أمامية مع ابتسامة',
-  face_profile: 'صورة جانبية للوجه', intraoral_photo: 'صورة داخل الفم',
-  model_upper: 'نموذج الفك العلوي', model_lower: 'نموذج الفك السفلي', model_combined: 'نموذج مدمج'
-}
-const kindLabel = k => KIND_LABELS[k] || k
+const { t, forwardIcon } = useOrthoI18n()
+const KINDS = ['ceph_xray', 'face_frontal', 'face_smile', 'face_profile', 'intraoral_photo', 'model_upper', 'model_lower', 'model_combined']
+const kindLabel = k => (KINDS.includes(k) ? t(`filePicker.kinds.${k}`) : k)
 const kindIcon = k => k.startsWith('model') ? 'mdi-cube-outline' : k === 'ceph_xray' ? 'mdi-radiology-box-outline' : 'mdi-face-recognition'
 
 const props = defineProps({
   modelValue: Boolean,
   caseId: { type: [Number, String], required: true },
   kinds: { type: Array, required: true },
-  title: { type: String, default: 'اختيار ملف' },
+  title: { type: String, default: '' },
   icon: { type: String, default: 'mdi-file-image' },
   canManage: Boolean
 })
@@ -87,7 +85,7 @@ const error = ref('')
 const kindItems = computed(() => props.kinds.map(k => ({ title: kindLabel(k), value: k })))
 const isModel = computed(() => uploadKind.value.startsWith('model'))
 const accept = computed(() => isModel.value ? '.stl,.ply,.obj' : 'image/jpeg,image/png,image/webp')
-const uploadLabel = computed(() => isModel.value ? 'ملف STL / PLY / OBJ' : 'صورة JPG / PNG / WEBP')
+const uploadLabel = computed(() => t(isModel.value ? 'filePicker.modelFile' : 'filePicker.imageFile'))
 
 async function load () {
   loading.value = true

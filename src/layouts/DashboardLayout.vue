@@ -318,6 +318,12 @@ const goBack = () => {
 // Pending booking requests badge (shared count + polling)
 const { pendingCount: bookingPendingCount, refreshPendingCount } = useBookingRequests()
 let bookingPollTimer = null
+// The badge is not looked at while the tab is hidden, so skip those polls (each is a
+// request that opens new MySQL connections; Hostinger allows 20 a second for all
+// clinics together) and refresh as soon as the tab is shown again.
+const refreshPendingCountIfVisible = () => {
+  if (!document.hidden) refreshPendingCount()
+}
 const BOOKING_POLL_INTERVAL = 60000 // refresh pending count every 60s
 
 // Detect Flutter WebView: persists for the session
@@ -485,7 +491,8 @@ onMounted(async () => {
 
   // Load + poll pending booking requests count for the nav badge
   refreshPendingCount()
-  bookingPollTimer = setInterval(refreshPendingCount, BOOKING_POLL_INTERVAL)
+  bookingPollTimer = setInterval(refreshPendingCountIfVisible, BOOKING_POLL_INTERVAL)
+  document.addEventListener('visibilitychange', refreshPendingCountIfVisible)
 
   // Debug permissions in development
   if (import.meta.env.DEV) {
@@ -496,6 +503,7 @@ onMounted(async () => {
 onUnmounted(() => {
   window.removeEventListener('resize', checkMobile)
   if (bookingPollTimer) clearInterval(bookingPollTimer)
+  document.removeEventListener('visibilitychange', refreshPendingCountIfVisible)
 })
 </script>
 

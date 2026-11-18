@@ -2,13 +2,13 @@
   <div class="cast">
     <div class="d-flex flex-wrap align-center ga-2 mb-3">
       <div>
-        <div class="text-h6">تحليل الموديلات ثلاثية الأبعاد</div>
+        <div class="text-h6">{{ t('cast.title') }}</div>
         <div class="text-caption text-medium-emphasis">Bolton · Space / Carey · Pont · Tanaka-Johnston · Moyers · Curve of Spee</div>
       </div>
       <v-spacer />
-      <v-select v-model="selectedAnalysisId" :items="analysisItems" label="التحليل" density="compact" variant="outlined" hide-details style="max-width:260px" />
-      <v-btn v-if="canManage" color="primary" variant="tonal" prepend-icon="mdi-cube-scan" @click="picker = true">إضافة نموذج</v-btn>
-      <v-btn v-if="canManage" color="primary" :loading="saving" :disabled="!dirty" prepend-icon="mdi-content-save" @click="save">حفظ</v-btn>
+      <v-select v-model="selectedAnalysisId" :items="analysisItems" :label="t('cast.analysis')" density="compact" variant="outlined" hide-details style="max-width:260px" />
+      <v-btn v-if="canManage" color="primary" variant="tonal" prepend-icon="mdi-cube-scan" @click="picker = true">{{ t('cast.addModel') }}</v-btn>
+      <v-btn v-if="canManage" color="primary" :loading="saving" :disabled="!dirty" prepend-icon="mdi-content-save" @click="save">{{ t('common.save') }}</v-btn>
     </div>
 
     <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mb-2" closable @click:close="error = ''">{{ error }}</v-alert>
@@ -20,7 +20,7 @@
         <div class="d-flex flex-wrap ga-2 mb-2">
           <v-chip v-for="m in models" :key="m.file.id" :color="m.visible ? 'primary' : undefined" variant="tonal" size="small" @click="toggleModel(m)">
             <v-icon start size="16">{{ m.visible ? 'mdi-eye' : 'mdi-eye-off' }}</v-icon>
-            {{ KIND_AR[m.file.kind] }} · {{ m.file.meta?.units_confirmed ? `${unitLabel(m.file.meta)}` : 'الوحدة غير مؤكدة' }}
+            {{ t(`cast.kinds.${m.file.kind}`) }} · {{ m.file.meta?.units_confirmed ? unitLabel(m.file.meta) : t('cast.unitUnconfirmed') }}
             <v-icon end size="16" @click.stop="openUnits(m)">mdi-ruler-square</v-icon>
           </v-chip>
         </div>
@@ -31,7 +31,7 @@
           </div>
           <div v-else-if="!models.length" class="cast-overlay text-medium-emphasis">
             <v-icon size="48">mdi-cube-outline</v-icon>
-            <div>أضف نموذج الفك العلوي و/أو السفلي (STL / PLY / OBJ)</div>
+            <div>{{ t('cast.emptyScene') }}</div>
           </div>
           <div v-if="pickHint" class="cast-hint">{{ pickHint }}</div>
         </div>
@@ -49,17 +49,17 @@
 
       <div class="cast-side">
         <v-tabs v-model="sideTab" density="compact" grow color="primary">
-          <v-tab value="tools">القياس</v-tab>
-          <v-tab value="results">النتائج</v-tab>
+          <v-tab value="tools">{{ t('cast.toolsTab') }}</v-tab>
+          <v-tab value="results">{{ t('cast.resultsTab') }}</v-tab>
         </v-tabs>
         <v-divider />
         <div class="cast-side-scroll pa-3">
           <template v-if="sideTab === 'tools'">
-            <v-select v-model="tool" :items="TOOLS" label="أداة الاختيار" density="compact" variant="outlined" hide-details class="mb-3" :disabled="!canManage" />
+            <v-select v-model="tool" :items="TOOLS" :label="t('cast.tool')" density="compact" variant="outlined" hide-details class="mb-3" :disabled="!canManage" />
 
             <!-- Tooth widths -->
             <template v-if="tool === 'tooth'">
-              <div class="text-caption mb-1">اختر السن ثم انقر على نقطة التماس الأنسية ثم الوحشية</div>
+              <div class="text-caption mb-1">{{ t('cast.toothHelp') }}</div>
               <div v-for="row in TOOTH_ROWS" :key="row.label" class="mb-2">
                 <div class="text-caption text-medium-emphasis">{{ row.label }}</div>
                 <div class="d-flex flex-wrap ga-1" dir="ltr">
@@ -67,8 +67,8 @@
                 </div>
               </div>
               <div v-if="activeTooth" class="d-flex align-center ga-2 mt-2">
-                <v-text-field v-model.number="manualWidth" type="number" min="0" step="0.1" :label="`عرض ${activeTooth} بالمسماك (ملم)`" density="compact" variant="outlined" hide-details />
-                <v-btn size="small" variant="tonal" @click="setManualWidth">تطبيق</v-btn>
+                <v-text-field v-model.number="manualWidth" type="number" min="0" step="0.1" :label="t('cast.caliperWidth', { tooth: activeTooth })" density="compact" variant="outlined" hide-details />
+                <v-btn size="small" variant="tonal" @click="setManualWidth">{{ t('common.apply') }}</v-btn>
                 <v-btn size="small" variant="text" color="error" icon="mdi-close" @click="clearTooth(activeTooth)" />
               </div>
             </template>
@@ -76,13 +76,13 @@
             <!-- Named points -->
             <template v-if="tool === 'point'">
               <v-btn-toggle v-model="arch" mandatory density="compact" variant="outlined" divided class="mb-2">
-                <v-btn value="upper" size="small">الفك العلوي</v-btn>
-                <v-btn value="lower" size="small">الفك السفلي</v-btn>
+                <v-btn value="upper" size="small">{{ t('common.upperJaw') }}</v-btn>
+                <v-btn value="lower" size="small">{{ t('common.lowerJaw') }}</v-btn>
               </v-btn-toggle>
               <v-list density="compact" nav class="pa-0">
                 <v-list-item v-for="p in pointList" :key="p.key" :active="p.key === activePoint" color="primary" rounded="lg" @click="activePoint = p.key">
                   <template #prepend><v-icon size="16" :color="data.points[arch]?.[p.key] ? 'success' : 'grey'">{{ data.points[arch]?.[p.key] ? 'mdi-check-circle' : 'mdi-circle-outline' }}</v-icon></template>
-                  <v-list-item-title class="text-body-2">{{ p.ar }}</v-list-item-title>
+                  <v-list-item-title class="text-body-2">{{ pick(p) }}</v-list-item-title>
                 </v-list-item>
               </v-list>
             </template>
@@ -90,38 +90,38 @@
             <!-- Perimeter -->
             <template v-if="tool === 'perimeter'">
               <v-btn-toggle v-model="arch" mandatory density="compact" variant="outlined" divided class="mb-2">
-                <v-btn value="upper" size="small">العلوي</v-btn>
-                <v-btn value="lower" size="small">السفلي</v-btn>
+                <v-btn value="upper" size="small">{{ t('common.upper') }}</v-btn>
+                <v-btn value="lower" size="small">{{ t('common.lower') }}</v-btn>
               </v-btn-toggle>
-              <div class="text-caption mb-2">انقر نقاط التماس بالترتيب من أنسي الرحى الأولى إلى أنسي الرحى الأولى المقابلة.</div>
+              <div class="text-caption mb-2">{{ t('cast.perimeterHelp') }}</div>
               <div class="d-flex ga-2">
-                <v-chip size="small">{{ (data.arch_perimeter[arch] || []).length }} نقطة</v-chip>
-                <v-btn size="small" variant="text" @click="undoLast(data.arch_perimeter, arch)">تراجع</v-btn>
-                <v-btn size="small" variant="text" color="error" @click="data.arch_perimeter[arch] = []">مسح</v-btn>
+                <v-chip size="small">{{ t('cast.pointsCount', { n: (data.arch_perimeter[arch] || []).length }) }}</v-chip>
+                <v-btn size="small" variant="text" @click="undoLast(data.arch_perimeter, arch)">{{ t('common.undo') }}</v-btn>
+                <v-btn size="small" variant="text" color="error" @click="data.arch_perimeter[arch] = []">{{ t('common.clear') }}</v-btn>
               </div>
             </template>
 
             <!-- Curve of Spee -->
             <template v-if="tool === 'spee'">
               <v-select v-model="speeTarget" :items="SPEE_TARGETS" density="compact" variant="outlined" hide-details class="mb-2" />
-              <div class="text-caption">يُبنى المستوى من نقطة القواطع والحدبتين الوحشيتين للرحى الأخيرة، ثم يُقاس أعمق بُعد للحدبات الشدقية.</div>
+              <div class="text-caption">{{ t('cast.speeHelp') }}</div>
               <div class="d-flex ga-2 mt-2">
-                <v-chip size="small">يمين: {{ (data.spee.cusps_right || []).length }}</v-chip>
-                <v-chip size="small">يسار: {{ (data.spee.cusps_left || []).length }}</v-chip>
-                <v-btn size="small" variant="text" color="error" @click="data.spee = {}">مسح</v-btn>
+                <v-chip size="small">{{ t('cast.rightCount', { n: (data.spee.cusps_right || []).length }) }}</v-chip>
+                <v-chip size="small">{{ t('cast.leftCount', { n: (data.spee.cusps_left || []).length }) }}</v-chip>
+                <v-btn size="small" variant="text" color="error" @click="data.spee = {}">{{ t('common.clear') }}</v-btn>
               </div>
             </template>
 
             <!-- Segments (mixed dentition available space) -->
             <template v-if="tool === 'segment'">
               <v-select v-model="segment" :items="SEGMENTS" density="compact" variant="outlined" hide-details class="mb-2" />
-              <div class="text-caption">المسافة المتاحة للناب والضواحك: من وحشي القاطع الجانبي إلى أنسي الرحى الأولى (نقرتان أو أكثر).</div>
-              <v-btn size="small" variant="text" color="error" class="mt-1" @click="data.segments[segment] = []">مسح</v-btn>
+              <div class="text-caption">{{ t('cast.segmentHelp') }}</div>
+              <v-btn size="small" variant="text" color="error" class="mt-1" @click="data.segments[segment] = []">{{ t('common.clear') }}</v-btn>
             </template>
 
             <!-- Free distances -->
             <template v-if="tool === 'distance'">
-              <div class="text-caption mb-2">انقر نقطتين على النموذج لقياس المسافة بينهما.</div>
+              <div class="text-caption mb-2">{{ t('cast.distanceHelp') }}</div>
               <v-list density="compact" class="pa-0">
                 <v-list-item v-for="(d, i) in results.distances" :key="i">
                   <v-text-field v-model="data.distances[i].label" density="compact" variant="plain" hide-details />
@@ -138,29 +138,25 @@
       </div>
     </div>
 
-    <OrthoFilePicker v-model="picker" :case-id="caseId" :kinds="['model_upper', 'model_lower', 'model_combined']" title="نماذج ثلاثية الأبعاد" icon="mdi-cube-scan" :can-manage="canManage" @selected="addModelFile" />
+    <OrthoFilePicker v-model="picker" :case-id="caseId" :kinds="['model_upper', 'model_lower', 'model_combined']" :title="t('cast.pickerTitle')" icon="mdi-cube-scan" :can-manage="canManage" @selected="addModelFile" />
 
     <!-- Units confirmation -->
     <v-dialog v-model="unitsDialog" max-width="460">
       <v-card v-if="unitsModel" rounded="xl">
-        <v-card-title>تأكيد وحدة النموذج</v-card-title>
+        <v-card-title>{{ t('cast.unitsTitle') }}</v-card-title>
         <v-card-text>
-          <p class="text-body-2 mb-2">ملفات STL لا تحفظ الوحدة. حدّد الوحدة التي صُدّر بها النموذج من الماسح أو البرنامج - لا تُحسب أي قيمة بالملم قبل التأكيد.</p>
+          <p class="text-body-2 mb-2">{{ t('cast.unitsText') }}</p>
           <div class="text-caption mb-2" dir="ltr">Bounding box: {{ unitsModel.size.map(v => v.toFixed(2)).join(' × ') }} (model units)</div>
           <v-alert v-if="unitsGuess" type="info" variant="tonal" density="compact" class="mb-3">{{ unitsGuess }}</v-alert>
           <v-radio-group v-model="unitsChoice" :disabled="!canManage">
-            <v-radio value="mm" label="ملم (mm)" />
-            <v-radio value="cm" label="سنتيمتر (cm)" />
-            <v-radio value="inch" label="إنش (inch)" />
-            <v-radio value="m" label="متر (m)" />
-            <v-radio value="custom" label="معامل مخصص" />
+            <v-radio v-for="u in ['mm', 'cm', 'inch', 'm', 'custom']" :key="u" :value="u" :label="t(`cast.units.${u}`)" />
           </v-radio-group>
-          <v-text-field v-if="unitsChoice === 'custom'" v-model.number="unitsCustom" type="number" min="0" step="0.0001" label="ملم لكل وحدة نموذج" density="compact" variant="outlined" />
+          <v-text-field v-if="unitsChoice === 'custom'" v-model.number="unitsCustom" type="number" min="0" step="0.0001" :label="t('cast.mmPerUnit')" density="compact" variant="outlined" />
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn variant="text" @click="unitsDialog = false">إلغاء</v-btn>
-          <v-btn v-if="canManage" color="primary" :loading="savingUnits" :disabled="!unitsChoice" @click="confirmUnits">تأكيد</v-btn>
+          <v-btn variant="text" @click="unitsDialog = false">{{ t('common.cancel') }}</v-btn>
+          <v-btn v-if="canManage" color="primary" :loading="savingUnits" :disabled="!unitsChoice" @click="confirmUnits">{{ t('common.confirm') }}</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -174,25 +170,21 @@ import DentalCastMeasurements from './DentalCastMeasurements.vue'
 import { CAST_POINTS, analyzeCast } from '../../analysis/cast.js'
 import { orthoApi, orthoError } from '../../api.js'
 import { fmt } from '../../utils/format.js'
+import { useOrthoI18n } from '../../i18n.js'
 
 const props = defineProps({ caseId: { type: [Number, String], required: true }, canManage: Boolean })
 const emit = defineEmits(['dirty', 'changed'])
 
-const KIND_AR = { model_upper: 'الفك العلوي', model_lower: 'الفك السفلي', model_combined: 'نموذج مدمج' }
-const VIEWS = [{ value: 'front', title: 'أمامي' }, { value: 'top', title: 'علوي' }, { value: 'bottom', title: 'سفلي' }, { value: 'right', title: 'يمين' }, { value: 'left', title: 'يسار' }, { value: 'iso', title: 'منظور' }]
-const TOOLS = [
-  { value: 'none', title: 'تصفح فقط' }, { value: 'tooth', title: 'عرض الأسنان (Bolton / المسافة)' }, { value: 'point', title: 'نقاط القوس' },
-  { value: 'perimeter', title: 'محيط القوس' }, { value: 'spee', title: 'منحنى سبي' }, { value: 'segment', title: 'المسافة المتاحة (أسنان مختلطة)' }, { value: 'distance', title: 'قياس مسافة' }
-]
-const TOOTH_ROWS = [
-  { label: 'العلوي', teeth: [17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27] },
-  { label: 'السفلي', teeth: [47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37] }
-]
-const SPEE_TARGETS = [
-  { value: 'incisal', title: 'نقطة القواطع السفلية' }, { value: 'molar_right', title: 'الحدبة الوحشية للرحى الأخيرة - يمين' },
-  { value: 'molar_left', title: 'الحدبة الوحشية للرحى الأخيرة - يسار' }, { value: 'cusps_right', title: 'حدبات شدقية - يمين (إضافة)' }, { value: 'cusps_left', title: 'حدبات شدقية - يسار (إضافة)' }
-]
-const SEGMENTS = [{ value: 'upper_right', title: 'علوي يمين' }, { value: 'upper_left', title: 'علوي يسار' }, { value: 'lower_right', title: 'سفلي يمين' }, { value: 'lower_left', title: 'سفلي يسار' }]
+const { t, pick } = useOrthoI18n()
+const options = (group, values) => computed(() => values.map(value => ({ value, title: t(`cast.${group}.${value}`) })))
+const VIEWS = options('views', ['front', 'top', 'bottom', 'right', 'left', 'iso'])
+const TOOLS = options('tools', ['none', 'tooth', 'point', 'perimeter', 'spee', 'segment', 'distance'])
+const SPEE_TARGETS = options('speeTargets', ['incisal', 'molar_right', 'molar_left', 'cusps_right', 'cusps_left'])
+const SEGMENTS = options('segments', ['upper_right', 'upper_left', 'lower_right', 'lower_left'])
+const TOOTH_ROWS = computed(() => [
+  { label: t('common.upper'), teeth: [17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27] },
+  { label: t('common.lower'), teeth: [47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37] }
+])
 
 const emptyData = () => ({ teeth: {}, points: { upper: {}, lower: {} }, arch_perimeter: { upper: [], lower: [] }, spee: {}, segments: {}, distances: [], model_file_ids: {} })
 
@@ -226,7 +218,7 @@ const unitsChoice = ref(null)
 const unitsCustom = ref(null)
 const savingUnits = ref(false)
 
-const analysisItems = computed(() => [{ value: 'new', title: 'تحليل جديد' }, ...analyses.value.map(a => ({ value: a.id, title: `${a.title || 'تحليل موديلات'} · ${a.analysis_date}${a.status === 'reviewed' ? ' ✓' : ''}` }))])
+const analysisItems = computed(() => [{ value: 'new', title: t('common.newAnalysis') }, ...analyses.value.map(a => ({ value: a.id, title: `${a.title || t('cast.listTitle')} · ${a.analysis_date}${a.status === 'reviewed' ? ' ✓' : ''}` }))])
 const pointList = computed(() => CAST_POINTS.filter(p => !p.arch || p.arch === arch.value))
 
 // One scale for the whole analysis: every visible model must be confirmed
@@ -239,11 +231,11 @@ const scaleToMm = computed(() => {
 })
 const unitsWarning = computed(() => {
   if (!models.value.length) return ''
-  if (models.value.some(m => !m.file.meta?.units_confirmed)) return 'وحدة أحد النماذج غير مؤكدة: القياسات معروضة بوحدات النموذج وليست بالملم. اضغط أيقونة المسطرة على النموذج لتأكيد الوحدة.'
-  if (scaleToMm.value === null) return 'النماذج مؤكدة بوحدات مختلفة؛ لا يمكن جمع قياساتها في تحليل واحد.'
+  if (models.value.some(m => !m.file.meta?.units_confirmed)) return t('cast.unitsWarnUnconfirmed')
+  if (scaleToMm.value === null) return t('cast.unitsWarnMixed')
   return ''
 })
-const unitLabel = meta => ({ mm: 'ملم', cm: 'سم', inch: 'إنش', m: 'متر', custom: `×${meta.scale_to_mm}` }[meta.units] || '')
+const unitLabel = meta => (meta.units === 'custom' ? `×${meta.scale_to_mm}` : ['mm', 'cm', 'inch', 'm'].includes(meta.units) ? t(`cast.unitShort.${meta.units}`) : '')
 
 const payload = computed(() => ({ ...JSON.parse(JSON.stringify(data)), scale_to_mm: scaleToMm.value }))
 const results = computed(() => analyzeCast(payload.value))
@@ -252,9 +244,9 @@ watch(dirty, v => emit('dirty', v), { immediate: true })
 
 const pickHint = computed(() => {
   if (!canPick.value) return ''
-  if (tool.value === 'tooth' && activeTooth.value) return `السن ${activeTooth.value}: انقر نقطة التماس ${toothStep.value === 'mesial' ? 'الأنسية' : 'الوحشية'}`
-  if (tool.value === 'point') return `انقر: ${CAST_POINTS.find(p => p.key === activePoint.value)?.ar}`
-  if (tool.value === 'distance') return pendingDistance.value ? 'انقر النقطة الثانية' : 'انقر النقطة الأولى'
+  if (tool.value === 'tooth' && activeTooth.value) return t('cast.hintTooth', { tooth: activeTooth.value, side: t(`cast.${toothStep.value === 'mesial' ? 'mesial' : 'distal'}`) })
+  if (tool.value === 'point') return t('cast.hintPoint', { name: pick(CAST_POINTS.find(p => p.key === activePoint.value)) })
+  if (tool.value === 'distance') return pendingDistance.value ? t('common.clickSecondPoint') : t('cast.hintFirst')
   return ''
 })
 const canPick = computed(() => props.canManage && tool.value !== 'none' && models.value.length > 0)
@@ -279,7 +271,7 @@ async function loadModel (file) {
     s.setView('front')
     if (!file.meta?.units_confirmed && props.canManage) openUnits(models.value[models.value.length - 1])
   } catch (e) {
-    error.value = orthoError(e, 'تعذر تحميل النموذج')
+    error.value = orthoError(e, t('cast.loadFailed'))
   } finally {
     loadingModels.value = false
   }
@@ -307,9 +299,9 @@ function openUnits (m) {
 // A hint from the model's size only - the doctor still has to choose.
 const unitsGuess = computed(() => {
   const max = Math.max(...(unitsModel.value?.size || [0]))
-  if (max >= 30 && max <= 130) return `أبعاد النموذج (${max.toFixed(1)}) تقارب حجم قوس سني بالملم - تقدير فقط، تحقق من مصدر الملف.`
-  if (max >= 3 && max <= 13) return `أبعاد النموذج (${max.toFixed(2)}) تقارب حجم قوس سني بالسنتيمتر - تقدير فقط.`
-  if (max >= 1.2 && max <= 5) return `أبعاد النموذج (${max.toFixed(2)}) قد تكون بالإنش - تقدير فقط.`
+  if (max >= 30 && max <= 130) return t('cast.guessMm', { v: max.toFixed(1) })
+  if (max >= 3 && max <= 13) return t('cast.guessCm', { v: max.toFixed(2) })
+  if (max >= 1.2 && max <= 5) return t('cast.guessInch', { v: max.toFixed(2) })
   return ''
 })
 async function confirmUnits () {
@@ -368,14 +360,14 @@ function applyPick ({ point, kind }) {
   } else if (t === 'distance') {
     if (!pendingDistance.value) pendingDistance.value = point
     else {
-      data.distances.push({ label: `قياس ${data.distances.length + 1}`, a: pendingDistance.value, b: point })
+      data.distances.push({ label: t('cast.distanceLabel', { n: data.distances.length + 1 }), a: pendingDistance.value, b: point })
       pendingDistance.value = null
     }
   }
 }
 
 function nextTooth () {
-  const all = TOOTH_ROWS.flatMap(r => r.teeth)
+  const all = TOOTH_ROWS.value.flatMap(r => r.teeth)
   const i = all.indexOf(activeTooth.value)
   activeTooth.value = all.slice(i + 1).find(t => !data.teeth[t]) || null
 }
@@ -454,7 +446,7 @@ async function save () {
   saving.value = true
   error.value = ''
   try {
-    const body = { title: current.value?.title || 'تحليل الموديلات', data: payload.value }
+    const body = { title: current.value?.title || t('cast.saveTitle'), data: payload.value }
     const res = current.value
       ? await orthoApi.updateAnalysis(props.caseId, current.value.id, { ...body, expected_revision: current.value.revision })
       : await orthoApi.createAnalysis(props.caseId, { ...body, type: 'cast', file_id: data.model_file_ids.upper || data.model_file_ids.lower || data.model_file_ids.combined || null })
@@ -464,7 +456,7 @@ async function save () {
     selectedAnalysisId.value = res.data.id
     emit('changed')
   } catch (e) {
-    error.value = e?.response?.status === 409 ? 'عدّل مستخدم آخر هذا التحليل. أعد فتحه قبل الحفظ.' : orthoError(e)
+    error.value = e?.response?.status === 409 ? t('cast.conflict') : orthoError(e)
   } finally {
     saving.value = false
   }

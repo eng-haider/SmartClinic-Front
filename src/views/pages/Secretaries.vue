@@ -635,12 +635,17 @@ const filters = reactive({
 })
 
 // Form Data
+// Billing used to come with the secretary role and could not be removed. It is
+// now a set of normal permissions, ticked by default so a new secretary can
+// still bill unless the clinic unticks them.
+const DEFAULT_SECRETARY_PERMISSIONS = ['view-clinic-bills', 'create-bill', 'mark-bill-paid']
+
 const secretaryData = reactive({
   name: '',
   phone: '',
   password: '',
   is_active: true,
-  permissions: []
+  permissions: [...DEFAULT_SECRETARY_PERMISSIONS]
 })
 
 const formErrors = reactive({})
@@ -807,7 +812,7 @@ function resetForm() {
     phone: '',
     password: '',
     is_active: true,
-    permissions: []
+    permissions: [...DEFAULT_SECRETARY_PERMISSIONS]
   })
   Object.keys(formErrors).forEach(key => delete formErrors[key])
   showPassword.value = false

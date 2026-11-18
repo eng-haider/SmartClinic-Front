@@ -10,35 +10,35 @@ import {
 
 export const CEPH_VERSION = '1.0.0'
 
-/** Landmarks in placement order, with Arabic names and a short hint. */
+/** Landmarks in placement order, with English / Arabic names and a short hint in each. */
 export const CEPH_LANDMARKS = [
-  { code: 'S', en: 'Sella', ar: 'السرج (S)', hint: 'مركز السرج التركي', group: 'cranial' },
-  { code: 'N', en: 'Nasion', ar: 'الناسيون (N)', hint: 'أمامي نقطة الدرز الجبهي الأنفي', group: 'cranial' },
-  { code: 'Po', en: 'Porion', ar: 'البوريون (Po)', hint: 'أعلى نقطة في مجرى السمع الخارجي', group: 'cranial' },
-  { code: 'Or', en: 'Orbitale', ar: 'الحجاج (Or)', hint: 'أخفض نقطة في حافة الحجاج', group: 'cranial' },
-  { code: 'Ba', en: 'Basion', ar: 'البازيون (Ba)', hint: 'أمامي حافة الثقبة العظمى', group: 'cranial' },
-  { code: 'Pt', en: 'Pterygoid point', ar: 'النقطة الجناحية (Pt)', hint: 'الجزء الخلفي العلوي من الحفرة الجناحية الفكية', group: 'cranial' },
-  { code: 'Ar', en: 'Articulare', ar: 'المفصلية (Ar)', hint: 'تقاطع قاعدة القحف مع الحافة الخلفية للقمة', group: 'mandible' },
-  { code: 'Co', en: 'Condylion', ar: 'اللقمة (Co)', hint: 'أعلى نقطة خلفية على رأس اللقمة', group: 'mandible' },
-  { code: 'ANS', en: 'Anterior nasal spine', ar: 'الشوكة الأنفية الأمامية (ANS)', hint: 'رأس الشوكة الأنفية الأمامية', group: 'maxilla' },
-  { code: 'PNS', en: 'Posterior nasal spine', ar: 'الشوكة الأنفية الخلفية (PNS)', hint: 'نهاية الحنك الصلب الخلفية', group: 'maxilla' },
-  { code: 'A', en: 'Point A', ar: 'النقطة A', hint: 'أعمق نقطة على تقعر الفك العلوي الأمامي', group: 'maxilla' },
-  { code: 'B', en: 'Point B', ar: 'النقطة B', hint: 'أعمق نقطة على تقعر الفك السفلي الأمامي', group: 'mandible' },
-  { code: 'Pog', en: 'Pogonion', ar: 'البوغونيون (Pog)', hint: 'أكثر نقطة أمامية على الذقن العظمي', group: 'mandible' },
-  { code: 'Gn', en: 'Gnathion', ar: 'الناثيون (Gn)', hint: 'بين Pog و Me على محيط الذقن', group: 'mandible' },
-  { code: 'Me', en: 'Menton', ar: 'المنتون (Me)', hint: 'أخفض نقطة على الارتفاق', group: 'mandible' },
-  { code: 'Go', en: 'Gonion', ar: 'زاوية الفك (Go)', hint: 'أكثر نقطة خلفية سفلية على زاوية الفك', group: 'mandible' },
-  { code: 'U1T', en: 'Upper incisor tip', ar: 'حافة القاطع العلوي', hint: 'الحافة القاطعة للثنية العلوية', group: 'dental' },
-  { code: 'U1A', en: 'Upper incisor apex', ar: 'ذروة جذر القاطع العلوي', hint: 'قمة جذر الثنية العلوية', group: 'dental' },
-  { code: 'L1T', en: 'Lower incisor tip', ar: 'حافة القاطع السفلي', hint: 'الحافة القاطعة للثنية السفلية', group: 'dental' },
-  { code: 'L1A', en: 'Lower incisor apex', ar: 'ذروة جذر القاطع السفلي', hint: 'قمة جذر الثنية السفلية', group: 'dental' },
-  { code: 'U6', en: 'Upper first molar', ar: 'الرحى الأولى العلوية', hint: 'الحدبة الأنسية للرحى الأولى العلوية', group: 'dental' },
-  { code: 'L6', en: 'Lower first molar', ar: 'الرحى الأولى السفلية', hint: 'الحدبة الأنسية للرحى الأولى السفلية', group: 'dental' },
-  { code: 'Prn', en: 'Pronasale', ar: 'قمة الأنف (Prn)', hint: 'أكثر نقطة أمامية على الأنف', group: 'soft' },
-  { code: 'Sn', en: 'Subnasale', ar: 'تحت الأنف (Sn)', hint: 'التقاء الحاجز الأنفي بالشفة العليا', group: 'soft' },
-  { code: 'Ls', en: 'Labrale superius', ar: 'الشفة العليا (Ls)', hint: 'أكثر نقطة أمامية على الشفة العليا', group: 'soft' },
-  { code: 'Li', en: 'Labrale inferius', ar: 'الشفة السفلى (Li)', hint: 'أكثر نقطة أمامية على الشفة السفلى', group: 'soft' },
-  { code: 'PogS', en: 'Soft tissue pogonion', ar: 'الذقن الرخو (Pog′)', hint: 'أكثر نقطة أمامية على الذقن الرخو', group: 'soft' }
+  { code: 'S', en: 'Sella', ar: 'السرج (S)', hint: 'مركز السرج التركي', hint_en: 'Center of the sella turcica', group: 'cranial' },
+  { code: 'N', en: 'Nasion', ar: 'الناسيون (N)', hint: 'أمامي نقطة الدرز الجبهي الأنفي', hint_en: 'Most anterior point of the frontonasal suture', group: 'cranial' },
+  { code: 'Po', en: 'Porion', ar: 'البوريون (Po)', hint: 'أعلى نقطة في مجرى السمع الخارجي', hint_en: 'Highest point of the external auditory meatus', group: 'cranial' },
+  { code: 'Or', en: 'Orbitale', ar: 'الحجاج (Or)', hint: 'أخفض نقطة في حافة الحجاج', hint_en: 'Lowest point on the orbital margin', group: 'cranial' },
+  { code: 'Ba', en: 'Basion', ar: 'البازيون (Ba)', hint: 'أمامي حافة الثقبة العظمى', hint_en: 'Anterior margin of the foramen magnum', group: 'cranial' },
+  { code: 'Pt', en: 'Pterygoid point', ar: 'النقطة الجناحية (Pt)', hint: 'الجزء الخلفي العلوي من الحفرة الجناحية الفكية', hint_en: 'Posterosuperior point of the pterygomaxillary fissure', group: 'cranial' },
+  { code: 'Ar', en: 'Articulare', ar: 'المفصلية (Ar)', hint: 'تقاطع قاعدة القحف مع الحافة الخلفية للقمة', hint_en: 'Where the cranial base crosses the posterior border of the condyle', group: 'mandible' },
+  { code: 'Co', en: 'Condylion', ar: 'اللقمة (Co)', hint: 'أعلى نقطة خلفية على رأس اللقمة', hint_en: 'Most superior posterior point on the condylar head', group: 'mandible' },
+  { code: 'ANS', en: 'Anterior nasal spine', ar: 'الشوكة الأنفية الأمامية (ANS)', hint: 'رأس الشوكة الأنفية الأمامية', hint_en: 'Tip of the anterior nasal spine', group: 'maxilla' },
+  { code: 'PNS', en: 'Posterior nasal spine', ar: 'الشوكة الأنفية الخلفية (PNS)', hint: 'نهاية الحنك الصلب الخلفية', hint_en: 'Posterior end of the hard palate', group: 'maxilla' },
+  { code: 'A', en: 'Point A', ar: 'النقطة A', hint: 'أعمق نقطة على تقعر الفك العلوي الأمامي', hint_en: 'Deepest point of the anterior maxillary concavity', group: 'maxilla' },
+  { code: 'B', en: 'Point B', ar: 'النقطة B', hint: 'أعمق نقطة على تقعر الفك السفلي الأمامي', hint_en: 'Deepest point of the anterior mandibular concavity', group: 'mandible' },
+  { code: 'Pog', en: 'Pogonion', ar: 'البوغونيون (Pog)', hint: 'أكثر نقطة أمامية على الذقن العظمي', hint_en: 'Most anterior point of the bony chin', group: 'mandible' },
+  { code: 'Gn', en: 'Gnathion', ar: 'الناثيون (Gn)', hint: 'بين Pog و Me على محيط الذقن', hint_en: 'Between Pog and Me on the chin outline', group: 'mandible' },
+  { code: 'Me', en: 'Menton', ar: 'المنتون (Me)', hint: 'أخفض نقطة على الارتفاق', hint_en: 'Lowest point of the symphysis', group: 'mandible' },
+  { code: 'Go', en: 'Gonion', ar: 'زاوية الفك (Go)', hint: 'أكثر نقطة خلفية سفلية على زاوية الفك', hint_en: 'Most posterior inferior point on the angle of the mandible', group: 'mandible' },
+  { code: 'U1T', en: 'Upper incisor tip', ar: 'حافة القاطع العلوي', hint: 'الحافة القاطعة للثنية العلوية', hint_en: 'Incisal edge of the upper central incisor', group: 'dental' },
+  { code: 'U1A', en: 'Upper incisor apex', ar: 'ذروة جذر القاطع العلوي', hint: 'قمة جذر الثنية العلوية', hint_en: 'Root apex of the upper central incisor', group: 'dental' },
+  { code: 'L1T', en: 'Lower incisor tip', ar: 'حافة القاطع السفلي', hint: 'الحافة القاطعة للثنية السفلية', hint_en: 'Incisal edge of the lower central incisor', group: 'dental' },
+  { code: 'L1A', en: 'Lower incisor apex', ar: 'ذروة جذر القاطع السفلي', hint: 'قمة جذر الثنية السفلية', hint_en: 'Root apex of the lower central incisor', group: 'dental' },
+  { code: 'U6', en: 'Upper first molar', ar: 'الرحى الأولى العلوية', hint: 'الحدبة الأنسية للرحى الأولى العلوية', hint_en: 'Mesial cusp of the upper first molar', group: 'dental' },
+  { code: 'L6', en: 'Lower first molar', ar: 'الرحى الأولى السفلية', hint: 'الحدبة الأنسية للرحى الأولى السفلية', hint_en: 'Mesial cusp of the lower first molar', group: 'dental' },
+  { code: 'Prn', en: 'Pronasale', ar: 'قمة الأنف (Prn)', hint: 'أكثر نقطة أمامية على الأنف', hint_en: 'Most anterior point of the nose', group: 'soft' },
+  { code: 'Sn', en: 'Subnasale', ar: 'تحت الأنف (Sn)', hint: 'التقاء الحاجز الأنفي بالشفة العليا', hint_en: 'Where the nasal septum meets the upper lip', group: 'soft' },
+  { code: 'Ls', en: 'Labrale superius', ar: 'الشفة العليا (Ls)', hint: 'أكثر نقطة أمامية على الشفة العليا', hint_en: 'Most anterior point of the upper lip', group: 'soft' },
+  { code: 'Li', en: 'Labrale inferius', ar: 'الشفة السفلى (Li)', hint: 'أكثر نقطة أمامية على الشفة السفلى', hint_en: 'Most anterior point of the lower lip', group: 'soft' },
+  { code: 'PogS', en: 'Soft tissue pogonion', ar: 'الذقن الرخو (Pog′)', hint: 'أكثر نقطة أمامية على الذقن الرخو', hint_en: 'Most anterior point of the soft tissue chin', group: 'soft' }
 ]
 
 /** Tracing lines drawn over the radiograph (pairs of landmark codes). */
@@ -111,14 +111,14 @@ export const CEPH_DEFINITIONS = {
 }
 
 export const CEPH_ANALYSES = {
-  steiner: { ar: 'ستاينر (Steiner)', keys: { SNA: null, SNB: null, ANB: null, SN_GoGn: null, SN_OP: null, U1_NA_deg: null, U1_NA_mm: null, L1_NB_deg: null, L1_NB_mm: null, interincisal: N(131, null, 'Steiner 1953') } },
-  downs: { ar: 'داونز (Downs)', keys: { facial_angle: null, convexity: null, AB_plane: null, FMA: N(21.9, 3.2, 'Downs 1948'), Y_axis: null, OP_cant: null, interincisal: N(135.4, 5.8, 'Downs 1948'), L1_OP: null, IMPA: N(91.4, 3.8, 'Downs 1948 (reported as 1.4 ± 3.8 from 90°)'), U1_APog_mm: null } },
-  tweed: { ar: 'تويد (Tweed)', keys: { FMA: null, IMPA: null, FMIA: null } },
-  ricketts: { ar: 'ريكيتس (Ricketts)', keys: { facial_axis: null, facial_angle: N(87, 3, 'Ricketts (facial depth, age 9; +0.3°/year)'), FMA: N(26, 4.5, 'Ricketts (age 9; -0.3°/year)'), convexity_mm: null, L1_APog_mm: null, L1_APog_deg: null, lower_lip_E: null, upper_lip_E: null } },
-  mcnamara: { ar: 'ماكنمارا (McNamara)', keys: { A_Nperp: null, Pog_Nperp: null, Co_A: null, Co_Gn: null, mm_differential: null, LAFH: null, U1_Avert_mm: null, FMA: N(22, 4, 'McNamara 1984 (adult)'), facial_axis: null } },
-  wits: { ar: 'ويتس (Wits)', keys: { wits: null } },
-  bjork_jarabak: { ar: 'بيورك / جاراباك', keys: { saddle: null, articular: null, gonial: null, bjork_sum: null, jarabak_ratio: null, N_Me: null, S_Go: null } },
-  other: { ar: 'قياسات أخرى', keys: { U1_SN: null, FH_SN: null } }
+  steiner: { en: 'Steiner', ar: 'ستاينر (Steiner)', keys: { SNA: null, SNB: null, ANB: null, SN_GoGn: null, SN_OP: null, U1_NA_deg: null, U1_NA_mm: null, L1_NB_deg: null, L1_NB_mm: null, interincisal: N(131, null, 'Steiner 1953') } },
+  downs: { en: 'Downs', ar: 'داونز (Downs)', keys: { facial_angle: null, convexity: null, AB_plane: null, FMA: N(21.9, 3.2, 'Downs 1948'), Y_axis: null, OP_cant: null, interincisal: N(135.4, 5.8, 'Downs 1948'), L1_OP: null, IMPA: N(91.4, 3.8, 'Downs 1948 (reported as 1.4 ± 3.8 from 90°)'), U1_APog_mm: null } },
+  tweed: { en: 'Tweed', ar: 'تويد (Tweed)', keys: { FMA: null, IMPA: null, FMIA: null } },
+  ricketts: { en: 'Ricketts', ar: 'ريكيتس (Ricketts)', keys: { facial_axis: null, facial_angle: N(87, 3, 'Ricketts (facial depth, age 9; +0.3°/year)'), FMA: N(26, 4.5, 'Ricketts (age 9; -0.3°/year)'), convexity_mm: null, L1_APog_mm: null, L1_APog_deg: null, lower_lip_E: null, upper_lip_E: null } },
+  mcnamara: { en: 'McNamara', ar: 'ماكنمارا (McNamara)', keys: { A_Nperp: null, Pog_Nperp: null, Co_A: null, Co_Gn: null, mm_differential: null, LAFH: null, U1_Avert_mm: null, FMA: N(22, 4, 'McNamara 1984 (adult)'), facial_axis: null } },
+  wits: { en: 'Wits', ar: 'ويتس (Wits)', keys: { wits: null } },
+  bjork_jarabak: { en: 'Björk / Jarabak', ar: 'بيورك / جاراباك', keys: { saddle: null, articular: null, gonial: null, bjork_sum: null, jarabak_ratio: null, N_Me: null, S_Go: null } },
+  other: { en: 'Other measurements', ar: 'قياسات أخرى', keys: { U1_SN: null, FH_SN: null } }
 }
 
 const LANDMARK_CODES = new Set(CEPH_LANDMARKS.map(l => l.code))

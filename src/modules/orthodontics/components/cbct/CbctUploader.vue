@@ -3,27 +3,27 @@
     <v-card rounded="xl">
       <v-card-title class="d-flex align-center ga-2 pa-4">
         <v-icon color="primary">mdi-cloud-upload-outline</v-icon>
-        رفع دراسة CBCT (DICOM)
+        {{ t('cbct.uploadTitle') }}
       </v-card-title>
       <v-divider />
       <v-card-text class="pa-4">
         <template v-if="phase === 'select'">
-          <v-text-field v-model="description" label="وصف الدراسة (اختياري)" variant="outlined" density="comfortable" class="mb-2" />
+          <v-text-field v-model="description" :label="t('cbct.description')" variant="outlined" density="comfortable" class="mb-2" />
           <div class="d-flex flex-wrap ga-2 mb-3">
-            <v-btn variant="tonal" prepend-icon="mdi-file-multiple-outline" @click="filesInput.click()">ملفات DICOM</v-btn>
-            <v-btn variant="tonal" prepend-icon="mdi-folder-open-outline" @click="folderInput.click()">مجلد كامل</v-btn>
-            <v-btn variant="tonal" prepend-icon="mdi-folder-zip-outline" @click="zipInput.click()">ملف ZIP</v-btn>
+            <v-btn variant="tonal" prepend-icon="mdi-file-multiple-outline" @click="filesInput.click()">{{ t('cbct.dicomFiles') }}</v-btn>
+            <v-btn variant="tonal" prepend-icon="mdi-folder-open-outline" @click="folderInput.click()">{{ t('cbct.folder') }}</v-btn>
+            <v-btn variant="tonal" prepend-icon="mdi-folder-zip-outline" @click="zipInput.click()">{{ t('cbct.zip') }}</v-btn>
           </div>
           <input ref="filesInput" type="file" multiple hidden @change="onPick($event.target.files)">
           <input ref="folderInput" type="file" webkitdirectory multiple hidden @change="onPick($event.target.files)">
           <input ref="zipInput" type="file" accept=".zip,application/zip" hidden @change="onPick($event.target.files)">
           <v-progress-linear v-if="scanning" indeterminate color="primary" class="mb-2" />
           <div v-if="candidates.length || ignored" class="text-body-2">
-            {{ candidates.length }} ملف DICOM جاهز ({{ bytes(totalBytes) }})
-            <span v-if="ignored" class="text-medium-emphasis"> · تم تجاهل {{ ignored }} ملف ليس DICOM</span>
+            {{ t('cbct.readyFiles', { n: candidates.length, size: bytes(totalBytes) }) }}
+            <span v-if="ignored" class="text-medium-emphasis">{{ t('cbct.ignoredFiles', { n: ignored }) }}</span>
           </div>
           <div class="text-caption text-medium-emphasis mt-2">
-            تُرفع الملفات على دفعات عبر اتصال مشفّر إلى خادم العيادة فقط، ولا تُنشأ لها روابط عامة.
+            {{ t('cbct.privacy') }}
           </div>
         </template>
 
@@ -34,7 +34,7 @@
           </div>
           <v-progress-linear :model-value="overall * 100" color="primary" height="10" rounded />
           <v-alert v-if="skipped.length" type="warning" variant="tonal" density="compact" class="mt-3">
-            تم رفض {{ skipped.length }} ملف:
+            {{ t('cbct.rejected', { n: skipped.length }) }}
             <ul class="mt-1" style="max-height:120px;overflow:auto">
               <li v-for="(s, i) in skipped.slice(0, 50)" :key="i" class="text-caption"><span dir="ltr">{{ s.file }}</span> - {{ s.reason }}</li>
             </ul>
@@ -43,10 +43,10 @@
         <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mt-3">{{ error }}</v-alert>
       </v-card-text>
       <v-card-actions class="pa-4">
-        <v-btn v-if="phase !== 'done'" variant="text" :disabled="phase === 'completing'" @click="cancel">إلغاء</v-btn>
+        <v-btn v-if="phase !== 'done'" variant="text" :disabled="phase === 'completing'" @click="cancel">{{ t('common.cancel') }}</v-btn>
         <v-spacer />
-        <v-btn v-if="phase === 'select'" color="primary" :disabled="!candidates.length || scanning" prepend-icon="mdi-upload" @click="start">بدء الرفع</v-btn>
-        <v-btn v-if="phase === 'done'" color="primary" @click="finish">تم</v-btn>
+        <v-btn v-if="phase === 'select'" color="primary" :disabled="!candidates.length || scanning" prepend-icon="mdi-upload" @click="start">{{ t('cbct.startUpload') }}</v-btn>
+        <v-btn v-if="phase === 'done'" color="primary" @click="finish">{{ t('common.done') }}</v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>
@@ -56,9 +56,11 @@
 import { computed, ref, watch } from 'vue'
 import { orthoApi, orthoError } from '../../api.js'
 import { bytes } from '../../utils/format.js'
+import { useOrthoI18n } from '../../i18n.js'
 
 const props = defineProps({ modelValue: Boolean, caseId: { type: [Number, String], required: true } })
 const emit = defineEmits(['update:modelValue', 'uploaded'])
+const { t } = useOrthoI18n()
 const open = computed({ get: () => props.modelValue, set: v => emit('update:modelValue', v) })
 
 // Keep each request well under typical PHP upload limits.
@@ -84,7 +86,7 @@ let cancelled = false
 
 const totalBytes = computed(() => candidates.value.reduce((n, f) => n + f.size, 0))
 const overall = computed(() => totalBytes.value ? Math.min(1, (uploadedBytes.value + currentBatchBytes.value * batchProgress.value) / totalBytes.value) : 0)
-const phaseLabel = computed(() => ({ uploading: 'جارٍ الرفع…', completing: 'جارٍ إنهاء الدراسة…', done: 'اكتمل الرفع' }[phase.value] || ''))
+const phaseLabel = computed(() => (['uploading', 'completing', 'done'].includes(phase.value) ? t(`cbct.phase.${phase.value}`) : ''))
 
 // A DICOM Part 10 file has "DICM" at byte 128.
 async function isDicom (file) {
@@ -119,7 +121,7 @@ async function onPick (fileList) {
     candidates.value = out
     ignored.value = skippedCount
   } catch (e) {
-    error.value = 'تعذر قراءة الملفات: ' + (e?.message || e)
+    error.value = t('cbct.readFailed') + (e?.message || e)
   } finally {
     scanning.value = false
   }
@@ -159,7 +161,7 @@ async function start () {
     study.value = (await orthoApi.completeCbctStudy(props.caseId, study.value.id)).data
     phase.value = 'done'
   } catch (e) {
-    error.value = orthoError(e, 'فشل الرفع')
+    error.value = orthoError(e, t('cbct.uploadFailed'))
     phase.value = 'select'
   }
 }

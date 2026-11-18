@@ -3,10 +3,10 @@
     <div class="ow-header">
       <v-icon size="28" color="white">mdi-tooth-outline</v-icon>
       <div class="flex-grow-1">
-        <div class="text-h6 text-white font-weight-bold">تحليل التقويم</div>
+        <div class="text-h6 text-white font-weight-bold">{{ t('workspace.title') }}</div>
         <div v-if="overview" class="text-caption ow-sub">{{ overview.case.patient?.name }} · {{ overview.case.category?.name }}</div>
       </div>
-      <v-chip v-if="overview && !canManage" color="white" variant="outlined" size="small">عرض فقط</v-chip>
+      <v-chip v-if="overview && !canManage" color="white" variant="outlined" size="small">{{ t('workspace.viewOnly') }}</v-chip>
     </div>
 
     <div v-if="loading" class="pa-10 d-flex justify-center"><v-progress-circular indeterminate color="primary" /></div>
@@ -14,7 +14,7 @@
 
     <template v-else-if="overview">
       <v-tabs v-model="tab" color="primary" show-arrows density="comfortable" class="ow-tabs">
-        <v-tab v-for="t in TABS" :key="t.value" :value="t.value" :prepend-icon="t.icon">{{ t.title }}</v-tab>
+        <v-tab v-for="item in TABS" :key="item.value" :value="item.value" :prepend-icon="item.icon">{{ t(`workspace.tabs.${item.value}`) }}</v-tab>
       </v-tabs>
       <v-divider />
       <div class="pa-4">
@@ -36,12 +36,12 @@
 
     <v-dialog v-model="leaveDialog" max-width="420">
       <v-card rounded="xl">
-        <v-card-title>تغييرات غير محفوظة</v-card-title>
-        <v-card-text>في هذا القسم تعديلات لم تُحفظ. الانتقال سيتجاهلها (لن يُحذف أي شيء محفوظ).</v-card-text>
+        <v-card-title>{{ t('common.unsavedChanges') }}</v-card-title>
+        <v-card-text>{{ t('workspace.leaveText') }}</v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn variant="text" @click="leaveDialog = false">البقاء</v-btn>
-          <v-btn color="error" @click="confirmLeave">تجاهل والانتقال</v-btn>
+          <v-btn variant="text" @click="leaveDialog = false">{{ t('common.stay') }}</v-btn>
+          <v-btn color="error" @click="confirmLeave">{{ t('workspace.discardAndLeave') }}</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -53,21 +53,24 @@ import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch 
 import { orthoApi, orthoError } from '../api.js'
 import { releaseObjectUrls } from '../utils/blob.js'
 import { useOrthodontics } from '../composables/useOrthodontics.js'
+import { useOrthoI18n } from '../i18n.js'
 
 const props = defineProps({
   caseId: { type: [Number, String], required: true },
-  initialTab: { type: String, default: 'overview' }
+  initialTab: { type: String, default: 'plan' }
 })
 const emit = defineEmits(['dirty'])
+const { t } = useOrthoI18n()
 
+// The treatment plan comes first and is the tab that opens by default.
 const TABS = [
-  { value: 'overview', title: 'نظرة عامة', icon: 'mdi-view-dashboard-outline' },
-  { value: 'ceph', title: 'تحليل Ceph', icon: 'mdi-radiology-box-outline' },
-  { value: 'cast', title: 'تحليل الموديلات 3D', icon: 'mdi-cube-scan' },
-  { value: 'cbct', title: 'تحليل CBCT', icon: 'mdi-scan-helper' },
-  { value: 'face', title: 'تحليل الوجه', icon: 'mdi-face-recognition' },
-  { value: 'plan', title: 'الخطة العلاجية', icon: 'mdi-clipboard-text-outline' },
-  { value: 'reports', title: 'التقارير', icon: 'mdi-file-chart-outline' }
+  { value: 'plan', icon: 'mdi-clipboard-text-outline' },
+  { value: 'overview', icon: 'mdi-view-dashboard-outline' },
+  { value: 'ceph', icon: 'mdi-radiology-box-outline' },
+  { value: 'cast', icon: 'mdi-cube-scan' },
+  { value: 'cbct', icon: 'mdi-scan-helper' },
+  { value: 'face', icon: 'mdi-face-recognition' },
+  { value: 'reports', icon: 'mdi-file-chart-outline' }
 ]
 
 const components = {
@@ -84,7 +87,7 @@ const { canManage: hasManagePermission } = useOrthodontics()
 const overview = ref(null)
 const loading = ref(true)
 const blocked = ref(null)
-const tab = ref(TABS.some(t => t.value === props.initialTab) ? props.initialTab : 'overview')
+const tab = ref(TABS.some(item => item.value === props.initialTab) ? props.initialTab : TABS[0].value)
 const dirty = ref(false)
 const leaveDialog = ref(false)
 const pendingTab = ref(null)
@@ -116,7 +119,7 @@ function confirmLeave () {
   tab.value = pendingTab.value
 }
 
-function goTab (t) { tab.value = t }
+function goTab (next) { tab.value = next }
 
 async function reloadOverview () {
   try {
@@ -133,9 +136,7 @@ async function load () {
     const code = e?.response?.data?.code
     blocked.value = {
       type: code === 'orthodontics_not_eligible' || code === 'orthodontics_disabled' ? 'info' : 'error',
-      message: code === 'orthodontics_not_eligible'
-        ? 'وحدة التقويم متاحة فقط لحالات فئة التقويم. السجلات المحفوظة سابقاً لهذه الحالة لم تُحذف وتعود للظهور عند إرجاع الحالة إلى فئة تقويم.'
-        : orthoError(e)
+      message: code === 'orthodontics_not_eligible' ? t('workspace.notEligible') : orthoError(e)
     }
   } finally {
     loading.value = false

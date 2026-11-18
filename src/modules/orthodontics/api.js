@@ -2,6 +2,7 @@
 // client (JWT + clinic headers); images, models and DICOM are downloaded as
 // authenticated blobs - there are no public file URLs.
 import api from '@/services/api'
+import { orthoLang, ot } from './i18n.js'
 
 const base = caseId => `/cases/${caseId}/orthodontics`
 const multipart = onProgress => ({
@@ -62,14 +63,23 @@ export const orthoApi = {
 }
 
 /** The API's { message, message_ar, code } error -> one line for the user. */
-export function orthoError (err, fallback = 'حدث خطأ غير متوقع') {
-  const data = err?.response?.data
-  const locale = localStorage.getItem('locale') || 'ar'
+export function orthoError (err, fallback = ot('common.unexpectedError')) {
+  const data = jsonBody(err?.response?.data)
   if (data?.errors) {
     const first = Object.values(data.errors)[0]
     if (Array.isArray(first) && first[0]) return first[0]
   }
-  return (locale === 'ar' && data?.message_ar) || data?.message || err?.message || fallback
+  return (orthoLang() === 'ar' && data?.message_ar) || data?.message || err?.message || fallback
+}
+
+// A binary download (responseType arraybuffer) gets its JSON error as raw bytes.
+function jsonBody (data) {
+  if (!(data instanceof ArrayBuffer)) return data
+  try {
+    return JSON.parse(new TextDecoder().decode(data))
+  } catch (_) {
+    return null
+  }
 }
 
 export default orthoApi

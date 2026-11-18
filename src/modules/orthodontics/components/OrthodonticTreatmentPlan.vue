@@ -7,67 +7,67 @@
       <v-col cols="12" lg="7">
         <v-card rounded="xl" variant="outlined" class="mb-4">
           <v-card-title class="d-flex align-center ga-2">
-            <v-icon color="primary">mdi-stethoscope</v-icon> التقييم الأولي
+            <v-icon color="primary">mdi-stethoscope</v-icon> {{ t('plan.assessment') }}
             <v-spacer />
-            <span v-if="plan.revision" class="text-caption text-medium-emphasis">مراجعة {{ plan.revision }}</span>
+            <span v-if="plan.revision" class="text-caption text-medium-emphasis">{{ t('common.revision', { n: plan.revision }) }}</span>
           </v-card-title>
           <v-card-text>
             <v-row dense>
-              <v-col cols="12"><v-textarea v-model="form.chief_complaint" label="الشكوى الرئيسية" rows="2" auto-grow variant="outlined" density="comfortable" :readonly="ro" /></v-col>
-              <v-col cols="12"><v-textarea v-model="form.clinical_examination" label="الفحص السريري" rows="2" auto-grow variant="outlined" density="comfortable" :readonly="ro" /></v-col>
-              <v-col cols="12"><v-textarea v-model="form.diagnosis" label="التشخيص" rows="2" auto-grow variant="outlined" density="comfortable" :readonly="ro" /></v-col>
-              <v-col cols="12" sm="4"><v-select v-model="form.skeletal_class" :items="['I', 'II', 'III']" label="التصنيف الهيكلي" clearable variant="outlined" density="comfortable" :readonly="ro" /></v-col>
-              <v-col cols="6" sm="4"><v-select v-model="form.molar_class_right" :items="CLASSES" label="الرحى - يمين" clearable variant="outlined" density="comfortable" :readonly="ro" /></v-col>
-              <v-col cols="6" sm="4"><v-select v-model="form.molar_class_left" :items="CLASSES" label="الرحى - يسار" clearable variant="outlined" density="comfortable" :readonly="ro" /></v-col>
-              <v-col cols="6" sm="4"><v-select v-model="form.canine_class_right" :items="CLASSES" label="الناب - يمين" clearable variant="outlined" density="comfortable" :readonly="ro" /></v-col>
-              <v-col cols="6" sm="4"><v-select v-model="form.canine_class_left" :items="CLASSES" label="الناب - يسار" clearable variant="outlined" density="comfortable" :readonly="ro" /></v-col>
-              <v-col cols="6" sm="4"><v-text-field v-model.number="form.overjet_mm" type="number" step="0.5" label="البروز الأفقي Overjet (ملم)" variant="outlined" density="comfortable" :readonly="ro" /></v-col>
-              <v-col cols="6" sm="4"><v-text-field v-model.number="form.overbite_mm" type="number" step="0.5" label="العضة العميقة Overbite (ملم)" variant="outlined" density="comfortable" :readonly="ro" /></v-col>
-              <v-col cols="6" sm="4"><v-text-field v-model.number="form.crowding_upper_mm" type="number" step="0.5" label="الازدحام العلوي (ملم، سالب = فراغات)" variant="outlined" density="comfortable" :readonly="ro" /></v-col>
-              <v-col cols="6" sm="4"><v-text-field v-model.number="form.crowding_lower_mm" type="number" step="0.5" label="الازدحام السفلي (ملم)" variant="outlined" density="comfortable" :readonly="ro" /></v-col>
-              <v-col cols="12" sm="4"><v-text-field v-model="form.crossbite" label="العضة المعكوسة" variant="outlined" density="comfortable" :readonly="ro" /></v-col>
-              <v-col cols="6" sm="4"><v-text-field v-model.number="form.midline_upper_mm" type="number" step="0.5" label="انحراف المنتصف العلوي (ملم)" variant="outlined" density="comfortable" :readonly="ro" hint="+ يمين / − يسار" /></v-col>
-              <v-col cols="6" sm="4"><v-text-field v-model.number="form.midline_lower_mm" type="number" step="0.5" label="انحراف المنتصف السفلي (ملم)" variant="outlined" density="comfortable" :readonly="ro" hint="+ يمين / − يسار" /></v-col>
+              <v-col cols="12"><v-textarea v-model="form.chief_complaint" :label="t('plan.chiefComplaint')" rows="2" auto-grow variant="outlined" density="comfortable" :readonly="ro" /></v-col>
+              <v-col cols="12"><v-textarea v-model="form.clinical_examination" :label="t('plan.clinicalExamination')" rows="2" auto-grow variant="outlined" density="comfortable" :readonly="ro" /></v-col>
+              <v-col cols="12"><v-textarea v-model="form.diagnosis" :label="t('plan.diagnosis')" rows="2" auto-grow variant="outlined" density="comfortable" :readonly="ro" /></v-col>
+              <v-col cols="12" sm="4"><v-select v-model="form.skeletal_class" :items="['I', 'II', 'III']" :label="t('plan.skeletalClass')" clearable variant="outlined" density="comfortable" :readonly="ro" /></v-col>
+              <v-col cols="6" sm="4"><v-select v-model="form.molar_class_right" :items="CLASSES" :label="t('plan.molarRight')" clearable variant="outlined" density="comfortable" :readonly="ro" /></v-col>
+              <v-col cols="6" sm="4"><v-select v-model="form.molar_class_left" :items="CLASSES" :label="t('plan.molarLeft')" clearable variant="outlined" density="comfortable" :readonly="ro" /></v-col>
+              <v-col cols="6" sm="4"><v-select v-model="form.canine_class_right" :items="CLASSES" :label="t('plan.canineRight')" clearable variant="outlined" density="comfortable" :readonly="ro" /></v-col>
+              <v-col cols="6" sm="4"><v-select v-model="form.canine_class_left" :items="CLASSES" :label="t('plan.canineLeft')" clearable variant="outlined" density="comfortable" :readonly="ro" /></v-col>
+              <v-col cols="6" sm="4"><v-text-field v-model.number="form.overjet_mm" type="number" step="0.5" :label="t('plan.overjet')" variant="outlined" density="comfortable" :readonly="ro" /></v-col>
+              <v-col cols="6" sm="4"><v-text-field v-model.number="form.overbite_mm" type="number" step="0.5" :label="t('plan.overbite')" variant="outlined" density="comfortable" :readonly="ro" /></v-col>
+              <v-col cols="6" sm="4"><v-text-field v-model.number="form.crowding_upper_mm" type="number" step="0.5" :label="t('plan.crowdingUpper')" variant="outlined" density="comfortable" :readonly="ro" /></v-col>
+              <v-col cols="6" sm="4"><v-text-field v-model.number="form.crowding_lower_mm" type="number" step="0.5" :label="t('plan.crowdingLower')" variant="outlined" density="comfortable" :readonly="ro" /></v-col>
+              <v-col cols="12" sm="4"><v-text-field v-model="form.crossbite" :label="t('plan.crossbite')" variant="outlined" density="comfortable" :readonly="ro" /></v-col>
+              <v-col cols="6" sm="4"><v-text-field v-model.number="form.midline_upper_mm" type="number" step="0.5" :label="t('plan.midlineUpper')" variant="outlined" density="comfortable" :readonly="ro" :hint="t('plan.midlineHint')" /></v-col>
+              <v-col cols="6" sm="4"><v-text-field v-model.number="form.midline_lower_mm" type="number" step="0.5" :label="t('plan.midlineLower')" variant="outlined" density="comfortable" :readonly="ro" :hint="t('plan.midlineHint')" /></v-col>
             </v-row>
-            <div class="text-subtitle-2 mt-2 mb-1">ملاحظات إضافية</div>
+            <div class="text-subtitle-2 mt-2 mb-1">{{ t('plan.extraNotes') }}</div>
             <div v-for="(o, i) in form.observations" :key="'o' + i" class="d-flex ga-2 mb-2">
-              <v-text-field v-model="o.label" label="العنوان" variant="outlined" density="compact" hide-details :readonly="ro" style="max-width:220px" />
-              <v-text-field v-model="o.value" label="القيمة" variant="outlined" density="compact" hide-details :readonly="ro" />
+              <v-text-field v-model="o.label" :label="t('plan.noteTitle')" variant="outlined" density="compact" hide-details :readonly="ro" style="max-width:220px" />
+              <v-text-field v-model="o.value" :label="t('plan.noteValue')" variant="outlined" density="compact" hide-details :readonly="ro" />
               <v-btn v-if="!ro" icon="mdi-close" size="small" variant="text" @click="form.observations.splice(i, 1)" />
             </div>
-            <v-btn v-if="!ro" size="small" variant="text" prepend-icon="mdi-plus" @click="form.observations.push({ label: '', value: '' })">إضافة ملاحظة</v-btn>
+            <v-btn v-if="!ro" size="small" variant="text" prepend-icon="mdi-plus" @click="form.observations.push({ label: '', value: '' })">{{ t('plan.addNote') }}</v-btn>
           </v-card-text>
         </v-card>
 
         <v-card rounded="xl" variant="outlined">
-          <v-card-title class="d-flex align-center ga-2"><v-icon color="primary">mdi-clipboard-text-outline</v-icon> الخطة العلاجية</v-card-title>
+          <v-card-title class="d-flex align-center ga-2"><v-icon color="primary">mdi-clipboard-text-outline</v-icon> {{ t('plan.title') }}</v-card-title>
           <v-card-text>
             <v-row dense>
-              <v-col cols="12"><v-textarea v-model="form.objectives" label="أهداف العلاج" rows="2" auto-grow variant="outlined" density="comfortable" :readonly="ro" /></v-col>
-              <v-col cols="12"><v-textarea v-model="form.planned_treatment" label="العلاج المخطط" rows="2" auto-grow variant="outlined" density="comfortable" :readonly="ro" /></v-col>
-              <v-col cols="12" sm="6"><v-combobox v-model="form.appliance_type" :items="APPLIANCES" label="نوع الجهاز" variant="outlined" density="comfortable" :readonly="ro" /></v-col>
-              <v-col cols="6" sm="3"><v-text-field v-model.number="form.estimated_duration_months" type="number" min="0" label="المدة المتوقعة (شهر)" variant="outlined" density="comfortable" :readonly="ro" /></v-col>
-              <v-col cols="6" sm="3"><v-text-field v-model="form.start_date" type="date" label="تاريخ البدء" variant="outlined" density="comfortable" :readonly="ro" /></v-col>
-              <v-col cols="12" sm="6"><v-select v-model="form.status" :items="STATUSES" label="حالة العلاج" variant="outlined" density="comfortable" :readonly="ro" /></v-col>
+              <v-col cols="12"><v-textarea v-model="form.objectives" :label="t('plan.objectives')" rows="2" auto-grow variant="outlined" density="comfortable" :readonly="ro" /></v-col>
+              <v-col cols="12"><v-textarea v-model="form.planned_treatment" :label="t('plan.plannedTreatment')" rows="2" auto-grow variant="outlined" density="comfortable" :readonly="ro" /></v-col>
+              <v-col cols="12" sm="6"><v-combobox v-model="form.appliance_type" :items="APPLIANCES" :label="t('plan.applianceType')" variant="outlined" density="comfortable" :readonly="ro" /></v-col>
+              <v-col cols="6" sm="3"><v-text-field v-model.number="form.estimated_duration_months" type="number" min="0" :label="t('plan.duration')" variant="outlined" density="comfortable" :readonly="ro" /></v-col>
+              <v-col cols="6" sm="3"><v-text-field v-model="form.start_date" type="date" :label="t('plan.startDate')" variant="outlined" density="comfortable" :readonly="ro" /></v-col>
+              <v-col cols="12" sm="6"><v-select v-model="form.status" :items="STATUSES" :label="t('plan.status')" variant="outlined" density="comfortable" :readonly="ro" /></v-col>
             </v-row>
-            <div class="text-subtitle-2 mb-1">مراحل العلاج</div>
+            <div class="text-subtitle-2 mb-1">{{ t('plan.stages') }}</div>
             <div v-for="(st, i) in form.stages" :key="'s' + i" class="stage">
               <div class="d-flex ga-2 align-center">
                 <v-chip size="small" variant="tonal">{{ i + 1 }}</v-chip>
-                <v-text-field v-model="st.title" label="المرحلة" variant="outlined" density="compact" hide-details :readonly="ro" />
+                <v-text-field v-model="st.title" :label="t('plan.stage')" variant="outlined" density="compact" hide-details :readonly="ro" />
                 <v-select v-model="st.status" :items="STAGE_STATUS" variant="outlined" density="compact" hide-details :readonly="ro" style="max-width:150px" />
                 <v-text-field v-model="st.target_date" type="date" variant="outlined" density="compact" hide-details :readonly="ro" style="max-width:160px" />
                 <v-btn v-if="!ro" icon="mdi-close" size="small" variant="text" @click="form.stages.splice(i, 1)" />
               </div>
-              <v-textarea v-model="st.description" placeholder="تفاصيل المرحلة" rows="1" auto-grow variant="outlined" density="compact" hide-details class="mt-1" :readonly="ro" />
+              <v-textarea v-model="st.description" :placeholder="t('plan.stageDetails')" rows="1" auto-grow variant="outlined" density="compact" hide-details class="mt-1" :readonly="ro" />
             </div>
-            <v-btn v-if="!ro" size="small" variant="text" prepend-icon="mdi-plus" @click="form.stages.push({ title: '', description: '', status: 'pending', target_date: null })">إضافة مرحلة</v-btn>
-            <v-textarea v-model="form.doctor_notes" label="ملاحظات الطبيب" rows="2" auto-grow variant="outlined" density="comfortable" class="mt-3" :readonly="ro" />
+            <v-btn v-if="!ro" size="small" variant="text" prepend-icon="mdi-plus" @click="form.stages.push({ title: '', description: '', status: 'pending', target_date: null })">{{ t('plan.addStage') }}</v-btn>
+            <v-textarea v-model="form.doctor_notes" :label="t('plan.doctorNotes')" rows="2" auto-grow variant="outlined" density="comfortable" class="mt-3" :readonly="ro" />
           </v-card-text>
           <v-card-actions v-if="!ro" class="pa-4">
-            <span v-if="dirty" class="text-caption text-warning">تغييرات غير محفوظة</span>
+            <span v-if="dirty" class="text-caption text-warning">{{ t('common.unsavedChanges') }}</span>
             <v-spacer />
-            <v-btn color="primary" :loading="saving" :disabled="!dirty" prepend-icon="mdi-content-save" @click="save">حفظ الخطة</v-btn>
+            <v-btn color="primary" :loading="saving" :disabled="!dirty" prepend-icon="mdi-content-save" @click="save">{{ t('plan.savePlan') }}</v-btn>
           </v-card-actions>
         </v-card>
       </v-col>
@@ -75,23 +75,23 @@
       <!-- Follow-up: the case's existing notes (sessions) -->
       <v-col cols="12" lg="5">
         <v-card rounded="xl" variant="outlined">
-          <v-card-title class="d-flex align-center ga-2"><v-icon color="primary">mdi-calendar-check-outline</v-icon> جلسات المتابعة</v-card-title>
-          <v-card-subtitle>تُحفظ كملاحظات الحالة نفسها وتظهر في صفحة المريض</v-card-subtitle>
+          <v-card-title class="d-flex align-center ga-2"><v-icon color="primary">mdi-calendar-check-outline</v-icon> {{ t('plan.sessions') }}</v-card-title>
+          <v-card-subtitle>{{ t('plan.sessionsSub') }}</v-card-subtitle>
           <v-card-text>
             <div v-if="canAddSession" class="session-form mb-4">
               <OrthoQuickfields :meta="session" />
               <v-row dense class="mt-2">
-                <v-col cols="12" sm="6"><v-text-field v-model="session.wire" label="السلك (مثلاً 0.016 NiTi)" variant="outlined" density="compact" hide-details /></v-col>
-                <v-col cols="12" sm="6"><v-text-field v-model="session.elastics" label="المطاط" variant="outlined" density="compact" hide-details /></v-col>
-                <v-col cols="12" sm="6"><v-text-field v-model="session.adjustment" label="تعديل الجهاز" variant="outlined" density="compact" hide-details /></v-col>
-                <v-col cols="12" sm="6"><v-text-field v-model="session.next" label="الموعد القادم المقترح" variant="outlined" density="compact" hide-details /></v-col>
-                <v-col cols="12"><v-textarea v-model="session.text" label="ملاحظات التقدم" rows="2" auto-grow variant="outlined" density="compact" hide-details /></v-col>
+                <v-col cols="12" sm="6"><v-text-field v-model="session.wire" :label="t('plan.wire')" variant="outlined" density="compact" hide-details /></v-col>
+                <v-col cols="12" sm="6"><v-text-field v-model="session.elastics" :label="t('plan.elastics')" variant="outlined" density="compact" hide-details /></v-col>
+                <v-col cols="12" sm="6"><v-text-field v-model="session.adjustment" :label="t('plan.adjustment')" variant="outlined" density="compact" hide-details /></v-col>
+                <v-col cols="12" sm="6"><v-text-field v-model="session.next" :label="t('plan.next')" variant="outlined" density="compact" hide-details /></v-col>
+                <v-col cols="12"><v-textarea v-model="session.text" :label="t('plan.progress')" rows="2" auto-grow variant="outlined" density="compact" hide-details /></v-col>
               </v-row>
               <div class="d-flex justify-end mt-2">
-                <v-btn color="primary" variant="tonal" :loading="savingSession" :disabled="!sessionContent" prepend-icon="mdi-plus" @click="addSession">إضافة جلسة</v-btn>
+                <v-btn color="primary" variant="tonal" :loading="savingSession" :disabled="!sessionContent" prepend-icon="mdi-plus" @click="addSession">{{ t('plan.addSession') }}</v-btn>
               </div>
             </div>
-            <div v-if="!sessions.length" class="text-caption text-medium-emphasis">لا توجد جلسات بعد.</div>
+            <div v-if="!sessions.length" class="text-caption text-medium-emphasis">{{ t('plan.noSessions') }}</div>
             <div v-for="n in sessions" :key="n.id" class="session">
               <div class="d-flex align-center ga-2">
                 <span class="text-caption text-medium-emphasis">{{ (n.created_at || '').slice(0, 10) }}</span>
@@ -116,15 +116,18 @@ import { composeNoteContent, parseOrthoLine } from '@/utils/orthoNote'
 import { parseImageTag } from '@/utils/noteImageTag'
 import { useAuthStore } from '@/stores/authNew'
 import { orthoApi, orthoError } from '../api.js'
+import { useOrthoI18n } from '../i18n.js'
 
 const props = defineProps({ caseId: { type: [Number, String], required: true }, canManage: Boolean })
 const emit = defineEmits(['dirty', 'changed'])
 const authStore = useAuthStore()
+const { t } = useOrthoI18n()
 
 const CLASSES = [{ title: 'Class I', value: 'I' }, { title: 'Class II', value: 'II' }, { title: 'Class II div 1', value: 'II_div1' }, { title: 'Class II div 2', value: 'II_div2' }, { title: 'Class III', value: 'III' }]
-const STATUSES = [{ title: 'مخطط', value: 'planned' }, { title: 'قيد العلاج', value: 'active' }, { title: 'التثبيت', value: 'retention' }, { title: 'مكتمل', value: 'completed' }, { title: 'متوقف', value: 'discontinued' }]
-const STAGE_STATUS = [{ title: 'قادمة', value: 'pending' }, { title: 'جارية', value: 'in_progress' }, { title: 'منجزة', value: 'done' }]
-const APPLIANCES = ['تقويم ثابت معدني', 'تقويم ثابت خزفي', 'تقويم شفاف (Aligners)', 'تقويم لساني', 'جهاز متحرك', 'جهاز وظيفي', 'مثبت (Retainer)']
+const STATUSES = computed(() => ['planned', 'active', 'retention', 'completed', 'discontinued'].map(value => ({ title: t(`planStatus.${value}`), value })))
+const STAGE_STATUS = computed(() => ['pending', 'in_progress', 'done'].map(value => ({ title: t(`plan.stageStatus.${value}`), value })))
+// Suggestions only: the appliance is free text, stored as typed.
+const APPLIANCES = computed(() => t('plan.appliances'))
 const FIELDS = ['chief_complaint', 'clinical_examination', 'diagnosis', 'skeletal_class', 'molar_class_right', 'molar_class_left', 'canine_class_right', 'canine_class_left', 'crowding_upper_mm', 'crowding_lower_mm', 'overjet_mm', 'overbite_mm', 'crossbite', 'midline_upper_mm', 'midline_lower_mm', 'objectives', 'planned_treatment', 'appliance_type', 'estimated_duration_months', 'doctor_notes', 'start_date', 'status']
 
 const empty = () => ({ ...Object.fromEntries(FIELDS.map(f => [f, null])), status: 'planned', observations: [], stages: [] })
@@ -145,10 +148,10 @@ const session = reactive({ noteDate: new Date().toISOString().slice(0, 10), appl
 const savingSession = ref(false)
 const sessionContent = computed(() => {
   const extra = [
-    session.wire && `السلك: ${session.wire}`,
-    session.elastics && `المطاط: ${session.elastics}`,
-    session.adjustment && `التعديل: ${session.adjustment}`,
-    session.next && `الموعد القادم: ${session.next}`
+    session.wire && t('plan.noteWire', { v: session.wire }),
+    session.elastics && t('plan.noteElastics', { v: session.elastics }),
+    session.adjustment && t('plan.noteAdjustment', { v: session.adjustment }),
+    session.next && t('plan.noteNext', { v: session.next })
   ].filter(Boolean).join(' | ')
   const text = [extra, session.text?.trim()].filter(Boolean).join('\n')
   return composeNoteContent(session, text)
@@ -187,7 +190,7 @@ async function save () {
     saved.value = JSON.stringify(form)
     emit('changed')
   } catch (e) {
-    error.value = e?.response?.status === 409 ? 'عدّل مستخدم آخر الخطة. أعد تحميل الصفحة قبل الحفظ.' : orthoError(e)
+    error.value = e?.response?.status === 409 ? t('plan.conflict') : orthoError(e)
   } finally {
     saving.value = false
   }

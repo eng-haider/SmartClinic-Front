@@ -48,13 +48,13 @@
            that enabled it (the API enforces the same rule). -->
       <v-tabs v-if="showOrthodontics" v-model="section" color="primary" class="mb-4" density="comfortable">
         <v-tab value="details" prepend-icon="mdi-information-outline">{{ $t('cases.case_info') }}</v-tab>
-        <v-tab value="orthodontics" prepend-icon="mdi-tooth-outline">تحليل التقويم</v-tab>
+        <v-tab value="orthodontics" prepend-icon="mdi-tooth-outline">{{ ot('workspace.title') }}</v-tab>
       </v-tabs>
 
       <OrthodonticsWorkspace
         v-if="showOrthodontics && section === 'orthodontics'"
         :case-id="caseData.id"
-        :initial-tab="String(route.query.ortho_tab || 'overview')"
+        :initial-tab="String(route.query.ortho_tab || 'plan')"
         @dirty="v => (orthoDirty = v)"
       />
 
@@ -308,6 +308,7 @@ import { ref, computed, onMounted, defineAsyncComponent, watch } from 'vue'
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { useClinicSettings } from '@/composables/useClinicSettings'
 import { useOrthodontics, isOrthodonticCategory } from '@/modules/orthodontics/composables/useOrthodontics'
+import { useOrthoI18n } from '@/modules/orthodontics/i18n'
 import { useI18n } from 'vue-i18n'
 import api from '@/services/api'
 import { usePermissions } from '@/composables/usePermissions'
@@ -332,6 +333,7 @@ const canViewPatient = computed(() => hasPermissionFor('patient'))
 const OrthodonticsWorkspace = defineAsyncComponent(() => import('@/modules/orthodontics/components/OrthodonticsWorkspace.vue'))
 const { loadSettings } = useClinicSettings()
 const { moduleEnabled: orthodonticsEnabled, canView: canViewOrthodontics } = useOrthodontics()
+const { t: ot } = useOrthoI18n()
 const section = ref(route.query.tab === 'orthodontics' ? 'orthodontics' : 'details')
 const orthoDirty = ref(false)
 const showOrthodontics = computed(() =>
@@ -341,7 +343,7 @@ watch(section, v => {
   router.replace({ query: { ...route.query, tab: v === 'orthodontics' ? 'orthodontics' : undefined } })
 })
 onBeforeRouteLeave(() => {
-  if (orthoDirty.value && !window.confirm('هناك تعديلات غير محفوظة في تحليل التقويم. هل تريد المغادرة؟')) return false
+  if (orthoDirty.value && !window.confirm(ot('workspace.leaveCaseConfirm'))) return false
   return true
 })
 

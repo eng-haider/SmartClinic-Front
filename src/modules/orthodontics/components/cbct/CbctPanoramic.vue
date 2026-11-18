@@ -3,71 +3,71 @@
     <v-card class="pano">
       <v-toolbar density="compact" color="surface">
         <v-btn icon="mdi-close" @click="$emit('close')" />
-        <v-toolbar-title>البانوراما والمقاطع العرضية وتخطيط الزرعات</v-toolbar-title>
+        <v-toolbar-title>{{ t('cbct.panoTitle') }}</v-toolbar-title>
         <v-spacer />
-        <v-btn v-if="canManage" color="primary" variant="flat" :disabled="!curve" prepend-icon="mdi-content-save" class="me-2" @click="save">حفظ في الحالة</v-btn>
+        <v-btn v-if="canManage" color="primary" variant="flat" :disabled="!curve" prepend-icon="mdi-content-save" class="me-2" @click="save">{{ t('cbct.saveToCase') }}</v-btn>
       </v-toolbar>
       <v-card-text class="pa-3">
         <div v-if="!geometry" class="d-flex flex-column align-center justify-center" style="min-height:50vh">
           <v-progress-circular indeterminate color="primary" />
-          <div class="mt-2">جارٍ تجهيز بيانات الحجم…</div>
+          <div class="mt-2">{{ t('cbct.preparing') }}</div>
         </div>
         <template v-else>
           <div class="d-flex flex-wrap ga-3 align-center mb-2">
             <div class="d-flex align-center ga-2" style="min-width:260px">
-              <span class="text-caption">النافذة</span>
+              <span class="text-caption">{{ t('cbct.window') }}</span>
               <v-range-slider v-model="voi" :min="dataRange[0]" :max="dataRange[1]" :step="1" hide-details density="compact" color="primary" />
             </div>
-            <v-text-field v-model.number="thicknessMm" type="number" min="0" max="40" step="1" label="سماكة البانوراما (ملم)" density="compact" variant="outlined" hide-details style="max-width:170px" />
-            <v-text-field v-model.number="stepMm" type="number" min="0.1" max="2" step="0.1" label="دقة العينة (ملم)" density="compact" variant="outlined" hide-details style="max-width:150px" />
-            <v-btn color="primary" variant="tonal" :disabled="controlPoints.length < 2" prepend-icon="mdi-panorama-horizontal-outline" @click="build">بناء البانوراما</v-btn>
+            <v-text-field v-model.number="thicknessMm" type="number" min="0" max="40" step="1" :label="t('cbct.thickness')" density="compact" variant="outlined" hide-details style="max-width:170px" />
+            <v-text-field v-model.number="stepMm" type="number" min="0.1" max="2" step="0.1" :label="t('cbct.sampling')" density="compact" variant="outlined" hide-details style="max-width:150px" />
+            <v-btn color="primary" variant="tonal" :disabled="controlPoints.length < 2" prepend-icon="mdi-panorama-horizontal-outline" @click="build">{{ t('cbct.buildPanoramic') }}</v-btn>
           </div>
 
           <div class="pano-grid">
             <!-- Axial: draw the arch curve -->
             <v-card variant="outlined" rounded="lg" class="pa-2">
               <div class="d-flex align-center ga-2 mb-1">
-                <span class="text-subtitle-2">1. منحنى القوس على المقطع المحوري</span>
+                <span class="text-subtitle-2">{{ t('cbct.step1') }}</span>
                 <v-spacer />
-                <v-btn size="x-small" variant="text" @click="controlPoints.pop()">تراجع</v-btn>
-                <v-btn size="x-small" variant="text" color="error" @click="controlPoints = []">مسح</v-btn>
+                <v-btn size="x-small" variant="text" @click="controlPoints.pop()">{{ t('common.undo') }}</v-btn>
+                <v-btn size="x-small" variant="text" color="error" @click="controlPoints = []">{{ t('common.clear') }}</v-btn>
               </div>
               <canvas ref="axialCanvas" class="pano-canvas" @click="onAxialClick" />
               <div class="d-flex align-center ga-2">
-                <span class="text-caption">الشريحة</span>
+                <span class="text-caption">{{ t('cbct.slice') }}</span>
                 <v-slider v-model="sliceK" :min="0" :max="geometry.dims[2] - 1" :step="1" hide-details density="compact" />
                 <span class="text-caption" dir="ltr">{{ sliceK }}</span>
               </div>
-              <div class="text-caption text-medium-emphasis">انقر على مركز العظم السنخي من جهة إلى الأخرى ({{ controlPoints.length }} نقطة).</div>
+              <div class="text-caption text-medium-emphasis">{{ t('cbct.curveHelp', { n: controlPoints.length }) }}</div>
             </v-card>
 
             <!-- Panoramic -->
             <v-card variant="outlined" rounded="lg" class="pa-2 pano-wide">
-              <div class="text-subtitle-2 mb-1">2. البانوراما المعاد بناؤها <span v-if="curve" class="text-caption" dir="ltr">({{ curve.lengthMm.toFixed(1) }} mm)</span></div>
+              <div class="text-subtitle-2 mb-1">{{ t('cbct.step2') }} <span v-if="curve" class="text-caption" dir="ltr">({{ curve.lengthMm.toFixed(1) }} mm)</span></div>
               <canvas ref="panoCanvas" class="pano-canvas" @click="onPanoClick" />
-              <div class="text-caption text-medium-emphasis">انقر على موضع لعرض المقطع العرضي فيه.</div>
+              <div class="text-caption text-medium-emphasis">{{ t('cbct.step2Help') }}</div>
             </v-card>
 
             <!-- Cross-section -->
             <v-card variant="outlined" rounded="lg" class="pa-2">
               <div class="d-flex align-center ga-2 mb-1 flex-wrap">
-                <span class="text-subtitle-2">3. المقطع العرضي <span v-if="section" class="text-caption" dir="ltr">@ {{ section.sample.distMm.toFixed(1) }} mm</span></span>
+                <span class="text-subtitle-2">{{ t('cbct.step3') }} <span v-if="section" class="text-caption" dir="ltr">@ {{ section.sample.distMm.toFixed(1) }} mm</span></span>
                 <v-spacer />
                 <v-btn-toggle v-model="xsTool" density="compact" variant="outlined" divided color="primary" :disabled="!canManage">
-                  <v-btn value="height" size="x-small">ارتفاع العظم</v-btn>
-                  <v-btn value="width" size="x-small">عرض العظم</v-btn>
-                  <v-btn value="implant" size="x-small">زرعة</v-btn>
+                  <v-btn value="height" size="x-small">{{ t('cbct.boneHeight') }}</v-btn>
+                  <v-btn value="width" size="x-small">{{ t('cbct.boneWidth') }}</v-btn>
+                  <v-btn value="implant" size="x-small">{{ t('cbct.implant') }}</v-btn>
                 </v-btn-toggle>
               </div>
               <canvas ref="xsCanvas" class="pano-canvas" @click="onXsClick" />
               <div v-if="xsTool === 'implant'" class="d-flex flex-wrap ga-2 mt-1">
-                <v-text-field v-model.number="implant.diameter" type="number" min="2" max="8" step="0.1" label="القطر (ملم)" density="compact" variant="outlined" hide-details style="max-width:110px" />
-                <v-text-field v-model.number="implant.length" type="number" min="4" max="20" step="0.5" label="الطول (ملم)" density="compact" variant="outlined" hide-details style="max-width:110px" />
-                <v-text-field v-model.number="implant.angle" type="number" min="-45" max="45" step="1" label="الميل (°)" density="compact" variant="outlined" hide-details style="max-width:100px" />
-                <v-text-field v-model="implant.tooth" label="السن" density="compact" variant="outlined" hide-details style="max-width:90px" />
+                <v-text-field v-model.number="implant.diameter" type="number" min="2" max="8" step="0.1" :label="t('cbct.diameter')" density="compact" variant="outlined" hide-details style="max-width:110px" />
+                <v-text-field v-model.number="implant.length" type="number" min="4" max="20" step="0.5" :label="t('cbct.length')" density="compact" variant="outlined" hide-details style="max-width:110px" />
+                <v-text-field v-model.number="implant.angle" type="number" min="-45" max="45" step="1" :label="t('cbct.tilt')" density="compact" variant="outlined" hide-details style="max-width:100px" />
+                <v-text-field v-model="implant.tooth" :label="t('cbct.tooth')" density="compact" variant="outlined" hide-details style="max-width:90px" />
                 <v-btn-toggle v-model="implant.jaw" mandatory density="compact" variant="outlined" divided>
-                  <v-btn value="mandible" size="x-small">سفلي</v-btn>
-                  <v-btn value="maxilla" size="x-small">علوي</v-btn>
+                  <v-btn value="mandible" size="x-small">{{ t('common.lower') }}</v-btn>
+                  <v-btn value="maxilla" size="x-small">{{ t('common.upper') }}</v-btn>
                 </v-btn-toggle>
               </div>
               <div class="text-caption text-medium-emphasis mt-1">{{ xsHint }}</div>
@@ -76,11 +76,11 @@
 
           <v-row class="mt-2">
             <v-col cols="12" md="6">
-              <div class="text-subtitle-2 mb-1">قياسات العظم</div>
+              <div class="text-subtitle-2 mb-1">{{ t('cbct.boneMeasurements') }}</div>
               <v-table density="compact">
                 <tbody>
                   <tr v-for="(m, i) in crossSections" :key="i">
-                    <td>{{ m.kind === 'bone_height' ? 'ارتفاع' : 'عرض' }}</td>
+                    <td>{{ m.kind === 'bone_height' ? t('cbct.height') : t('cbct.width') }}</td>
                     <td dir="ltr">@ {{ m.position_mm.toFixed(1) }} mm</td>
                     <td dir="ltr" class="font-weight-bold">{{ m.value.toFixed(2) }} mm</td>
                     <td><v-btn v-if="canManage" icon="mdi-close" size="x-small" variant="text" @click="crossSections.splice(i, 1); drawXs()" /></td>
@@ -89,7 +89,7 @@
               </v-table>
             </v-col>
             <v-col cols="12" md="6">
-              <div class="text-subtitle-2 mb-1">الزرعات المخططة</div>
+              <div class="text-subtitle-2 mb-1">{{ t('cbct.plannedImplants') }}</div>
               <v-table density="compact">
                 <tbody>
                   <tr v-for="(im, i) in implants" :key="i">
@@ -103,7 +103,7 @@
             </v-col>
           </v-row>
           <v-alert type="info" variant="tonal" density="compact" class="mt-2">
-            إعادة بناء منحنية من بيانات الحجم نفسها؛ أبعاد البكسل معروفة بالملم. تخطيط الزرعات هنا أداة مساعدة للتصوّر والقياس فقط، وليس دليلاً جراحياً ولا يغني عن تقييم الطبيب والتحقق السريري.
+            {{ t('cbct.panoDisclaimer') }}
           </v-alert>
         </template>
       </v-card-text>
@@ -114,9 +114,11 @@
 <script setup>
 import { computed, nextTick, onMounted, reactive, ref, shallowRef, watch } from 'vue'
 import { archCurve, autoWindow, axialImage, crossSection, indexToWorld, panoramicImage, toRgba } from './panoramic.js'
+import { useOrthoI18n } from '../../i18n.js'
 
 const props = defineProps({ volumeLoader: { type: Function, required: true }, saved: { type: Object, default: () => ({}) }, canManage: Boolean })
 const emit = defineEmits(['close', 'save'])
+const { t } = useOrthoI18n()
 
 const geometry = shallowRef(null)
 const dataRange = ref([0, 1])
@@ -144,8 +146,8 @@ const panoCanvas = ref(null)
 const xsCanvas = ref(null)
 
 const xsHint = computed(() => xsTool.value === 'implant'
-  ? 'انقر موضع منصة الزرعة (أعلى الزرعة). الاتجاه حسب الفك والميل.'
-  : (pending.value ? 'انقر النقطة الثانية' : 'انقر نقطتين لقياس العظم بالملم'))
+  ? t('cbct.hintImplant')
+  : (pending.value ? t('common.clickSecondPoint') : t('cbct.hintBone')))
 
 // ---- drawing helpers (canvases are drawn in mm so the aspect is true) ------
 function paint (canvas, img, pxMm, overlay) {
@@ -299,7 +301,7 @@ function onXsClick (e) {
     const t = (ang * Math.PI) / 180
     const direction = eCol.map((v, i) => Math.sin(t) * v + (down ? 1 : -1) * Math.cos(t) * eRow[i])
     implants.value.push({
-      label: `زرعة ${implants.value.length + 1}`,
+      label: t('cbct.implantLabel', { n: implants.value.length + 1 }),
       tooth: implant.tooth || null,
       position: o.map(v => +v.toFixed(3)),
       direction: direction.map(v => +v.toFixed(5)),
@@ -314,7 +316,7 @@ function onXsClick (e) {
   const a = pending.value
   const value = Math.hypot((pt[0] - a[0]) * xs.pixelMm[0], (pt[1] - a[1]) * xs.pixelMm[1])
   crossSections.value.push({
-    label: xsTool.value === 'height' ? 'ارتفاع العظم' : 'عرض العظم',
+    label: xsTool.value === 'height' ? t('cbct.boneHeight') : t('cbct.boneWidth'),
     kind: xsTool.value === 'height' ? 'bone_height' : 'bone_width',
     position_mm: xs.sample.distMm,
     spacing_mm: xs.pixelMm,

@@ -2,14 +2,14 @@
   <v-card rounded="xl" variant="outlined">
     <v-card-title class="d-flex align-center ga-2">
       <v-icon color="primary">mdi-compare-horizontal</v-icon>
-      مقارنة التحليلات
+      {{ t('ceph.compareTitle') }}
       <v-spacer />
       <v-btn icon="mdi-close" variant="text" size="small" @click="$emit('close')" />
     </v-card-title>
     <v-divider />
     <v-card-text>
       <v-alert v-if="mixedUnits" type="warning" variant="tonal" density="compact" class="mb-3">
-        بعض التحليلات غير معايرة؛ لا تُقارن المسافات بينها إلا إذا كانت كلها بالملم.
+        {{ t('ceph.mixedUnits') }}
       </v-alert>
       <div class="d-flex flex-wrap ga-4">
         <!-- SN superimposition registered at S -->
@@ -20,17 +20,17 @@
               <circle v-for="(p, code) in t.points" :key="code" :cx="p[0]" :cy="p[1]" :r="viewSize / 220" :fill="COLORS[i % COLORS.length]" />
             </g>
           </svg>
-          <div class="text-caption text-center mt-1">تطابق على خط SN عند النقطة S {{ allCalibrated ? '(بالملم)' : '(بالبكسل - التحليلات غير معايرة)' }}</div>
+          <div class="text-caption text-center mt-1">{{ t('ceph.superimposition') }} {{ allCalibrated ? t('ceph.inMm') : t('ceph.inPx') }}</div>
         </div>
         <div class="flex-grow-1" style="min-width:280px">
           <v-table density="compact">
             <thead>
               <tr>
-                <th>القياس</th>
+                <th>{{ t('common.measurement') }}</th>
                 <th v-for="(a, i) in analyses" :key="a.id" class="text-center">
                   <span class="cc-dot" :style="{ background: COLORS[i % COLORS.length] }" />{{ a.analysis_date }}
                 </th>
-                <th v-if="analyses.length === 2" class="text-center">الفرق</th>
+                <th v-if="analyses.length === 2" class="text-center">{{ t('common.difference') }}</th>
               </tr>
             </thead>
             <tbody>
@@ -51,9 +51,11 @@
 import { computed } from 'vue'
 import { CEPH_DEFINITIONS, CEPH_TRACING, analyzeCeph } from '../../analysis/ceph.js'
 import { fmt } from '../../utils/format.js'
+import { useOrthoI18n } from '../../i18n.js'
 
 const props = defineProps({ analyses: { type: Array, required: true } })
 defineEmits(['close'])
+const { t } = useOrthoI18n()
 const COLORS = ['#0ea5e9', '#f43f5e', '#22c55e', '#f59e0b']
 const keys = ['SNA', 'SNB', 'ANB', 'wits', 'FMA', 'SN_GoGn', 'IMPA', 'interincisal', 'U1_SN', 'facial_axis', 'Y_axis', 'LAFH', 'Co_Gn', 'lower_lip_E']
 

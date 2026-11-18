@@ -53,9 +53,9 @@
     </div>
 
     <div class="lc-toolbar" @pointerdown.stop>
-      <v-btn icon="mdi-magnify-plus-outline" size="small" variant="tonal" density="comfortable" title="تكبير" @click="zoomBy(1.25)" />
-      <v-btn icon="mdi-magnify-minus-outline" size="small" variant="tonal" density="comfortable" title="تصغير" @click="zoomBy(0.8)" />
-      <v-btn icon="mdi-fit-to-screen-outline" size="small" variant="tonal" density="comfortable" title="ملاءمة" @click="fit" />
+      <v-btn icon="mdi-magnify-plus-outline" size="small" variant="tonal" density="comfortable" :title="t('canvas.zoomIn')" @click="zoomBy(1.25)" />
+      <v-btn icon="mdi-magnify-minus-outline" size="small" variant="tonal" density="comfortable" :title="t('canvas.zoomOut')" @click="zoomBy(0.8)" />
+      <v-btn icon="mdi-fit-to-screen-outline" size="small" variant="tonal" density="comfortable" :title="t('canvas.fit')" @click="fit" />
       <span class="lc-zoom">{{ Math.round(scale * 100) }}%</span>
     </div>
   </div>
@@ -63,6 +63,7 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { ot as t } from '../i18n.js'
 
 const props = defineProps({
   src: { type: String, default: '' },

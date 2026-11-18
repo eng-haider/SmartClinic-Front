@@ -3,26 +3,26 @@
     <v-row>
       <v-col cols="12" md="4">
         <v-card rounded="xl" variant="outlined">
-          <v-card-title>إعداد التقرير</v-card-title>
+          <v-card-title>{{ t('reports.setup') }}</v-card-title>
           <v-card-text>
             <v-radio-group v-model="kind" density="compact">
-              <v-radio value="final" label="تقرير نهائي (التحليلات المعتمدة فقط)" />
-              <v-radio value="draft" label="مسودة (كل التحليلات، مع علامة مسودة)" />
+              <v-radio value="final" :label="t('reports.final')" />
+              <v-radio value="draft" :label="t('reports.draft')" />
             </v-radio-group>
-            <v-select v-model="analysisId" :items="analysisItems" label="النطاق" variant="outlined" density="comfortable" />
-            <div class="text-subtitle-2 mb-1">الأقسام</div>
-            <v-checkbox v-for="(label, key) in SECTIONS" :key="key" v-model="sections[key]" :label="label" density="compact" hide-details />
-            <v-checkbox v-model="includeImage" label="إرفاق صورة الأشعة مع التتبع" density="compact" hide-details />
-            <v-select v-model="locale" :items="[{ title: 'العربية', value: 'ar' }, { title: 'English', value: 'en' }]" label="لغة التقرير" variant="outlined" density="comfortable" class="mt-3" />
+            <v-select v-model="analysisId" :items="analysisItems" :label="t('reports.scope')" variant="outlined" density="comfortable" />
+            <div class="text-subtitle-2 mb-1">{{ t('reports.sections') }}</div>
+            <v-checkbox v-for="key in SECTION_KEYS" :key="key" v-model="sections[key]" :label="t(`reports.sectionNames.${key}`)" density="compact" hide-details />
+            <v-checkbox v-model="includeImage" :label="t('reports.attachImage')" density="compact" hide-details />
+            <v-select v-model="locale" :items="[{ title: 'العربية', value: 'ar' }, { title: 'English', value: 'en' }]" :label="t('reports.language')" variant="outlined" density="comfortable" class="mt-3" />
             <v-alert v-if="kind === 'final' && unreviewed" type="info" variant="tonal" density="compact" class="mb-2">
-              {{ unreviewed }} تحليل غير معتمد لن يظهر في التقرير النهائي. اعتمد التحليل من شاشته بعد مراجعته.
+              {{ t('reports.unreviewed', { n: unreviewed }) }}
             </v-alert>
             <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mb-2">{{ error }}</v-alert>
             <div class="d-flex ga-2">
-              <v-btn color="primary" variant="tonal" :loading="loading" prepend-icon="mdi-eye-outline" @click="preview">معاينة</v-btn>
-              <v-btn color="primary" :loading="loading" :disabled="!html" prepend-icon="mdi-file-pdf-box" @click="print">طباعة / PDF</v-btn>
+              <v-btn color="primary" variant="tonal" :loading="loading" prepend-icon="mdi-eye-outline" @click="preview">{{ t('reports.preview') }}</v-btn>
+              <v-btn color="primary" :loading="loading" :disabled="!html" prepend-icon="mdi-file-pdf-box" @click="print">{{ t('reports.print') }}</v-btn>
             </div>
-            <div class="text-caption text-medium-emphasis mt-2">اختر «حفظ كـ PDF» في نافذة الطباعة. يحافظ المتصفح على اتجاه النص العربي وتشكيل الحروف.</div>
+            <div class="text-caption text-medium-emphasis mt-2">{{ t('reports.printHelp') }}</div>
           </v-card-text>
         </v-card>
       </v-col>
@@ -31,7 +31,7 @@
           <iframe v-if="html" :srcdoc="html" title="report preview" class="preview-frame" />
           <div v-else class="text-center text-medium-emphasis py-16">
             <v-icon size="48">mdi-file-document-outline</v-icon>
-            <div class="mt-2">اضغط «معاينة» لإنشاء التقرير</div>
+            <div class="mt-2">{{ t('reports.empty') }}</div>
           </div>
         </v-card>
       </v-col>
@@ -44,22 +44,24 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { orthoApi, orthoError } from '../api.js'
 import { buildReportHtml } from '../utils/reportHtml.js'
 import { printHtml } from '../utils/print.js'
+import { useOrthoI18n } from '../i18n.js'
 
 const props = defineProps({ caseId: { type: [Number, String], required: true }, initialAnalysisId: { type: [Number, String], default: null } })
-const SECTIONS = { ceph: 'التحليل السيفالومتري', cast: 'تحليل الموديلات', cbct: 'قياسات CBCT', face: 'تحليل الوجه', plan: 'الخطة العلاجية' }
+const { t, lang } = useOrthoI18n()
+const SECTION_KEYS = ['ceph', 'cast', 'cbct', 'face', 'plan']
 
 const kind = ref('final')
 const analysisId = ref(props.initialAnalysisId || 'all')
 const sections = reactive({ ceph: true, cast: true, cbct: true, face: true, plan: true })
 const includeImage = ref(true)
-const locale = ref(localStorage.getItem('locale') === 'en' ? 'en' : 'ar')
+const locale = ref(lang.value)
 const analyses = ref([])
 const unreviewed = ref(0)
 const html = ref('')
 const loading = ref(false)
 const error = ref('')
-const TYPE_AR = { ceph: 'سيفالومتري', cast: 'موديلات', cbct: 'CBCT', face: 'وجه' }
-const analysisItems = computed(() => [{ title: 'تقرير شامل للحالة', value: 'all' }, ...analyses.value.map(a => ({ title: `${TYPE_AR[a.type]}: ${a.title || ''} · ${a.analysis_date}${a.status === 'reviewed' ? ' ✓' : ''}`, value: a.id }))])
+const typeLabel = type => (['ceph', 'cast', 'cbct', 'face'].includes(type) ? t(`reports.types.${type}`) : type)
+const analysisItems = computed(() => [{ title: t('reports.wholeCase'), value: 'all' }, ...analyses.value.map(a => ({ title: `${typeLabel(a.type)}: ${a.title || ''} · ${a.analysis_date}${a.status === 'reviewed' ? ' ✓' : ''}`, value: a.id }))])
 
 const blobToDataUrl = blob => new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = reject; r.readAsDataURL(blob) })
 
@@ -78,7 +80,7 @@ async function preview () {
       }
     }
     if (!report.analyses.length && !(sections.plan && report.treatment_plan)) {
-      error.value = kind.value === 'final' ? 'لا توجد تحليلات معتمدة لعرضها.' : 'لا توجد بيانات لعرضها.'
+      error.value = kind.value === 'final' ? t('reports.noReviewed') : t('reports.noData')
     }
     html.value = buildReportHtml(report, { locale: locale.value, sections, images })
   } catch (e) {

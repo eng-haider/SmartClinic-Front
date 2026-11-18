@@ -215,10 +215,26 @@
         </v-card-text>
       </v-card>
 
+      <!-- Some patient data failed to load: say so instead of showing wrong totals -->
+      <v-alert
+        v-if="patientDataFailed"
+        type="warning"
+        variant="tonal"
+        density="compact"
+        class="mb-4"
+      >
+        {{ $t('patients.partial_load_failed') }}
+        <template #append>
+          <v-btn size="small" variant="text" :loading="retryingPatientData" @click="retryPatientData">
+            {{ $t('common.retry') }}
+          </v-btn>
+        </template>
+      </v-alert>
+
       <!-- Quick Stats - Grid Layout -->
-      <v-row class="mb-4" dense>
+      <v-row v-if="canSeeCaseStats || canSeeBillStats" class="mb-4" dense>
         <!-- Cases Stats -->
-        <v-col v-if="canViewCases" cols="6" sm="4" md="2">
+        <v-col v-if="canSeeCaseStats && casesLoad === 'ok'" cols="6" sm="4" md="2">
           <v-card elevation="1" rounded="lg" class="stat-card-mini fill-height">
             <v-card-text class="pa-3 text-center">
               <v-icon size="24" color="primary">{{ casesIcon }}</v-icon>
@@ -229,7 +245,7 @@
         </v-col>
 
         <!-- Last Visit (hidden on mobile) -->
-        <v-col cols="6" sm="4" md="2" class="d-none d-sm-block">
+        <v-col v-if="canSeeCaseStats" cols="6" sm="4" md="2" class="d-none d-sm-block">
           <v-card elevation="1" rounded="lg" class="stat-card-mini fill-height">
             <v-card-text class="pa-3 text-center">
               <v-icon size="24" color="info">mdi-calendar</v-icon>
@@ -240,7 +256,7 @@
         </v-col>
 
         <!-- Bills Stats -->
-        <v-col v-if="canViewBills" cols="6" sm="4" md="2">
+        <v-col v-if="canSeeBillStats && billTotalsReady" cols="6" sm="4" md="2">
           <v-card elevation="1" rounded="lg" class="stat-card-mini fill-height">
             <v-card-text class="pa-3 text-center">
               <v-icon size="24" color="info">mdi-cash-multiple</v-icon>
@@ -250,7 +266,7 @@
           </v-card>
         </v-col>
 
-        <v-col v-if="canViewBills" cols="6" sm="4" md="2">
+        <v-col v-if="canSeeBillStats && billTotalsReady" cols="6" sm="4" md="2">
           <v-card elevation="1" rounded="lg" class="stat-card-mini fill-height">
             <v-card-text class="pa-3 text-center">
               <v-icon size="24" color="success">mdi-check-circle</v-icon>
@@ -260,7 +276,7 @@
           </v-card>
         </v-col>
 
-        <v-col v-if="canViewBills" cols="6" sm="4" md="2">
+        <v-col v-if="canSeeBillStats && billTotalsReady" cols="6" sm="4" md="2">
           <v-card elevation="1" rounded="lg" class="stat-card-mini fill-height">
             <v-card-text class="pa-3 text-center">
               <v-icon size="24" color="warning">mdi-cash-clock</v-icon>
@@ -398,11 +414,12 @@
             :items="filteredCases"
             :items-per-page="-1"
             item-value="id"
-            :expanded="expandedOrthoCaseIds"
+            :expanded="expandedCaseIds"
             density="compact"
             mobile-breakpoint="sm"
             :hide-default-footer="true"
             :cell-props="({ column }) => ({ class: `${column.key}-cell` })"
+            :row-props="({ item }) => (isRootCanalOpen(item) && !isOrthoCase(item) ? { class: 'root-canal-open-row' } : {})"
             class="elevation-0 rounded-lg cases-data-table"
           >
             <!-- Tooth number -->
@@ -414,15 +431,34 @@
               <span v-else class="text-grey text-caption">{{ $t('patients.general') }}</span>
             </template>
 
-            <!-- Category -->
+            <!-- Category (+ root canal record button on root canal cases) -->
             <template #item.category="{ item }">
-              <v-chip
-                size="small"
-                :color="item.category?.color || getCategoryColor(item.category?.id || item.case_categores_id)"
-                variant="tonal"
-              >
-                {{ item.category?.name || getCategoryName(item.category?.id || item.case_categores_id) }}
-              </v-chip>
+              <div class="d-flex align-center flex-wrap ga-1">
+                <v-chip
+                  size="small"
+                  :color="item.category?.color || getCategoryColor(item.category?.id || item.case_categores_id)"
+                  variant="tonal"
+                >
+                  {{ item.category?.name || getCategoryName(item.category?.id || item.case_categores_id) }}
+                </v-chip>
+                <!-- Toggle for the root canal panel below the row; styled like the chip -->
+                <v-btn
+                  v-if="showRootCanalFor(item)"
+                  size="small"
+                  variant="tonal"
+                  rounded="pill"
+                  :color="item.category?.color || getCategoryColor(item.category?.id || item.case_categores_id)"
+                  :aria-expanded="isRootCanalOpen(item) ? 'true' : 'false'"
+                  class="root-canal-btn"
+                  @click.stop="toggleRootCanal(item)"
+                >
+                  {{ $t('rootCanal.title') }}
+                  <span v-if="rootCanalCount(item)" class="root-canal-count">{{ rootCanalCount(item) }}</span>
+                  <template #append>
+                    <v-icon size="16">{{ isRootCanalOpen(item) ? 'mdi-chevron-up' : 'mdi-chevron-down' }}</v-icon>
+                  </template>
+                </v-btn>
+              </div>
             </template>
 
             <!-- Doctor -->
@@ -698,9 +734,21 @@
 
             <!-- Expanded row: roomy in-page notes panel (no dialog/overlay) -->
             <template #expanded-row="{ columns, item }">
-              <tr class="case-notes-panel-row">
+              <tr
+                :class="isOrthoCase(item)
+                  ? 'case-notes-panel-row'
+                  : ['root-canal-panel-row', { 'root-canal-panel-row--mobile': isPhone }]"
+              >
                 <td :colspan="columns.length" class="pa-0">
-                  <div class="case-notes-panel">
+                  <!-- Root canal record, opened by the toggle next to the category chip -->
+                  <RootCanalPanel
+                    v-if="isRootCanalOpen(item)"
+                    :case-id="item.id"
+                    :root-stuffing="item.root_stuffing"
+                    :readonly="!canEditCase"
+                    @saved="(value) => { item.root_stuffing = value }"
+                  />
+                  <div v-if="isOrthoCase(item)" class="case-notes-panel">
                     <!-- Orthodontics module shortcut (clinic setting + orthodontic category) -->
                     <div v-if="showOrthoWorkspaceFor(item)" class="d-flex justify-end mb-2">
                       <v-btn
@@ -953,7 +1001,7 @@
                   <v-icon start color="success" size="20">mdi-receipt</v-icon>
                   {{ $t('patients.bill') }}
                 </h3>
-                <div class="d-flex ga-1 flex-wrap">
+                <div v-if="canSeeBillStats && billTotalsReady" class="d-flex ga-1 flex-wrap">
                   <v-chip color="info" size="x-small" variant="flat">
                     {{ formatCurrency(totalBills) }}
                   </v-chip>
@@ -1458,6 +1506,8 @@ import CaseNoteCard from '@/components/patients/CaseNoteCard.vue'
 import NoteImageAttachments from '@/components/patients/NoteImageAttachments.vue'
 import OrthoMetaBadges from '@/components/patients/OrthoMetaBadges.vue'
 import CaseQuickBillForm from '@/components/patients/CaseQuickBillForm.vue'
+import RootCanalPanel from '@/components/patients/RootCanalPanel.vue'
+import { countRootCanals, hasRootCanalData, isRootCanalCategory } from '@/utils/rootCanal'
 import aiService from '@/services/ai.service'
 import { formatXrayAnalysis } from '@/utils/aiFormat'
 import { downscaleImage, extractImageFiles, isSupportedImage, makeImageKey } from '@/utils/imageFiles'
@@ -1515,6 +1565,31 @@ const canViewBills = computed(() => {
     PERMISSIONS.MARK_BILL_PAID
   ])
 })
+// The summary cards (and the bill totals) need a "view" permission, the same ones the
+// Cases and Bills pages require (ROUTE_PERMISSIONS). canViewCases/canViewBills also
+// pass for create/edit-only users, who must not see the patient's totals.
+const canSeeCaseStats = computed(() => hasAnyPermission([
+  PERMISSIONS.VIEW_CLINIC_CASES,
+  PERMISSIONS.VIEW_ALL_CASES,
+  PERMISSIONS.VIEW_OWN_CASES
+]))
+const canSeeBillStats = computed(() => hasAnyPermission([
+  PERMISSIONS.VIEW_ALL_BILLS,
+  PERMISSIONS.VIEW_CLINIC_BILLS,
+  PERMISSIONS.VIEW_OWN_BILLS
+]))
+// Whether the cases and the bills loaded: 'pending' | 'ok' | 'failed'. The totals mix
+// both (billed comes from the cases, paid from the bills), so when one request fails
+// (Hostinger sometimes refuses the DB connection) they would be wrong, e.g. paid 0.
+// The cards then stay hidden and a notice offers a retry.
+const casesLoad = ref('pending')
+const billsLoad = ref('pending')
+const billTotalsReady = computed(() => casesLoad.value === 'ok' && billsLoad.value === 'ok')
+const patientDataFailed = computed(() =>
+  (casesLoad.value === 'failed' && (canViewCases.value || canViewBills.value || canSeeCaseStats.value)) ||
+  (billsLoad.value === 'failed' && canViewBills.value)
+)
+const retryingPatientData = ref(false)
 const canViewRecipes = computed(() => hasPermissionFor('recipe'))
 const canEditPatient = computed(() => hasPermission(PERMISSIONS.EDIT_PATIENT))
 // Merging two patient records: clinics the platform enabled it for (can_merge_patients),
@@ -2047,6 +2122,9 @@ const expandedOrthoCaseIds = computed(() =>
   filteredCases.value.filter(isOrthoCase).map(c => c.id)
 )
 
+// Rows showing a panel below them: orthodontics notes and opened root canal records.
+const expandedCaseIds = computed(() => [...new Set([...expandedOrthoCaseIds.value, ...openRootCanalIds.value])])
+
 // Original always-visible note box for every non-orthodontics category.
 const noteInputs = ref({})
 
@@ -2072,6 +2150,29 @@ const saveCasePanelNote = async (item) => {
   f.images.forEach((img) => URL.revokeObjectURL(img.url))
   f.images = []
   clearNoteDraft(item.id)
+}
+
+// Root canal record: a button on root canal cases (by category name), and on any
+// case that already holds a record (e.g. cases imported from the old system).
+// The button opens the record inline, in the case's expanded row (no dialog).
+const openRootCanalIds = ref([])
+
+const caseCategoryOf = (item) =>
+  item.category || categories.value.find(c => c.id === (item.case_categores_id || item.category_id))
+
+const showRootCanalFor = (item) =>
+  isDentalClinic.value &&
+  !String(item.id).startsWith('tmp-') &&
+  (isRootCanalCategory(caseCategoryOf(item)) || hasRootCanalData(item.root_stuffing))
+
+const rootCanalCount = (item) => countRootCanals(item.root_stuffing)
+
+const isRootCanalOpen = (item) => openRootCanalIds.value.includes(item.id)
+
+const toggleRootCanal = (item) => {
+  openRootCanalIds.value = isRootCanalOpen(item)
+    ? openRootCanalIds.value.filter(id => id !== item.id)
+    : [...openRootCanalIds.value, item.id]
 }
 
 const openCaseDrawer = (item) => {
@@ -2339,30 +2440,39 @@ onBeforeUnmount(() => {
 const fetchPatientCases = async () => {
   try {
     const id = route.params.id
+    // Billing-only users (secretary without case access) still get the list for
+    // the bill form, but notes and photos only show inside the Cases section.
+    // They come with the cases instead of two requests per case: every request
+    // opens a new MySQL connection, and Hostinger refuses more than 20 a second.
+    const include = ['category', 'status', 'doctor', 'bills', 'warehouseItems', 'ophthalmologyEncounterDetails']
+    if (canViewCases.value) include.push('caseNotes')
+    if (canViewCases.value && canViewImages.value) include.push('caseImages')
+
     // Using Spatie Query Builder format: filter[field]=value
     const response = await api.get(`/cases`, {
       params: {
         'filter[patient_id]': id,
-        'include': 'category,status,doctor,bills,warehouseItems,ophthalmologyEncounterDetails',
+        'include': include.join(','),
         'sort': '-created_at',
         'per_page': 1000
       }
     })
     patientCases.value = response.data.data || response.data || []
 
-    // Normalize case_date for editable date field
     for (const caseItem of patientCases.value) {
+      // Normalize case_date for editable date field
       if (!caseItem.case_date && caseItem.created_at) {
         caseItem.case_date = caseItem.created_at
       }
-      // Billing-only users (secretary without case access) still get the list for
-      // the bill form, but notes and photos only show inside the Cases section.
       if (caseItem.id && canViewCases.value) {
-        await Promise.all([fetchCaseNotes(caseItem.id), fetchCaseImages(caseItem.id)])
+        caseNotes.value[caseItem.id] = caseItem.case_notes || []
+        caseImages[caseItem.id] = canViewImages.value ? (caseItem.case_images || []) : []
       }
     }
+    casesLoad.value = 'ok'
   } catch (err) {
     console.error('Error fetching cases:', err)
+    casesLoad.value = 'failed'
   }
 }
 
@@ -3057,8 +3167,19 @@ const fetchPatientBills = async () => {
   try {
     const response = await billService.getByPatient(route.params.id, { include: 'billable', sort: '-created_at' })
     patientBills.value = response.data || response
+    billsLoad.value = 'ok'
   } catch (err) {
     console.error('Error loading bills:', err)
+    billsLoad.value = 'failed'
+  }
+}
+
+const retryPatientData = async () => {
+  retryingPatientData.value = true
+  try {
+    await Promise.all([fetchPatientCases(), fetchPatientBills()])
+  } finally {
+    retryingPatientData.value = false
   }
 }
 
@@ -3699,6 +3820,8 @@ const showSnackbar = (message, color = 'success') => {
 // Watch route changes
 watch(() => route.params.id, (newId) => {
   if (newId) {
+    casesLoad.value = 'pending'
+    billsLoad.value = 'pending'
     fetchPatient()
     fetchPatientCases()
     fetchPatientBills()
@@ -3811,6 +3934,79 @@ const setDefaultTab = () => {
   font-size: 12.5px;
   font-weight: 600;
   color: rgb(var(--v-theme-primary));
+}
+
+/* Root canal toggle: same size, shape and type as the small category chip next to it */
+.root-canal-btn {
+  height: 26px !important;
+  min-width: 0 !important;
+  padding-inline: 10px 6px !important;
+  font-size: 0.75rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-indent: 0;
+  text-transform: none;
+}
+.root-canal-btn :deep(.v-btn__append) {
+  margin-inline: 2px 0;
+}
+/* Phones: styles/mobile.css makes every button at least 44px tall. Keep the chip's
+   look and give the 44px touch target with an invisible area around it instead. */
+@media (max-width: 600px) {
+  .root-canal-btn.v-btn {
+    min-height: 0 !important;
+  }
+  .root-canal-btn::before {
+    content: '';
+    position: absolute;
+    inset: -9px -2px;
+  }
+}
+/* Number of canals recorded, in a slightly stronger tint of the chip colour */
+.root-canal-count {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  margin-inline-start: 6px;
+  border-radius: 9px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.root-canal-count::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: currentColor;
+  opacity: 0.16;
+}
+/* Desktop: no divider between an open row and its panel, so they read as one row */
+.cases-data-table :deep(tr.root-canal-open-row:not(.v-data-table__tr--mobile) > td) {
+  border-bottom-color: transparent !important;
+}
+/* Phones: the panel continues the case card (same border, background and radius) */
+.cases-data-table :deep(tr.v-data-table__tr--mobile.root-canal-open-row) {
+  margin-bottom: 0 !important;
+  border-bottom-left-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+}
+.root-canal-panel-row--mobile {
+  display: block;
+  margin-bottom: 24px;
+  overflow: hidden;
+  background: rgb(var(--v-theme-surface));
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-top: 0;
+  border-radius: 0 0 12px 12px;
+}
+.root-canal-panel-row--mobile > td {
+  display: block;
+  /* Vuetify gives every cell the row height; as a block that would clip the panel */
+  height: auto !important;
+  border-bottom: 0 !important;
 }
 
 /* Inline "notes / ortho" expandable panel (replaces the old cramped textarea) */

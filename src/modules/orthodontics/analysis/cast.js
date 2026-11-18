@@ -13,17 +13,17 @@ export const BOLTON_ANTERIOR = { mean: 77.2, sd: 1.65, source: 'Bolton 1958' }
 
 /** Named points the doctor can pick on each arch. */
 export const CAST_POINTS = [
-  { key: 'incisal', ar: 'نقطة القواطع (بين الثنيتين)' },
-  { key: 'canine_right', ar: 'رأس الناب الأيمن' },
-  { key: 'canine_left', ar: 'رأس الناب الأيسر' },
-  { key: 'molar_right', ar: 'الحدبة الأنسية الشدقية للرحى اليمنى' },
-  { key: 'molar_left', ar: 'الحدبة الأنسية الشدقية للرحى اليسرى' },
-  { key: 'molar_mesial_right', ar: 'نقطة التماس الأنسية للرحى اليمنى' },
-  { key: 'molar_mesial_left', ar: 'نقطة التماس الأنسية للرحى اليسرى' },
-  { key: 'pont_premolar_right', ar: 'Pont: الحفرة الوحشية للضاحك الأول الأيمن', arch: 'upper' },
-  { key: 'pont_premolar_left', ar: 'Pont: الحفرة الوحشية للضاحك الأول الأيسر', arch: 'upper' },
-  { key: 'pont_molar_right', ar: 'Pont: الحفرة الأنسية للرحى الأولى اليمنى', arch: 'upper' },
-  { key: 'pont_molar_left', ar: 'Pont: الحفرة الأنسية للرحى الأولى اليسرى', arch: 'upper' }
+  { key: 'incisal', en: 'Incisal point (between the central incisors)', ar: 'نقطة القواطع (بين الثنيتين)' },
+  { key: 'canine_right', en: 'Right canine cusp tip', ar: 'رأس الناب الأيمن' },
+  { key: 'canine_left', en: 'Left canine cusp tip', ar: 'رأس الناب الأيسر' },
+  { key: 'molar_right', en: 'Mesiobuccal cusp of the right molar', ar: 'الحدبة الأنسية الشدقية للرحى اليمنى' },
+  { key: 'molar_left', en: 'Mesiobuccal cusp of the left molar', ar: 'الحدبة الأنسية الشدقية للرحى اليسرى' },
+  { key: 'molar_mesial_right', en: 'Mesial contact point of the right molar', ar: 'نقطة التماس الأنسية للرحى اليمنى' },
+  { key: 'molar_mesial_left', en: 'Mesial contact point of the left molar', ar: 'نقطة التماس الأنسية للرحى اليسرى' },
+  { key: 'pont_premolar_right', en: 'Pont: distal pit of the right first premolar', ar: 'Pont: الحفرة الوحشية للضاحك الأول الأيمن', arch: 'upper' },
+  { key: 'pont_premolar_left', en: 'Pont: distal pit of the left first premolar', ar: 'Pont: الحفرة الوحشية للضاحك الأول الأيسر', arch: 'upper' },
+  { key: 'pont_molar_right', en: 'Pont: mesial pit of the right first molar', ar: 'Pont: الحفرة الأنسية للرحى الأولى اليمنى', arch: 'upper' },
+  { key: 'pont_molar_left', en: 'Pont: mesial pit of the left first molar', ar: 'Pont: الحفرة الأنسية للرحى الأولى اليسرى', arch: 'upper' }
 ]
 
 const r = v => (v === null || v === undefined ? null : round(v, 2))

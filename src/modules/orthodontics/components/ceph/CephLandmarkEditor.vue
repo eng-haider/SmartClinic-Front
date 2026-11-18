@@ -2,24 +2,24 @@
   <div class="ceph-editor">
     <!-- Toolbar -->
     <div class="ceph-toolbar">
-      <v-btn variant="text" prepend-icon="mdi-arrow-right" @click="close">رجوع</v-btn>
-      <v-text-field v-model="title" :readonly="!canManage" density="compact" variant="outlined" hide-details placeholder="عنوان التحليل" class="ceph-title" />
+      <v-btn variant="text" :prepend-icon="backIcon" @click="close">{{ t('common.back') }}</v-btn>
+      <v-text-field v-model="title" :readonly="!canManage" density="compact" variant="outlined" hide-details :placeholder="t('ceph.titlePlaceholder')" class="ceph-title" />
       <v-text-field v-model="analysisDate" :readonly="!canManage" type="date" density="compact" variant="outlined" hide-details class="ceph-date" />
       <v-spacer />
       <v-chip v-if="current" :color="current.status === 'reviewed' ? 'success' : 'grey'" variant="tonal" size="small">
         <v-icon start size="16">{{ current.status === 'reviewed' ? 'mdi-check-decagram' : 'mdi-pencil-outline' }}</v-icon>
-        {{ current.status === 'reviewed' ? 'معتمد من الطبيب' : 'مسودة' }} · مراجعة {{ current.revision }}
+        {{ current.status === 'reviewed' ? t('common.reviewedByDoctor') : t('common.draft') }} · {{ t('common.revision', { n: current.revision }) }}
       </v-chip>
       <v-btn v-if="canManage && current && !dirty" :color="current.status === 'reviewed' ? 'grey' : 'success'" variant="tonal" :loading="reviewing" prepend-icon="mdi-check-decagram-outline" @click="toggleReview">
-        {{ current.status === 'reviewed' ? 'إلغاء الاعتماد' : 'اعتماد التحليل' }}
+        {{ current.status === 'reviewed' ? t('common.unapprove') : t('ceph.approve') }}
       </v-btn>
-      <v-btn v-if="canManage" color="primary" :loading="saving" :disabled="!dirty && !!current" prepend-icon="mdi-content-save" @click="save">حفظ</v-btn>
+      <v-btn v-if="canManage" color="primary" :loading="saving" :disabled="!dirty && !!current" prepend-icon="mdi-content-save" @click="save">{{ t('common.save') }}</v-btn>
     </div>
 
     <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mb-2" closable @click:close="error = ''">{{ error }}</v-alert>
     <v-alert v-if="suggestedCodes.length" type="warning" variant="tonal" density="compact" class="mb-2">
-      {{ suggestedCodes.length }} نقطة مقترحة آلياً (بإطار متقطع). راجع كل نقطة وحرّكها إذا لزم، ثم اضغط «تأكيد النقاط المقترحة».
-      <template #append><v-btn size="small" variant="tonal" @click="confirmSuggested">تأكيد النقاط المقترحة</v-btn></template>
+      {{ t('ceph.suggested', { n: suggestedCodes.length }) }}
+      <template #append><v-btn size="small" variant="tonal" @click="confirmSuggested">{{ t('ceph.confirmSuggested') }}</v-btn></template>
     </v-alert>
 
     <div class="ceph-body">
@@ -45,9 +45,9 @@
         />
         <div class="ceph-imgtools">
           <v-btn-toggle v-model="mode" mandatory density="compact" color="primary" variant="outlined" divided>
-            <v-btn value="place" size="small" prepend-icon="mdi-map-marker-plus-outline">وضع النقاط</v-btn>
-            <v-btn value="pan" size="small" prepend-icon="mdi-hand-back-right-outline">تحريك</v-btn>
-            <v-btn value="calibrate" size="small" prepend-icon="mdi-ruler">معايرة</v-btn>
+            <v-btn value="place" size="small" prepend-icon="mdi-map-marker-plus-outline">{{ t('common.placePoints') }}</v-btn>
+            <v-btn value="pan" size="small" prepend-icon="mdi-hand-back-right-outline">{{ t('common.pan') }}</v-btn>
+            <v-btn value="calibrate" size="small" prepend-icon="mdi-ruler">{{ t('ceph.calibrate') }}</v-btn>
           </v-btn-toggle>
           <div class="ceph-slider">
             <v-icon size="18">mdi-brightness-6</v-icon>
@@ -57,24 +57,24 @@
             <v-icon size="18">mdi-contrast-box</v-icon>
             <v-slider v-model="filters.contrast" :min="30" :max="300" :step="5" hide-details density="compact" color="primary" />
           </div>
-          <v-btn size="small" variant="tonal" :color="filters.invert ? 'primary' : undefined" icon="mdi-invert-colors" title="عكس الألوان" @click="filters.invert = !filters.invert" />
-          <v-btn size="small" variant="tonal" :color="showTracing ? 'primary' : undefined" icon="mdi-vector-polyline" title="خطوط التتبع" @click="showTracing = !showTracing" />
-          <v-btn size="small" variant="tonal" :color="showLabels ? 'primary' : undefined" icon="mdi-label-outline" title="أسماء النقاط" @click="showLabels = !showLabels" />
-          <v-btn v-if="detectionAvailable && canManage" size="small" variant="tonal" color="deep-purple" :loading="detecting" prepend-icon="mdi-auto-fix" @click="detect">اقتراح النقاط آلياً</v-btn>
+          <v-btn size="small" variant="tonal" :color="filters.invert ? 'primary' : undefined" icon="mdi-invert-colors" :title="t('ceph.invert')" @click="filters.invert = !filters.invert" />
+          <v-btn size="small" variant="tonal" :color="showTracing ? 'primary' : undefined" icon="mdi-vector-polyline" :title="t('ceph.tracing')" @click="showTracing = !showTracing" />
+          <v-btn size="small" variant="tonal" :color="showLabels ? 'primary' : undefined" icon="mdi-label-outline" :title="t('ceph.labels')" @click="showLabels = !showLabels" />
+          <v-btn v-if="detectionAvailable && canManage" size="small" variant="tonal" color="deep-purple" :loading="detecting" prepend-icon="mdi-auto-fix" @click="detect">{{ t('ceph.detect') }}</v-btn>
         </div>
 
         <!-- Calibration -->
         <v-expand-transition>
           <v-card v-if="mode === 'calibrate'" variant="outlined" rounded="lg" class="pa-3 mt-2">
             <div class="text-body-2 mb-2">
-              انقر على طرفي مسطرة المعايرة الظاهرة في الصورة ثم أدخل طولها الحقيقي. بدون معايرة تُعرض المسافات بالبكسل فقط.
+              {{ t('ceph.calibrationHelp') }}
             </div>
             <div class="d-flex flex-wrap ga-2 align-center">
-              <v-text-field v-model.number="rulerCal.known_mm" type="number" min="0" step="0.5" label="الطول الحقيقي (ملم)" density="compact" variant="outlined" hide-details style="max-width:180px" :readonly="!canManage" />
-              <span class="text-caption">أو</span>
-              <v-text-field v-model.number="pixelSpacing.mm_per_px" type="number" min="0" step="0.001" label="ملم لكل بكسل (من الجهاز)" density="compact" variant="outlined" hide-details style="max-width:200px" :readonly="!canManage" />
-              <v-text-field v-model.number="pixelSpacing.magnification" type="number" min="1" step="0.01" label="معامل التكبير" density="compact" variant="outlined" hide-details style="max-width:150px" :readonly="!canManage" />
-              <v-btn size="small" variant="text" color="error" @click="clearCalibration">مسح المعايرة</v-btn>
+              <v-text-field v-model.number="rulerCal.known_mm" type="number" min="0" step="0.5" :label="t('ceph.realLength')" density="compact" variant="outlined" hide-details style="max-width:180px" :readonly="!canManage" />
+              <span class="text-caption">{{ t('ceph.or') }}</span>
+              <v-text-field v-model.number="pixelSpacing.mm_per_px" type="number" min="0" step="0.001" :label="t('ceph.mmPerPx')" density="compact" variant="outlined" hide-details style="max-width:200px" :readonly="!canManage" />
+              <v-text-field v-model.number="pixelSpacing.magnification" type="number" min="1" step="0.01" :label="t('ceph.magnification')" density="compact" variant="outlined" hide-details style="max-width:150px" :readonly="!canManage" />
+              <v-btn size="small" variant="text" color="error" @click="clearCalibration">{{ t('ceph.clearCalibration') }}</v-btn>
             </div>
           </v-card>
         </v-expand-transition>
@@ -83,8 +83,8 @@
       <!-- Side panel -->
       <div class="ceph-side">
         <v-tabs v-model="sideTab" density="compact" color="primary" grow>
-          <v-tab value="landmarks">النقاط ({{ placedCount }}/{{ CEPH_LANDMARKS.length }})</v-tab>
-          <v-tab value="results">القياسات</v-tab>
+          <v-tab value="landmarks">{{ t('ceph.landmarksTab', { placed: placedCount, total: CEPH_LANDMARKS.length }) }}</v-tab>
+          <v-tab value="results">{{ t('common.measurements') }}</v-tab>
         </v-tabs>
         <v-divider />
         <div ref="sideScroll" class="ceph-side-scroll">
@@ -106,10 +106,10 @@
                     {{ landmarks[lm.code] ? 'mdi-check-circle' : 'mdi-circle-outline' }}
                   </v-icon>
                 </template>
-                <v-list-item-title class="text-body-2">{{ lm.ar }}</v-list-item-title>
-                <v-list-item-subtitle class="text-caption">{{ lm.hint }}</v-list-item-subtitle>
+                <v-list-item-title class="text-body-2">{{ landmarkName(lm) }}</v-list-item-title>
+                <v-list-item-subtitle class="text-caption">{{ lang === 'ar' ? lm.hint : lm.hint_en }}</v-list-item-subtitle>
                 <template #append>
-                  <v-btn v-if="landmarks[lm.code] && canManage" icon="mdi-close" size="x-small" variant="text" title="حذف النقطة" @click.stop="removeLandmark(lm.code)" />
+                  <v-btn v-if="landmarks[lm.code] && canManage" icon="mdi-close" size="x-small" variant="text" :title="t('ceph.deleteLandmark')" @click.stop="removeLandmark(lm.code)" />
                 </template>
               </v-list-item>
             </v-list>
@@ -122,7 +122,7 @@
     </div>
 
     <div class="text-caption text-medium-emphasis mt-2">
-      القيم محسوبة هندسياً من النقاط التي يضعها الطبيب، وتُعاد حسابها في الخادم عند الحفظ. القيم المرجعية للمقارنة فقط ولا تمثل تشخيصاً، ويجب مراجعتها من الطبيب المختص.
+      {{ t('ceph.footer') }}
     </div>
   </div>
 </template>
@@ -134,6 +134,7 @@ import CephMeasurementsTable from './CephMeasurementsTable.vue'
 import { CEPH_LANDMARKS, CEPH_TRACING, analyzeCeph } from '../../analysis/ceph.js'
 import { orthoApi, orthoError } from '../../api.js'
 import { fileObjectUrl } from '../../utils/blob.js'
+import { useOrthoI18n } from '../../i18n.js'
 
 const props = defineProps({
   caseId: { type: [Number, String], required: true },
@@ -144,16 +145,16 @@ const props = defineProps({
 })
 const emit = defineEmits(['close', 'saved', 'dirty'])
 
-const GROUPS = [
-  { value: null, title: 'الكل' }, { value: 'cranial', title: 'القاعدة القحفية' }, { value: 'maxilla', title: 'الفك العلوي' },
-  { value: 'mandible', title: 'الفك السفلي' }, { value: 'dental', title: 'الأسنان' }, { value: 'soft', title: 'الأنسجة الرخوة' }
-]
+const { t, lang, backIcon } = useOrthoI18n()
+const GROUPS = computed(() => [null, 'cranial', 'maxilla', 'mandible', 'dental', 'soft'].map(value => ({ value, title: t(`ceph.groups.${value || 'all'}`) })))
+// Arabic names already carry the code, e.g. "السرج (S)".
+const landmarkName = lm => (lang.value === 'ar' ? lm.ar : `${lm.en} (${lm.code === 'PogS' ? "Pog′" : lm.code})`)
 const landmarkDefs = CEPH_LANDMARKS.map(l => ({ ...l, short: l.code === 'PogS' ? "Pog'" : l.code }))
 
 const current = ref(props.analysis)
 const fileId = computed(() => current.value?.file_id || props.file?.id)
 const imageUrl = ref('')
-const title = ref(props.analysis?.title || 'تحليل سيفالومتري')
+const title = ref(props.analysis?.title || t('ceph.defaultTitle'))
 const analysisDate = ref(props.analysis?.analysis_date || new Date().toISOString().slice(0, 10))
 const landmarks = ref({ ...(props.analysis?.data?.landmarks || {}) })
 const sources = ref({ ...(props.analysis?.data?.landmark_sources || {}) })
@@ -297,7 +298,7 @@ function onImageLoaded (sz) {
 async function save () {
   if (!props.canManage) return
   if (suggestedCodes.value.length) {
-    error.value = 'أكّد النقاط المقترحة آلياً أو حرّكها قبل الحفظ.'
+    error.value = t('ceph.confirmBeforeSave')
     return
   }
   saving.value = true
@@ -312,7 +313,7 @@ async function save () {
     emit('saved', res.data)
   } catch (e) {
     error.value = e?.response?.status === 409
-      ? 'عدّل مستخدم آخر هذا التحليل. أعد فتحه لرؤية آخر نسخة قبل الحفظ (لم يُحذف شيء).'
+      ? t('ceph.conflict')
       : orthoError(e)
   } finally {
     saving.value = false
@@ -348,7 +349,7 @@ onMounted(async () => {
   try {
     if (fileId.value) imageUrl.value = await fileObjectUrl(props.caseId, fileId.value)
   } catch (e) {
-    error.value = orthoError(e, 'تعذر تحميل صورة الأشعة')
+    error.value = orthoError(e, t('ceph.imageLoadFailed'))
   }
 })
 onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))

@@ -18,12 +18,12 @@
     <template v-else>
       <div class="d-flex flex-wrap align-center ga-2 mb-4">
         <div>
-          <div class="text-h6">تحليل الأشعة السيفالومترية</div>
+          <div class="text-h6">{{ t('ceph.title') }}</div>
           <div class="text-caption text-medium-emphasis">Steiner · Downs · Tweed · Ricketts · McNamara · Wits · Björk-Jarabak</div>
         </div>
         <v-spacer />
-        <v-btn v-if="selected.length >= 2" color="secondary" variant="tonal" prepend-icon="mdi-compare-horizontal" @click="startCompare">مقارنة ({{ selected.length }})</v-btn>
-        <v-btn v-if="canManage" color="primary" prepend-icon="mdi-plus" @click="picker = true">تحليل جديد</v-btn>
+        <v-btn v-if="selected.length >= 2" color="secondary" variant="tonal" prepend-icon="mdi-compare-horizontal" @click="startCompare">{{ t('ceph.compare', { n: selected.length }) }}</v-btn>
+        <v-btn v-if="canManage" color="primary" prepend-icon="mdi-plus" @click="picker = true">{{ t('common.newAnalysis') }}</v-btn>
       </div>
 
       <CephCompare v-if="comparing.length" :analyses="comparing" class="mb-4" @close="comparing = []" />
@@ -38,10 +38,10 @@
               <template #prepend>
                 <v-checkbox-btn v-model="selected" :value="a.id" density="compact" @click.stop />
               </template>
-              <v-card-title class="text-subtitle-1">{{ a.title || 'تحليل سيفالومتري' }}</v-card-title>
+              <v-card-title class="text-subtitle-1">{{ a.title || t('ceph.defaultTitle') }}</v-card-title>
               <v-card-subtitle>{{ a.analysis_date }} · {{ a.created_by?.name || '' }}</v-card-subtitle>
               <template #append>
-                <v-chip :color="a.status === 'reviewed' ? 'success' : 'grey'" size="x-small" variant="tonal">{{ a.status === 'reviewed' ? 'معتمد' : 'مسودة' }}</v-chip>
+                <v-chip :color="a.status === 'reviewed' ? 'success' : 'grey'" size="x-small" variant="tonal">{{ a.status === 'reviewed' ? t('common.reviewed') : t('common.draft') }}</v-chip>
               </template>
             </v-card-item>
             <v-card-text class="pt-0">
@@ -54,39 +54,39 @@
             </v-card-text>
             <v-card-actions v-if="canManage" class="pt-0">
               <v-spacer />
-              <v-btn size="small" variant="text" color="error" prepend-icon="mdi-delete-outline" @click.stop="askDelete(a)">حذف</v-btn>
+              <v-btn size="small" variant="text" color="error" prepend-icon="mdi-delete-outline" @click.stop="askDelete(a)">{{ t('common.delete') }}</v-btn>
             </v-card-actions>
           </v-card>
         </v-col>
       </v-row>
       <div v-else-if="!loading" class="text-center text-medium-emphasis py-10">
         <v-icon size="48" color="grey-lighten-1">mdi-radiology-box-outline</v-icon>
-        <div class="mt-2">لا توجد تحليلات سيفالومترية لهذه الحالة بعد</div>
+        <div class="mt-2">{{ t('ceph.empty') }}</div>
       </div>
     </template>
 
-    <OrthoFilePicker v-model="picker" :case-id="caseId" :kinds="['ceph_xray']" title="صورة أشعة سيفالومترية جانبية" icon="mdi-radiology-box-outline" :can-manage="canManage" @selected="newAnalysis" />
+    <OrthoFilePicker v-model="picker" :case-id="caseId" :kinds="['ceph_xray']" :title="t('ceph.pickerTitle')" icon="mdi-radiology-box-outline" :can-manage="canManage" @selected="newAnalysis" />
 
     <v-dialog v-model="confirmDelete" max-width="420">
       <v-card rounded="xl">
-        <v-card-title>حذف التحليل؟</v-card-title>
-        <v-card-text>يُخفى التحليل من القائمة ويبقى محفوظاً مع كل مراجعاته في السجل.</v-card-text>
+        <v-card-title>{{ t('ceph.deleteTitle') }}</v-card-title>
+        <v-card-text>{{ t('ceph.deleteText') }}</v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn variant="text" @click="confirmDelete = false">إلغاء</v-btn>
-          <v-btn color="error" :loading="deleting" @click="doDelete">حذف</v-btn>
+          <v-btn variant="text" @click="confirmDelete = false">{{ t('common.cancel') }}</v-btn>
+          <v-btn color="error" :loading="deleting" @click="doDelete">{{ t('common.delete') }}</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
 
     <v-dialog v-model="confirmLeave" max-width="420">
       <v-card rounded="xl">
-        <v-card-title>تغييرات غير محفوظة</v-card-title>
-        <v-card-text>هناك تعديلات على النقاط لم تُحفظ. هل تريد الخروج وتجاهلها؟</v-card-text>
+        <v-card-title>{{ t('common.unsavedChanges') }}</v-card-title>
+        <v-card-text>{{ t('ceph.leaveText') }}</v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn variant="text" @click="confirmLeave = false">البقاء</v-btn>
-          <v-btn color="error" @click="forceClose">تجاهل التعديلات</v-btn>
+          <v-btn variant="text" @click="confirmLeave = false">{{ t('common.stay') }}</v-btn>
+          <v-btn color="error" @click="forceClose">{{ t('ceph.discard') }}</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -100,9 +100,11 @@ import CephCompare from './CephCompare.vue'
 import OrthoFilePicker from '../OrthoFilePicker.vue'
 import { orthoApi, orthoError } from '../../api.js'
 import { fmt } from '../../utils/format.js'
+import { useOrthoI18n } from '../../i18n.js'
 
 const props = defineProps({ caseId: { type: [Number, String], required: true }, canManage: Boolean, detectionAvailable: Boolean })
 const emit = defineEmits(['dirty', 'changed'])
+const { t } = useOrthoI18n()
 
 const list = ref([])
 const loading = ref(false)

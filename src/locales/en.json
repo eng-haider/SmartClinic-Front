@@ -1,4 +1,19 @@
 {
+  "rootCanal": {
+    "title": "Root canal",
+    "accessHint": "Working length & files",
+    "obturationHint": "Final canal filling",
+    "addCanal": "Add canal",
+    "removeCanal": "Remove canal",
+    "copyCanals": "Same canals as Access Opening",
+    "saving": "Saving...",
+    "saved": "Saved",
+    "retry": "Retry",
+    "saveFailed": "Could not save the root canal record",
+    "oldNote": "Saved earlier as text",
+    "empty": "No canals recorded",
+    "readOnly": "You can view this record but not edit it"
+  },
   "aiChat": {
     "badge": {
       "info": "ℹ️ From the system",
@@ -857,6 +872,7 @@
     "updated": "Patient updated successfully",
     "deleted": "Patient deleted successfully",
     "load_error": "Failed to load patients",
+    "partial_load_failed": "Some of this patient's data didn't load, so the totals are hidden to avoid showing wrong numbers.",
     "save_error": "Failed to save patient",
     "delete_error": "Failed to delete patient",
     "teethChart": "Teeth Chart",
@@ -1105,7 +1121,8 @@
     "base_permissions_note": "Base permissions (view-own-clinic, view-notes) are always granted via secretary role and cannot be removed.",
     "actions": "Actions",
     "permission_labels": {
-      "notify-new-cases": "Get notified when a doctor adds a case"
+      "notify-new-cases": "Get notified when a doctor adds a case",
+      "view-clinic-bills": "See the patient's bills and totals"
     },
     "categories": {
       "patients": "Patients",

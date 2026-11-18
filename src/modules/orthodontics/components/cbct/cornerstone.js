@@ -11,6 +11,12 @@ import {
 import * as csTools from '@cornerstonejs/tools'
 import dicomImageLoader from '@cornerstonejs/dicom-image-loader'
 import { orthoApi } from '../../api.js'
+import { ot } from '../../i18n.js'
+import { withRetry } from '../../utils/retry.js'
+
+// Slices downloaded at once. Every request holds clinic database connections
+// on the server, which shared hosting caps, so a study must not use them all.
+const PARALLEL_SLICE_DOWNLOADS = 3
 
 const {
   ToolGroupManager, WindowLevelTool, PanTool, ZoomTool, StackScrollTool, LengthTool, AngleTool,
@@ -55,9 +61,9 @@ export async function loadStudyVolume ({ caseId, study, instances, onProgress, s
   }
   const series = [...bySeries.values()].sort((a, b) => b.length - a.length)[0] || []
   if (series.length === 1 && series[0].frames > 1) {
-    throw new Error('هذه الدراسة ملف متعدد الإطارات (Enhanced multi-frame). صدّرها من جهاز الأشعة كسلسلة شرائح منفردة لعرضها هنا.')
+    throw new Error(ot('cbct.multiframe'))
   }
-  if (series.length < 3) throw new Error('الدراسة تحتوي على عدد غير كافٍ من الشرائح لبناء حجم ثلاثي الأبعاد.')
+  if (series.length < 3) throw new Error(ot('cbct.tooFewSlices'))
 
   const { dataSetCacheManager } = dicomImageLoader.wadouri
   const imageIds = new Array(series.length)
@@ -68,7 +74,8 @@ export async function loadStudyVolume ({ caseId, study, instances, onProgress, s
     while (cursor < series.length) {
       if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
       const i = cursor++
-      const buffer = await orthoApi.cbctInstance(caseId, study.id, series[i].id)
+      // One busy moment on the server must not fail the whole study.
+      const buffer = await withRetry(() => orthoApi.cbctInstance(caseId, study.id, series[i].id), { signal })
       const url = String(imageIndexBase++)
       imageIds[i] = `dicomfile:${url}`
       urls.push(url)
@@ -78,7 +85,7 @@ export async function loadStudyVolume ({ caseId, study, instances, onProgress, s
       onProgress?.(done / series.length)
     }
   }
-  await Promise.all(Array.from({ length: Math.min(6, series.length) }, worker))
+  await Promise.all(Array.from({ length: Math.min(PARALLEL_SLICE_DOWNLOADS, series.length) }, worker))
 
   const volumeId = `cornerstoneStreamingImageVolume:ortho-study-${study.id}-${Date.now()}`
   const volume = await volumeLoader.createAndCacheVolume(volumeId, { imageIds })
@@ -107,10 +114,10 @@ export function whenVolumeLoaded (volume, onProgress) {
 }
 
 export const VIEWPORTS = [
-  { id: 'ortho-axial', orientation: Enums.OrientationAxis.AXIAL, label: 'محوري (Axial)' },
-  { id: 'ortho-coronal', orientation: Enums.OrientationAxis.CORONAL, label: 'إكليلي (Coronal)' },
-  { id: 'ortho-sagittal', orientation: Enums.OrientationAxis.SAGITTAL, label: 'سهمي (Sagittal)' },
-  { id: 'ortho-3d', orientation: null, label: 'حجمي 3D' }
+  { id: 'ortho-axial', orientation: Enums.OrientationAxis.AXIAL },
+  { id: 'ortho-coronal', orientation: Enums.OrientationAxis.CORONAL },
+  { id: 'ortho-sagittal', orientation: Enums.OrientationAxis.SAGITTAL },
+  { id: 'ortho-3d', orientation: null }
 ]
 
 /**

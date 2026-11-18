@@ -4,13 +4,13 @@
       <v-icon size="12" class="me-1">mdi-calendar-outline</v-icon>{{ formatOrthoDate(meta.noteDate) }}
     </span>
     <span v-if="meta.appliance" class="omb-badge">
-      <v-icon size="12" class="me-1">mdi-tools</v-icon>{{ meta.appliance }}
+      <v-icon size="12" class="me-1">mdi-tools</v-icon>{{ optionLabel(meta.appliance) }}
     </span>
     <span v-if="meta.phase" class="omb-badge">
-      <v-icon size="12" class="me-1">mdi-progress-clock</v-icon>{{ meta.phase }}
+      <v-icon size="12" class="me-1">mdi-progress-clock</v-icon>{{ optionLabel(meta.phase) }}
     </span>
     <span v-if="meta.duration" class="omb-badge">
-      <v-icon size="12" class="me-1">mdi-calendar-range</v-icon>{{ meta.duration }} شهر
+      <v-icon size="12" class="me-1">mdi-calendar-range</v-icon>{{ meta.duration }} {{ t('noteFields.months') }}
     </span>
   </div>
 </template>
@@ -18,6 +18,10 @@
 <script setup>
 import { computed } from 'vue'
 import { formatOrthoDate } from '@/utils/orthoNote'
+import { useOrthoI18n } from '@/modules/orthodontics/i18n'
+
+const { t } = useOrthoI18n()
+const optionLabel = opt => t('noteFields.options')?.[opt] || opt
 
 const props = defineProps({
   meta: { type: Object, default: null },
